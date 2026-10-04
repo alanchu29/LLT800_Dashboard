@@ -233,18 +233,21 @@
       try {
         const r = await Remote.load();
         if (skipped) return;
+        // The cloud is the source of truth: local data only wins when it holds real edits not yet synced.
+        // Demo data (a first visit before cloud mode) never counts as unsynced edits.
+        const dirty = Store.meta.dirty && !(Store.data.source && Store.data.source.demo);
         if (!r.data) {
           this.toast("雲端試算表目前是空的。到「設定 → 雲端同步」按「上傳本機資料到雲端」即可開始共用。");
-        } else if (Store.meta.dirty && r.version !== Store.meta.cloudVersion) {
+        } else if (dirty && r.version !== Store.meta.cloudVersion) {
           if (confirm("雲端有其他人更新的新版本，而這台電腦也有尚未同步的修改。\n\n確定：載入雲端版本（捨棄本機修改）\n取消：保留本機修改，稍後再決定"))
             Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
-        } else if (Store.meta.dirty) {
+        } else if (dirty) {
           this.toast("這台電腦有尚未同步到雲端的修改", "", [{ label: "立即同步", run: () => this.syncCloud() }]);
         } else {
           Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
         }
       } catch (err) {
-        this.toast("讀取雲端失敗，先顯示本機資料：" + err.message, "error");
+        this.toast("讀取雲端失敗，先顯示這台電腦上次的資料（可能不是最新）：" + err.message, "error", [{ label: "重試", run: () => this.loadCloud() }]);
       } finally {
         this.blocker(false);
         this.refreshHeader();

@@ -102,7 +102,8 @@ Gen12AMD_Pilot_gantt 使用的 NPI Dashboard Excel（例如 `To MSFT_Wiwynn NPI 
 
 - 試算表會有 `Projects / PFAMs / Tasks / Employees / Trips / Ignored / Meta` 分頁；`projectName`、`pfamName`、`assigneeNames`、`empName` 欄只是方便閱讀，讀取時不採用。
 - 同步採整份覆寫 + 版本號檢查：如果別人先同步過，會詢問要覆寫雲端還是保留本機。
-- 若要讓所有人開啟時自動進入雲端模式，把網址填進 `js/remote.js` 的 `DEFAULT_URL`。
+- `js/remote.js` 的 `DEFAULT_URL` 已填入部門的 Apps Script 網址：每個人開啟時**預設從雲端載入**；讀不到雲端（網路問題、Apps Script 冷啟動逾時或按「略過」）時才顯示這台電腦上次的資料，並可「重試」。
+- 寫入由 Apps Script 的 `EDIT_KEY` 保護（網址是公開的，請務必設定）。
 
 ## 開發者
 

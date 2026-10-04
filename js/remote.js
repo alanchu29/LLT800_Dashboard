@@ -7,7 +7,7 @@
   const LS_REMOTE = "llt800.remote.v1";
   const TIMEOUT_MS = 60000; // an idle Apps Script web app can take 10-30 s to cold-start
   // Built-in web app URL (ending in /exec). When set, every visitor starts in cloud mode. Leave empty for local mode.
-  const DEFAULT_URL = "";
+  const DEFAULT_URL = "https://script.google.com/macros/s/AKfycbwkR2lRkMVl3OUGtNI2yisjHym40KBtKB0iTIDJVG6dybovRnncNp7MJ_BQHBcvqf1C/exec";
 
   function loadConfig() {
     let saved = {};
