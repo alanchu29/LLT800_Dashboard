@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLT800 Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f4f9c'/%3E%3Crect x='6' y='8' width='13' height='4' rx='2' fill='%23fff'/%3E%3Crect x='10' y='14' width='16' height='4' rx='2' fill='%2399c2ff'/%3E%3Crect x='6' y='20' width='10' height='4' rx='2' fill='%23fff'/%3E%3C/svg%3E">
+  <meta name="description" content="LLT800 部門 dashboard：專案 / PFAM / task 甘特圖、人力資源與員工出差紀錄。Developed by Dixon Chu">
+  <script>
+    // Apply the saved theme before first paint.
+    document.documentElement.dataset.theme = "dark"; // default: dark (the ◐ button switches and is remembered)
+    try { const t = localStorage.getItem("llt800.theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="8" height="7" rx="2"/><rect x="13" y="4" width="8" height="4" rx="2"/><rect x="13" y="10" width="8" height="10" rx="2"/><rect x="3" y="13" width="8" height="7" rx="2"/></svg>
+      <div>
+        <h1 id="appTitle">LLT800 Dashboard</h1>
+        <p class="byline">by Dixon Chu</p>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="主要功能">
+      <a href="#/overview" data-tab="overview">總覽</a>
+      <a href="#/projects" data-tab="projects">專案甘特</a>
+      <a href="#/load" data-tab="load">人力資源</a>
+      <a href="#/people" data-tab="people">出差紀錄</a>
+      <a href="#/settings" data-tab="settings">設定</a>
+    </nav>
+    <div class="top-actions">
+      <button id="syncChip" class="sync-chip" type="button" title="資料存放位置">本機模式</button>
+      <button id="btnSync" class="btn sync-now" type="button" hidden>⇪ 同步到雲端</button>
+      <button id="btnUndo" class="icon" type="button" title="復原 (Ctrl+Z)" aria-label="復原">↶</button>
+      <button id="btnRedo" class="icon" type="button" title="重做 (Ctrl+Y)" aria-label="重做">↷</button>
+      <button id="btnEdit" class="btn edit-toggle" type="button" aria-pressed="false">✎ 編輯模式</button>
+      <button id="btnTheme" class="icon" type="button" aria-label="切換深淺色">◐</button>
+    </div>
+  </header>
+
+  <div class="demo-banner" id="demoBanner" hidden>
+    目前是<b>示範資料</b>：專案與 task 來自 MONICA 的匯出檔，員工、指派與出差都是假資料。到「設定 → 資料」可以清空，或匯入正式資料。
+    <button class="link" id="demoHide" type="button">知道了</button>
+  </div>
+
+  <main id="view" tabindex="-1"></main>
+  <footer class="site-footer"><span id="footTitle">LLT800 Dashboard</span> · Developed by <b>Dixon Chu</b></footer>
+
+  <dialog id="dlgForm" class="dlg">
+    <form method="dialog" class="dlg-card">
+      <header class="dlg-head"><h3 id="formTitle"></h3><button class="icon" value="cancel" formnovalidate aria-label="關閉">✕</button></header>
+      <div class="dlg-body" id="formBody"></div>
+      <footer class="dlg-foot" id="formFoot"></footer>
+    </form>
+  </dialog>
+
+  <dialog id="dlgImport" class="dlg wide">
+    <div class="dlg-card">
+      <header class="dlg-head"><h3 id="impTitle">匯入</h3><button class="icon" type="button" data-close aria-label="關閉">✕</button></header>
+      <div class="dlg-body imp-body" id="impBody"></div>
+      <footer class="dlg-foot">
+        <span class="muted" id="impSummary"></span>
+        <button class="btn" type="button" data-close>取消</button>
+        <button class="btn primary" type="button" id="impApply">套用匯入</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <div class="blocker" id="blocker" hidden>
+    <div class="blocker-card">
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="blockerMsg">正在讀取雲端資料…</p>
+      <p class="muted">Google 雲端有時需要 10–30 秒</p>
+      <button class="link" id="blockerSkip" type="button">先看本機資料</button>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+  <input type="file" id="fileJson" accept=".json,application/json" hidden>
+  <input type="file" id="fileXlsx" accept=".xlsx,.xlsm" hidden>
+  <input type="file" id="fileMonica" accept=".json,application/json" hidden>
+
+  <script src="data/seed.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/importer.js"></script>
+  <script src="js/convert.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/util.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/remote.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/pfam-band.js"></script>
+  <script src="js/editors.js"></script>
+  <script src="js/import-ui.js"></script>
+  <script src="js/views/overview.js"></script>
+  <script src="js/views/projects.js"></script>
+  <script src="js/views/load.js"></script>
+  <script src="js/views/people.js"></script>
+  <script src="js/views/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
