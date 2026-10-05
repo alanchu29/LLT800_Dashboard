@@ -26,6 +26,7 @@
 - 修改內容會自動存在這個瀏覽器的 localStorage。換電腦或清除瀏覽器資料前，請先用「設定 → 匯出 JSON 備份」保存。
 - 右上角「✎ 編輯模式」開啟後才能新增或修改（可在設定加密碼，只用來防止誤改）。↶ / ↷（Ctrl+Z / Ctrl+Y）可復原或重做。
 - 預設深色模式；右上角 ◐ 切換深色 / 淺色（會記住）。
+- 右上角「？ 使用說明」（或按 `?` 鍵）開啟畫面中央的使用說明，預設跳到目前頁面的段落。說明內容在 `js/help.js`，新增或修改功能時記得一併更新。
 
 ## 資料結構
 
@@ -124,4 +125,5 @@ node tools/build_seed.js [monica.json]   # 重新產生 data/seed.js（示範資
 | `js/charts.js` | 甘特圖（含日期列上方的柱狀圖）與每日負載圖 |
 | `js/views/*.js` | 五個頁面 |
 | `js/editors.js`、`js/import-ui.js` | 編輯對話框、匯入預覽 |
+| `js/help.js` | 「？ 使用說明」對話框的內容與目錄 |
 | `apps-script/Code.gs` | Google Apps Script 後端 |

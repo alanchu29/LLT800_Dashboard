@@ -403,6 +403,7 @@
       });
       $$("#dlgImport [data-close]").forEach((b) => (b.onclick = () => $("#dlgImport").close()));
       ImportUI.bind();
+      Help.bind();
       this.render();
       this.loadCloud().then(() => this.oneTimeCleanup());
     },

@@ -722,3 +722,46 @@ body { padding-bottom: 30px; }
 .ext-link { background: var(--brand-wash); border-color: color-mix(in srgb, var(--brand) 45%, transparent); color: var(--brand); }
 .ext-link:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
 .proj-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* ------------------------------------------------------------------ 使用說明 (help dialog) */
+.dlg.help { max-width: min(940px, calc(100vw - 24px)); }
+.dlg.help .dlg-card { height: min(760px, calc(100vh - 40px)); }
+.dlg.help .dlg-head { border-bottom: 1px solid var(--grid); padding-bottom: 12px; }
+.help-grid { display: grid; grid-template-columns: 168px 1fr; flex: 1; min-height: 0; }
+.help-nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; border-right: 1px solid var(--grid); background: var(--surface-2); border-bottom-left-radius: 16px; overflow: auto; }
+.help-nav button { text-align: left; border: 0; background: transparent; padding: 7px 12px; border-radius: 8px; cursor: pointer; color: var(--ink-2); }
+.help-nav button:hover { background: var(--surface-3); color: var(--ink); }
+.help-nav button.on { background: var(--brand-wash); color: var(--brand); font-weight: 700; }
+.help-body { position: relative; overflow: auto; padding: 6px 26px 40vh; line-height: 1.7; }
+.h-sec { padding-top: 18px; }
+.h-sec + .h-sec { border-top: 1px solid var(--grid); margin-top: 18px; }
+.h-sec > h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.h-sec h4 { margin: 14px 0 4px; color: var(--ink); }
+.h-sec p { margin: 6px 0; }
+.h-sec ul, .h-sec ol { margin: 6px 0; padding-left: 1.3em; }
+.h-sec li { margin: 3px 0; }
+.h-lead { font-size: 1.05rem; }
+.h-key { display: inline-block; font-size: 0.85em; line-height: 1.5; padding: 0 7px; border-radius: 6px; border: 1px solid var(--axis); background: var(--surface-2); box-shadow: 0 1px 0 var(--axis); white-space: nowrap; }
+.h-pages { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; margin: 12px 0 6px; }
+.h-pages a { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); border-left: 4px solid var(--brand); background: var(--surface-2); color: var(--ink); line-height: 1.45; }
+.h-pages a:hover { background: var(--brand-wash); text-decoration: none; }
+.h-pages a span { font-size: 0.86em; color: var(--muted); }
+.h-steps { counter-reset: step; list-style: none; padding-left: 0 !important; }
+.h-steps li { counter-increment: step; position: relative; padding-left: 34px; margin: 8px 0; }
+.h-steps li::before { content: counter(step); position: absolute; left: 0; top: 2px; width: 24px; height: 24px; border-radius: 50%; background: var(--brand); color: #fff; font-size: 0.85rem; font-weight: 700; display: grid; place-items: center; }
+.h-defs, .h-faq { margin: 6px 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; }
+.h-defs dt { font-weight: 700; white-space: nowrap; }
+.h-defs dd { margin: 0; }
+.h-faq { grid-template-columns: 1fr; gap: 2px; }
+.h-faq dt { font-weight: 700; margin-top: 8px; }
+.h-faq dt::before { content: "Q "; color: var(--brand); }
+.h-faq dd { margin: 0 0 4px; color: var(--ink-2); }
+.h-go { display: inline-block; margin-top: 8px; padding: 0; font-weight: 600; }
+@media (max-width: 680px) {
+  .help-grid { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .help-nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--grid); border-radius: 0; padding: 6px; }
+  .help-nav button { white-space: nowrap; padding: 5px 10px; }
+  .help-body { padding: 4px 16px 40vh; }
+  .h-defs { grid-template-columns: 1fr; gap: 0; }
+  .h-defs dt { margin-top: 8px; white-space: normal; }
+}

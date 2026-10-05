@@ -36,6 +36,7 @@
       <button id="btnRedo" class="icon" type="button" title="重做 (Ctrl+Y)" aria-label="重做">↷</button>
       <button id="btnEdit" class="btn edit-toggle" type="button" aria-pressed="false">✎ 編輯模式</button>
       <button id="btnTheme" class="icon" type="button" aria-label="切換深淺色">◐</button>
+      <button id="btnHelp" class="btn help-btn" type="button" title="使用說明（?）">？ 使用說明</button>
     </div>
   </header>
 
@@ -67,6 +68,16 @@
     </div>
   </dialog>
 
+  <dialog id="dlgHelp" class="dlg wide help" aria-labelledby="helpTitle">
+    <div class="dlg-card">
+      <header class="dlg-head"><h3 id="helpTitle">使用說明</h3><button class="icon" type="button" data-close aria-label="關閉">✕</button></header>
+      <div class="help-grid">
+        <nav class="help-nav" id="helpNav" aria-label="說明目錄"></nav>
+        <div class="help-body" id="helpBody"></div>
+      </div>
+    </div>
+  </dialog>
+
   <div class="blocker" id="blocker" hidden>
     <div class="blocker-card">
       <div class="spinner" aria-hidden="true"></div>
@@ -94,6 +105,7 @@
   <script src="js/pfam-band.js"></script>
   <script src="js/editors.js"></script>
   <script src="js/import-ui.js"></script>
+  <script src="js/help.js"></script>
   <script src="js/views/overview.js"></script>
   <script src="js/views/projects.js"></script>
   <script src="js/views/load.js"></script>
