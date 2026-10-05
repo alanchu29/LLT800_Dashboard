@@ -438,9 +438,10 @@ body.editing .g-row:hover .g-label .mini, body.editing .g-label .mini:focus-visi
 .roster tr.on { background: var(--brand-wash) !important; }
 .roster tr.gone { opacity: 0.6; }
 .hbars { display: flex; flex-direction: column; gap: 6px; }
-.hbar { display: grid; grid-template-columns: 110px 1fr 36px; gap: 10px; align-items: center; color: var(--ink); font-size: 0.85rem; }
+.hbar { display: grid; grid-template-columns: 126px 1fr 36px; gap: 10px; align-items: center; color: var(--ink); font-size: 0.85rem; }
 .hbar:hover { text-decoration: none; }
 .hb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb-crown { display: inline-block; width: 16px; height: 16px; margin-right: 5px; vertical-align: -2px; fill: #f5b800; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25)); }
 .hb-track { display: flex; gap: 2px; height: 14px; }
 .hb-track i { display: block; height: 100%; }
 .hb-track i:first-child { border-radius: 4px 0 0 4px; }

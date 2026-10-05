@@ -123,6 +123,8 @@
     if (legend) legend.innerHTML = keys.map((k) => `<span class="lg"><i style="background:${colorOf(k)}"></i>${esc(nameOf(k))}</span>`).join("");
     const list = emps.filter((e) => stats.has(e.id) || e.active).map((e) => ({ e, s: stats.get(e.id) })).sort((a, b) => (b.s ? b.s.total : 0) - (a.s ? a.s.total : 0));
     const max = Math.max(1, ...list.map((x) => (x.s ? x.s.total : 0)));
+    const top = Math.max(0, ...list.map((x) => (x.s ? x.s.total : 0))); // 冠軍 (ties all get the crown; none when nobody travelled)
+    const CROWN = `<svg class="hb-crown" viewBox="0 0 24 24" aria-label="冠軍"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/><circle cx="3" cy="7" r="1.6"/><circle cx="12" cy="4" r="1.6"/><circle cx="21" cy="7" r="1.6"/></svg>`;
     el.innerHTML = list.length
       ? `<div class="hbars">${list
           .map(({ e, s }) => {
@@ -133,7 +135,7 @@
                   .map((k) => `<i style="width:${(m.get(k) / max) * 100}%;background:${colorOf(k)}" data-tip="${esc(`${e.name}・${nameOf(k)}：${m.get(k)} 天`)}"></i>`)
                   .join("")
               : "";
-            return `<a class="hbar" href="#/people/${e.id}"><span class="hb-name">${esc(e.name)}</span><span class="hb-track">${segs}</span><span class="hb-v">${s ? s.total : 0}</span></a>`;
+            return `<a class="hbar" href="#/people/${e.id}"><span class="hb-name">${top && s && s.total === top ? CROWN : `<i class="hb-crown"></i>`}${esc(e.name)}</span><span class="hb-track">${segs}</span><span class="hb-v">${s ? s.total : 0}</span></a>`;
           })
           .join("")}</div>`
       : `<p class="empty">沒有資料</p>`;
