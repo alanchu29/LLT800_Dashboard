@@ -677,6 +677,8 @@ body.editing .g-row:hover .g-label .mini, body.editing .g-label .mini:focus-visi
 .gb-overbg { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--critical) 16%, transparent); }
 .gb-over { position: absolute; background: var(--critical); border-radius: 0; box-shadow: 0 0 0 1px color-mix(in srgb, var(--critical) 40%, transparent), 0 0 8px color-mix(in srgb, var(--critical) 55%, transparent); }
 .gb-val.over { color: var(--critical); font-weight: 800; font-size: 0.74rem; }
+.gb-seg.over { z-index: 1; box-shadow: 0 0 0 2.5px var(--critical), 0 0 8px color-mix(in srgb, var(--critical) 55%, transparent); }
+.gb-warn { position: absolute; z-index: 2; display: flex; justify-content: center; color: var(--critical); font-weight: 900; font-size: 0.8rem; line-height: 1; letter-spacing: -0.05em; white-space: nowrap; pointer-events: none; }
 .gb-pin { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--s4) 18%, transparent); box-shadow: inset 0 0 0 2px var(--s4); border-radius: 3px; }
 .gb-hit.pick { cursor: pointer; }
 /* pinned-day bar above the gantt */

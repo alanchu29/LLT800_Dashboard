@@ -26,7 +26,7 @@
           { key: "name", label: "名稱", required: true, value: p ? p.name : "", wide: true },
           { key: "color", label: "顏色", type: "swatch", options: Convert.PALETTE, value: p ? p.color : Convert.projectColor(Store.data), wide: true },
           { key: "status", label: "狀態", type: "select", options: [{ value: "active", label: "進行中" }, { value: "archived", label: "封存" }], value: p ? p.status : "active" },
-          { key: "pfamCap", label: "PFAM 負載警戒上限", type: "number", min: 0, value: p && p.pfamCap ? p.pfamCap : "", placeholder: "不設定", hint: "專案甘特看這個 Project 時，同時進行的 PFAM 超過此數的日子標紅；空白 = 不設定" },
+          { key: "pfamCap", label: "PFAM 負載警戒上限", type: "number", min: 0, value: p && p.pfamCap ? p.pfamCap : "", placeholder: "不設定", hint: "總覽與專案甘特（這個 Project 或全部專案）中，這個 Project 同時進行的 PFAM 超過此數的日子標紅；空白 = 不設定" },
           { key: "link", label: "外部系統連結", type: "url", value: p && p.link ? p.link : "", placeholder: "https://…", wide: true, hint: "這個 Project 另有自己的系統時填網址；專案甘特的標題旁會出現「開啟」按鈕", validate: (v) => (v && !/^https?:\/\/\S+$/i.test(v) ? "請填 http:// 或 https:// 開頭的網址" : "") },
           { key: "linkName", label: "連結名稱", value: p && p.linkName ? p.linkName : "", placeholder: "例如 Gen12 AMD Pilot Dashboard（空白＝開啟 <Project> 系統）", wide: true },
           { key: "notes", label: "備註", type: "textarea", value: p ? p.notes : "", wide: true },

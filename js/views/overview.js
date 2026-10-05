@@ -187,7 +187,7 @@
       else soonFold = Object.fromEntries(live.map((p) => [p.id, true]));
       App.render();
     };
-    const pfl = PfamBand.build(live, from, to, today);
+    const pfl = PfamBand.build(live, from, to, today, { projCaps: true }); // also flag projects over their own 警戒上限
     PfamBand.button(U.$("#pflToggle"), pfl, pflOpen, () => {
       pflOpen = !pflOpen;
       App.render();

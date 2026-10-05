@@ -263,8 +263,8 @@
     // 同時進行的 PFAM over the shown period (the PFAMs in scope, 廠區 filter included), limit = headcount.
     let pfl = null;
     if (view === "gantt") {
-      // 全部專案: limit = headcount; one project: its own 警戒上限 (set in 編輯 Project; none = no line)
-      const capOpts = multi ? {} : { cap: Number(proj.pfamCap) || 0, capLabel: `警戒 ${Number(proj.pfamCap) || 0} 個`, capNote: `未設定警戒上限${Store.editing ? "（編輯 Project 可設定）" : ""}` };
+      // 全部專案: limit = headcount, plus each project's own 警戒上限; one project: its own 警戒上限 (set in 編輯 Project; none = no line)
+      const capOpts = multi ? { projCaps: true } : { cap: Number(proj.pfamCap) || 0, capLabel: `警戒 ${Number(proj.pfamCap) || 0} 個`, capNote: `未設定警戒上限${Store.editing ? "（編輯 Project 可設定）" : ""}` };
       pfl = PfamBand.build(scopes.map((s) => s.proj), win.from, win.to, today, { pfamIds: site ? new Set(pfams.map((f) => f.id)) : null, ...capOpts });
       PfamBand.button($("#pflToggle"), pfl, pflOpen, () => {
         pflOpen = !pflOpen;

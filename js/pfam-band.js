@@ -18,7 +18,8 @@
 
   /**
    * projects: in stack order (their colors); opts.pfamIds: only these PFAMs (e.g. a 廠區 filter);
-   * opts.cap / opts.capLabel / opts.capNote: a custom limit (a project's 警戒上限; 0 = none) instead of the headcount.
+   * opts.cap / opts.capLabel / opts.capNote: a custom limit (a project's 警戒上限; 0 = none) instead of the headcount;
+   * opts.projCaps: also flag a day when any project runs more PFAMs than its own 警戒上限 (全部專案).
    * -> { band (for Charts.gantt), spark, chips (button html), overN }
    */
   function build(projects, from, to, today, opts) {
@@ -30,12 +31,19 @@
     const cap = custom ? opts.cap : head;
     const capLabel = custom ? opts.capLabel || `警戒 ${cap} 個` : `人力上限 ${cap}`;
     const overWord = custom ? "超過警戒" : "超過人力";
+    // Per day: PFAMs per project, and the projects over their own 警戒上限 (opts.projCaps only).
+    for (const d of days) {
+      d.per = new Map();
+      for (const u of d.units.values()) d.per.set(u.projectId, (d.per.get(u.projectId) || 0) + 1);
+      d.projOver = opts.projCaps ? projects.filter((p) => p.pfamCap > 0 && (d.per.get(p.id) || 0) > p.pfamCap) : [];
+    }
     const byDay = new Map(days.map((d) => [d.day, d]));
     const ahead = days.filter((d) => d.day >= today);
     const nowD = ahead[0];
     let peak = null;
     for (const d of ahead) if (!peak || d.total > peak.total) peak = d;
     const overN = cap ? ahead.filter((d) => d.total > cap).length : 0;
+    const projOverN = ahead.filter((d) => d.projOver.length).length;
 
     // Button: a sparkline of the coming workdays, then today / peak / over-headcount chips.
     const next = ahead.slice(0, 22);
@@ -45,14 +53,15 @@
       ? `<svg class="spark" width="${next.length * 3}" height="16" aria-hidden="true">${next
           .map((d, i) => {
             const h = Math.max((d.total / sMax) * 15, d.total ? 2 : 1);
-            return `<rect x="${i * 3}" y="${16 - h}" width="2" height="${h}" rx="0.5"${cap && d.total > cap ? ' class="over"' : d.total ? "" : ' class="zero"'}/>`;
+            return `<rect x="${i * 3}" y="${16 - h}" width="2" height="${h}" rx="0.5"${(cap && d.total > cap) || d.projOver.length ? ' class="over"' : d.total ? "" : ' class="zero"'}/>`;
           })
           .join("")}</svg>`
       : "";
     const chips =
       (nowD ? `<span class="chip-n" title="${nowD.day === today ? "今天" : `下一個工作天 ${fmt(nowD.day, "full")}`}">目前 <b>${nowD.total}</b></span>` : "") +
       (peak && peak.total ? `<span class="chip-n" title="今天起到期間結束最多">峰值 <b>${peak.total}</b><small>${fmt(peak.day, "short")}</small></span>` : "") +
-      (overN ? `<span class="chip-n warn" title="同時進行的 PFAM 多於${capLabel}${custom ? "" : `（計入人力的在職人數）`}">${overWord} <b>${overN}</b> 天</span>` : "");
+      (overN ? `<span class="chip-n warn" title="同時進行的 PFAM 多於${capLabel}${custom ? "" : `（計入人力的在職人數）`}">${overWord} <b>${overN}</b> 天</span>` : "") +
+      (projOverN ? `<span class="chip-n warn" title="有 Project 同時進行的 PFAM 多於它自己的警戒上限（編輯 Project 設定）">專案超過警戒 <b>${projOverN}</b> 天</span>` : "");
 
     const band = {
       title: "同時進行的 PFAM",
@@ -60,11 +69,7 @@
       cap,
       capLabel,
       capNote: !cap ? opts.capNote || "" : "",
-      days: days.map((d) => {
-        const per = new Map();
-        for (const u of d.units.values()) per.set(u.projectId, (per.get(u.projectId) || 0) + 1);
-        return { day: d.day, total: d.total, segs: projects.filter((p) => per.has(p.id)).map((p) => ({ color: p.color, n: per.get(p.id) })) };
-      }),
+      days: days.map((d) => ({ day: d.day, total: d.total, warn: d.projOver.length > 0, segs: projects.filter((p) => d.per.has(p.id)).map((p) => ({ color: p.color, n: d.per.get(p.id), over: d.projOver.includes(p) })) })),
       tip: (day) => (byDay.has(day) ? tip(byDay.get(day), projects, cap, capLabel) : ""),
     };
     return { band, spark, chips, overN, cap, capLabel, overWord, at: (day) => byDay.get(day) };
@@ -84,10 +89,12 @@
     const n = d ? d.total : 0;
     const tasks = d ? new Set([...d.units.values()].flatMap((u) => u.tasks.map((t) => t.id))).size : 0;
     const over = b.cap && n > b.cap;
-    el.innerHTML = `<div class="pin-bar${over ? " over" : ""}">
+    const projOver = d ? d.projOver : [];
+    el.innerHTML = `<div class="pin-bar${over || projOver.length ? " over" : ""}">
         <span class="pin-day">📌 ${fmt(day, "full")}</span>
         <span>同時 <b>${n}</b> 個 PFAM・<b>${tasks}</b> 個 task</span>
         ${over ? `<span class="chip-n warn">${b.overWord} ${n - b.cap} 個（${b.capLabel}）</span>` : ""}
+        ${projOver.map((p) => `<span class="chip-n warn">${esc(p.name)} ${d.per.get(p.id)} 個・超過警戒 ${d.per.get(p.id) - p.pfamCap} 個（警戒 ${p.pfamCap} 個）</span>`).join("")}
         <label class="check small"><input type="checkbox" data-pin="only"${only ? " checked" : ""}> 只看這天進行中的 PFAM / task</label>
         <span class="grow"></span>
         <button class="hbtn ghost" type="button" data-pin="clear">✕ 取消標記</button>
@@ -107,7 +114,8 @@
       .map((p) => {
         const us = by.get(p.id);
         const names = us.map((u) => (u.others ? `${u.pfam.name}：${u.tasks[0].name}` : u.pfam.name));
-        return `<div class="tt-sec"><i class="dot" style="--c:${p.color}"></i> ${esc(p.name)}・${us.length} 個</div>${names
+        const pOver = d.projOver.includes(p);
+        return `<div class="tt-sec"><i class="dot" style="--c:${p.color}"></i> ${esc(p.name)}・${us.length} 個${pOver ? `<span class="late">（超過警戒 ${p.pfamCap} 個）</span>` : ""}</div>${names
           .slice(0, 8)
           .map((x) => `<div class="tt-row"><span>${esc(x)}</span></div>`)
           .join("")}${names.length > 8 ? `<div class="muted">…還有 ${names.length - 8} 個</div>` : ""}`;

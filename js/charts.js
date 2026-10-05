@@ -108,11 +108,14 @@
         if (B.pinned === d.day) g += `<i class="gb-pin" style="left:${x(d.day)}px;width:${cw(d.day)}px"></i>`;
         let acc = 0;
         for (const sg of d.segs) {
-          g += `<i class="gb-seg" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(acc + sg.n)}px;height:${Math.max(yb(acc) - yb(acc + sg.n), 1)}px;background:${sg.color}"></i>`;
+          // A project over its own 警戒上限 (sg.over): its segment gets a thick red frame and "!!" goes on top of the column.
+          g += `<i class="gb-seg${sg.over ? " over" : ""}" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(acc + sg.n)}px;height:${Math.max(yb(acc) - yb(acc + sg.n), 1)}px;background:${sg.color}"></i>`;
           acc += sg.n;
         }
         if (over) g += `<i class="gb-over" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(d.total)}px;height:${Math.max(yb(B.cap) - yb(d.total), 1)}px"></i>`;
-        if (d.total && ppd >= 16) g += `<span class="gb-val${over ? " over" : ""}" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(d.total) - 15}px">${d.total}</span>`;
+        const val = d.total && ppd >= 16;
+        if (val) g += `<span class="gb-val${over || d.warn ? " over" : ""}" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(d.total) - 15}px">${d.total}</span>`;
+        if (d.warn) g += `<span class="gb-warn" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(d.total) - (val ? 28 : 15)}px">!!</span>`;
         g += `<i class="gb-hit${B.onPick ? " pick" : ""}" data-bday="${d.day}" style="left:${x(d.day)}px;width:${cw(d.day)}px"></i>`;
       }
       if (showCap) g += `<i class="gb-cap" style="top:${yb(B.cap)}px"></i>`;
