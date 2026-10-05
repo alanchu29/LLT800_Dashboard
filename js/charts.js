@@ -72,8 +72,10 @@
     let grid = months.filter((m) => m.day > from).map((m) => `<i class="g-ml" style="left:${x(m.day)}px"></i>`).join("");
     if (opts.zoom === "day") for (let d = from; d <= to; d++) if (E.weekday(d) === 6) grid += `<i class="g-we" style="left:${x(d)}px;width:${ppd * 2}px"></i>`;
     for (const mk of opts.marks || []) if (mk.day >= from && mk.day <= to) grid += `<i class="g-mark ${mk.cls || ""}" style="left:${x(mk.day)}px;width:${Math.max(ppd, 2)}px" title="${esc(mk.title || "")}"></i>`;
+    // The today line goes in .g-front (over the bars), not in the grid behind them.
+    let front = "";
     if (opts.today >= from && opts.today <= to) {
-      grid += `<i class="g-today" style="left:${x(opts.today) + ppd / 2}px"></i>`;
+      front = `<i class="g-today" style="left:${x(opts.today) + ppd / 2}px"></i>`;
       if (opts.zoom !== "day") sub += `<b class="g-now" style="left:${x(opts.today) + ppd / 2}px">今天</b>`;
     }
 
@@ -97,21 +99,21 @@
         ticks += `<span class="gb-tick" style="top:${yb(v)}px">${v}</span>`;
       }
       for (let d = from; d <= to; d++) if (E.weekday(d) === 6) g += `<i class="g-we" style="left:${x(d)}px;width:${ppd * 2}px"></i>`;
-      const gap = ppd >= 10 ? 2 : 1;
+      const cw = (d) => Math.max(x(d + 1) - x(d), 1); // day cell width: columns tile edge to edge
       for (const d of B.days) {
         if (d.day < from || d.day > to) continue;
         const over = showCap && d.total > B.cap;
         // Over the limit: the whole day gets a red wash and the part above the limit turns red.
-        if (over) g += `<i class="gb-overbg" style="left:${x(d.day)}px;width:${ppd}px"></i>`;
-        if (B.pinned === d.day) g += `<i class="gb-pin" style="left:${x(d.day)}px;width:${ppd}px"></i>`;
+        if (over) g += `<i class="gb-overbg" style="left:${x(d.day)}px;width:${cw(d.day)}px"></i>`;
+        if (B.pinned === d.day) g += `<i class="gb-pin" style="left:${x(d.day)}px;width:${cw(d.day)}px"></i>`;
         let acc = 0;
         for (const sg of d.segs) {
-          g += `<i class="gb-seg" style="left:${x(d.day) + gap}px;width:${Math.max(ppd - gap * 2, 1)}px;top:${yb(acc + sg.n)}px;height:${Math.max(yb(acc) - yb(acc + sg.n) - 1, 1)}px;background:${sg.color}"></i>`;
+          g += `<i class="gb-seg" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(acc + sg.n)}px;height:${Math.max(yb(acc) - yb(acc + sg.n), 1)}px;background:${sg.color}"></i>`;
           acc += sg.n;
         }
-        if (over) g += `<i class="gb-over" style="left:${x(d.day) + gap}px;width:${Math.max(ppd - gap * 2, 1)}px;top:${yb(d.total)}px;height:${Math.max(yb(B.cap) - yb(d.total), 1)}px"></i>`;
-        if (d.total && ppd >= 16) g += `<span class="gb-val${over ? " over" : ""}" style="left:${x(d.day)}px;width:${ppd}px;top:${yb(d.total) - 15}px">${d.total}</span>`;
-        g += `<i class="gb-hit${B.onPick ? " pick" : ""}" data-bday="${d.day}" style="left:${x(d.day)}px;width:${ppd}px"></i>`;
+        if (over) g += `<i class="gb-over" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(d.total)}px;height:${Math.max(yb(B.cap) - yb(d.total), 1)}px"></i>`;
+        if (d.total && ppd >= 16) g += `<span class="gb-val${over ? " over" : ""}" style="left:${x(d.day)}px;width:${cw(d.day)}px;top:${yb(d.total) - 15}px">${d.total}</span>`;
+        g += `<i class="gb-hit${B.onPick ? " pick" : ""}" data-bday="${d.day}" style="left:${x(d.day)}px;width:${cw(d.day)}px"></i>`;
       }
       if (showCap) g += `<i class="gb-cap" style="top:${yb(B.cap)}px"></i>`;
       if (opts.today >= from && opts.today <= to) g += `<i class="g-today" style="left:${x(opts.today) + ppd / 2}px"></i>`;
@@ -152,7 +154,7 @@
 
     el.innerHTML = `<div class="g-scroll"><div class="gantt" style="--W:${W}px">
       <div class="g-head">${band}<div class="g-hrow"><div class="g-corner">${opts.labelHead || ""}</div><div class="g-scale" style="width:${W}px"><div class="g-mrow">${top}</div><div class="g-srow">${sub}</div></div></div></div>
-      <div class="g-body"><div class="g-grid" style="width:${W}px">${grid}</div>${body || `<div class="g-empty">沒有資料</div>`}</div>
+      <div class="g-body"><div class="g-grid" style="width:${W}px">${grid}</div>${body || `<div class="g-empty">沒有資料</div>`}<div class="g-front" style="width:${W}px">${front}</div></div>
     </div></div>`;
 
     const sc = el.querySelector(".g-scroll");

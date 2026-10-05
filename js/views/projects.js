@@ -34,6 +34,23 @@
     return { key: p[0], from, to };
   }
 
+  /**
+   * The period the Gantt actually shows: the picked period, stretched to hold a focused task
+   * (opened from 需要注意 / 專案總覽 / 出差紀錄). The cards and the panel both count over this.
+   */
+  function shownWin(today, projects) {
+    const win = period(today);
+    const focus = Store.ui.focusTask ? Store.task(Store.ui.focusTask) : null;
+    const inScope = focus && focus.start && focus.end && projects.some((p) => Store.pfamsOf(p.id).some((f) => f.id === focus.pfamId));
+    if (inScope) {
+      if (D(focus.start) < win.from) (win.from = D(focus.start) - 7), (win.extended = true);
+      if (D(focus.end) > win.to) (win.to = D(focus.end) + 7), (win.extended = true);
+      win.focusDay = D(focus.start);
+      win.focus = focus;
+    }
+    return win;
+  }
+
   function statusPill(k) {
     const s = M.STATUS[k];
     return `<span class="pill st-${k}" title="${s.label}">${s.icon} ${s.label}</span>`;
@@ -73,22 +90,42 @@
     let pid = arg === ALL || (arg && Store.project(arg)) ? arg : ui.projectId === ALL || (ui.projectId && Store.project(ui.projectId)) ? ui.projectId : ALL;
     if (pid !== ui.projectId) Store.setUi({ projectId: pid });
 
+    // The cards count the same shown period as the panel below (same rules), so their numbers match it.
+    const cardWin = shownWin(today, pid === ALL ? shown : [Store.project(pid)].filter(Boolean));
+    const inCardWin = (t) => t.start && t.end && D(t.start) <= cardWin.to && D(t.end) >= cardWin.from;
+    const winNums = (p) => {
+      const fs = Store.pfamsOf(p.id);
+      const ts = fs.flatMap((f) => Store.tasksOf(f.id));
+      return {
+        pfams: fs.filter((f) => {
+          const ft = Store.tasksOf(f.id);
+          return !ft.length || isOthers(f) || ft.some(inCardWin);
+        }).length,
+        tasks: ts.filter(inCardWin),
+        allPfams: fs.length,
+        allTasks: ts.length,
+      };
+    };
+    const winNote = (n) => `顯示期間 ${U.range(cardWin.from, cardWin.to)} 內的數量；全部 ${n.allPfams} PFAM・${n.allTasks} task`;
     const card = (p) => {
-      const ts = Store.tasksOfProject(p.id);
-      const late = ts.filter((t) => M.status(t, today) === "late").length;
-      const act = ts.filter((t) => M.status(t, today) === "active").length;
-      return `<a class="pcard${p.id === pid ? " on" : ""}${p.status === "archived" ? " archived" : ""}" href="#/projects/${p.id}" style="--c:${p.color}">
+      const n = winNums(p);
+      const late = n.tasks.filter((t) => M.status(t, today) === "late").length;
+      const act = n.tasks.filter((t) => M.status(t, today) === "active").length;
+      return `<a class="pcard${p.id === pid ? " on" : ""}${p.status === "archived" ? " archived" : ""}" href="#/projects/${p.id}" style="--c:${p.color}" title="${esc(winNote(n))}">
         <span class="pc-name"><i class="dot"></i>${esc(p.name)}${p.status === "archived" ? `<span class="tag ghost">封存</span>` : ""}</span>
-        <span class="pc-nums">${Store.pfamsOf(p.id).length} PFAM・${ts.length} task</span>
+        <span class="pc-nums">${n.pfams} PFAM・${n.tasks.length} task</span>
         <span class="pc-st">${act ? `<b>${act}</b> 進行中` : `<span class="muted">無進行中</span>`}${late ? `・<b class="late">${late}</b> 逾期` : ""}</span>
       </a>`;
     };
-    const liveTasks = shown.flatMap((p) => Store.tasksOfProject(p.id));
+    const allNums = shown.map(winNums);
+    const liveTasks = allNums.flatMap((n) => n.tasks);
     const allLate = liveTasks.filter((t) => M.status(t, today) === "late").length;
     const allCard = shown.length
-      ? `<a class="pcard all${pid === ALL ? " on" : ""}" href="#/projects/all">
+      ? `<a class="pcard all${pid === ALL ? " on" : ""}" href="#/projects/all" title="${esc(
+          `顯示期間 ${U.range(cardWin.from, cardWin.to)} 內的數量；全部 ${allNums.reduce((x, n) => x + n.allPfams, 0)} PFAM・${allNums.reduce((x, n) => x + n.allTasks, 0)} task`
+        )}">
           <span class="pc-name"><span class="dots">${shown.slice(0, 8).map((p) => `<i class="dot" style="--c:${p.color}"></i>`).join("")}</span>全部專案</span>
-          <span class="pc-nums">${shown.length} Project・${shown.reduce((n, p) => n + Store.pfamsOf(p.id).length, 0)} PFAM・${liveTasks.length} task</span>
+          <span class="pc-nums">${allNums.filter((n) => n.pfams).length} Project・${allNums.reduce((x, n) => x + n.pfams, 0)} PFAM・${liveTasks.length} task</span>
           <span class="pc-st">一併檢視時程與人力分配${allLate ? `・<b class="late">${allLate}</b> 逾期` : ""}</span>
         </a>`
       : "";
@@ -136,17 +173,12 @@
     const view = ui.projView || "gantt";
     const big = tasksAll.length > 120;
     const fold = foldState(multi ? ALL : proj.id, (kind) => (kind === "pfam" ? multi || big : false));
-    const win = period(today);
     // A task opened from elsewhere (需要注意, 專案總覽, 出差紀錄) is always shown: the period stretches to include
     // it and the filters let it through. Leaving this scope or picking a period drops the focus.
+    const win = shownWin(today, projects);
     const focus = ui.focusTask ? Store.task(ui.focusTask) : null;
-    const focusHere = focus && focus.start && focus.end && tasksAll.includes(focus);
+    const focusHere = !!win.focus && tasksAll.includes(focus);
     if (ui.focusTask && !focusHere) Store.setUi({ focusTask: "" });
-    if (focusHere) {
-      if (D(focus.start) < win.from) (win.from = D(focus.start) - 7), (win.extended = true);
-      if (D(focus.end) > win.to) (win.to = D(focus.end) + 7), (win.extended = true);
-      win.focusDay = D(focus.start);
-    }
     const inWin = (t) => t.start && t.end && D(t.start) <= win.to && D(t.end) >= win.from;
     if (pin != null && (pin < win.from || pin > win.to)) pin = null;
     const pinned = pin != null && pinOnly;

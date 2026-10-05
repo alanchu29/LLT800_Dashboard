@@ -327,6 +327,8 @@ a.kpi:hover { text-decoration: none; transform: translateY(-1px); }
 .g-mark.alert { position: absolute; bottom: 0; top: 0; background: var(--late-wash); border-bottom: 3px solid var(--critical); }
 .g-mark.pin { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--s4) 22%, transparent); outline: 1px solid var(--s4); }
 .g-today { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--today); z-index: 3; }
+/* over the bars (z-index 1) but under the sticky label column (4), so the today line is never hidden */
+.g-front { position: absolute; top: 0; bottom: 0; left: var(--label-w); pointer-events: none; z-index: 3; }
 .g-now { position: absolute; top: 3px; transform: translateX(-50%); font-size: 0.65rem; background: var(--today); color: #fff; padding: 0 5px; border-radius: 4px; z-index: 2; white-space: nowrap; }
 .g-row { display: flex; min-height: 30px; position: relative; border-bottom: 1px solid var(--grid); }
 .g-row:hover { background: color-mix(in srgb, var(--brand) 4%, transparent); }
@@ -627,7 +629,7 @@ body.editing .g-row:hover .g-label .mini, body.editing .g-label .mini:focus-visi
 .gb-caplab { position: absolute; right: 26px; transform: translateY(-50%); font-size: 0.68rem; color: var(--ink-2); font-weight: 650; }
 .g-band { position: relative; flex: none; overflow: hidden; }
 .gb-grid { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid); }
-.gb-seg { position: absolute; border-radius: 2px; }
+.gb-seg { position: absolute; border-radius: 0; }
 .gb-val { position: absolute; text-align: center; font-size: 0.68rem; color: var(--ink-2); font-weight: 650; pointer-events: none; }
 .gb-val.over { color: var(--late); }
 .gb-cap { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--ink-2); pointer-events: none; }
@@ -672,7 +674,7 @@ body.editing .g-row:hover .g-label .mini, body.editing .g-label .mini:focus-visi
 
 /* band: over the limit, pinned day */
 .gb-overbg { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--critical) 16%, transparent); }
-.gb-over { position: absolute; background: var(--critical); border-radius: 2px 2px 0 0; box-shadow: 0 0 0 1px color-mix(in srgb, var(--critical) 40%, transparent), 0 0 8px color-mix(in srgb, var(--critical) 55%, transparent); }
+.gb-over { position: absolute; background: var(--critical); border-radius: 0; box-shadow: 0 0 0 1px color-mix(in srgb, var(--critical) 40%, transparent), 0 0 8px color-mix(in srgb, var(--critical) 55%, transparent); }
 .gb-val.over { color: var(--critical); font-weight: 800; font-size: 0.74rem; }
 .gb-pin { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--s4) 18%, transparent); box-shadow: inset 0 0 0 2px var(--s4); border-radius: 3px; }
 .gb-hit.pick { cursor: pointer; }
