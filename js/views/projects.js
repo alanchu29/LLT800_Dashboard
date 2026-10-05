@@ -357,7 +357,7 @@
           rc: proj.color,
           cls: (isCol ? "collapsed" : "") + (ui.focusPfam === f.id ? " focus" : "") + (multi ? " nested" : ""),
           label: `<button class="tw" type="button" aria-label="展開/收合" aria-expanded="${!isCol}">${isCol ? "▸" : "▾"}</button><span class="g-name" title="${esc(f.name)}（點一下展開 / 收合）">${esc(f.name)}</span>${Store.siteTag(f.site, siteColors)}<button class="mini edit-only" type="button" data-editpfam="${f.id}" title="編輯 PFAM">✎</button><button class="mini edit-only" type="button" data-addtask="${f.id}" title="在這個 PFAM 新增 task">＋</button>`,
-          meta: !ts.length ? `<span class="muted">尚無 task${Store.editing ? "，按 ＋ 新增" : ""}</span>` : multi && ppl.length ? names(ppl.slice(0, 2)) + (ppl.length > 2 ? ` +${ppl.length - 2}` : "") : `${ts.length} task${late ? `・<b class="late">${late} 逾期</b>` : ""}${ppl.length ? `・${ppl.length} 人` : ""}`,
+          meta: !ts.length ? `<span class="muted">尚無 task${Store.editing ? "，按 ＋ 新增" : ""}</span>` : `${ts.length} task${late ? `・<b class="late">${late} 逾期</b>` : ""}`,
           bars: isCol ? [{ id: "f:" + f.id, start: s.start, end: s.end, color: "var(--summary)", text: "" }] : [],
         });
         tipFor.set("f:" + f.id, `<b>${esc(f.name)}</b>${multi ? `<div class="muted">${esc(proj.name)}</div>` : ""}<div>${U.range(s.start, s.end)}・${ts.length} 個 task${late ? `・${late} 逾期` : ""}</div>${ppl.length ? `<div>${names(ppl)}</div>` : `<div class="muted">尚未指派</div>`}${f.notes ? `<div>${esc(f.notes)}</div>` : ""}`);

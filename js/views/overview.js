@@ -140,15 +140,13 @@
         const fFold = !!saved[f.id] && !(pin != null && pinOnly);
         shown.push(f.id);
         const fs = M.span(ts);
-        const fp = [...new Set(ts.flatMap((t) => t.assignees))];
-        const fpText = fp.length ? who(fp.slice(0, 2)) + (fp.length > 2 ? ` +${fp.length - 2}` : "") : `<span class="late">未指派</span>`;
         rows.push({
           id: "f:" + f.id,
           kind: "group",
           rc: p.color,
           cls: "nested",
           label: `<button class="tw" type="button" aria-label="展開/收合" aria-expanded="${!fFold}">${fFold ? "▸" : "▾"}</button><span class="g-name" title="${esc(f.name)}（點一下展開 / 收合）">${esc(f.name)}</span>${Store.siteTag(f.site, siteColors)}`,
-          meta: `${ts.length} task・${fpText}`,
+          meta: `${ts.length} task`,
           bars: fFold ? [{ id: "f:" + f.id, start: fs.start, end: fs.end, color: "var(--summary)" }] : [],
         });
         tip.set("f:" + f.id, `<b>${esc(f.name)}</b><div class="muted">${esc(p.name)}</div>${ts.map((t) => `<div class="tt-row"><span>${esc(t.name)}</span><small>${U.range(t.start, t.end)}</small></div>`).join("")}`);
