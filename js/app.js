@@ -17,6 +17,7 @@
 
   const App = {
     route: { name: "overview", arg: "" },
+    cloudBusy: false, // a background cloud refresh is in flight (header chip shows 更新中)
 
     // ------------------------------------------------------------ toasts
     toast(msg, kind, actions) {
@@ -185,6 +186,10 @@
         chip.className = "sync-chip local";
         chip.textContent = "本機模式";
         sync.hidden = true;
+      } else if (this.cloudBusy) {
+        chip.className = "sync-chip busy";
+        chip.textContent = "雲端 · 更新中…";
+        sync.hidden = !Store.meta.dirty;
       } else if (Store.meta.dirty) {
         chip.className = "sync-chip dirty";
         chip.textContent = "雲端 · 有未同步修改";
@@ -205,8 +210,33 @@
         if (pw == null) return;
         if (U.hash(pw) !== h) return this.toast("密碼不正確", "error");
       }
+      if (!(await this.freshenBeforeEdit())) return;
       Store.setEditing(true);
       this.toast("已進入編輯模式：點任何專案、task、員工或出差紀錄即可修改");
+    },
+
+    /**
+     * A tab left open all day holds an old base version, and saving on top of that is what overwrites
+     * other people's work. So refresh right before edits start: on a day nobody else edited this costs
+     * one "unchanged" reply. Returns false to call off entering edit mode.
+     */
+    async freshenBeforeEdit() {
+      if (!Remote.active) return true;
+      // Unsynced local edits must not be thrown away here; syncCloud() handles that conflict.
+      if (Store.meta.dirty && !(Store.data.source && Store.data.source.demo)) return true;
+      $("#blockerSkip").onclick = () => this.blocker(false);
+      this.blocker(true, "正在確認是雲端最新版本…");
+      try {
+        const r = await Remote.load(Store.meta.cloudVersion || null);
+        if (r.unchanged || !r.data) return true;
+        Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
+        this.toast(`已先載入雲端最新版本（版本 ${r.version}${r.by ? `，最後由 ${r.by} 修改` : ""}）再開始編輯`);
+        return true;
+      } catch (err) {
+        return confirm(`讀不到雲端最新版本：${err.message}\n\n現在編輯可能會覆蓋別人的修改。\n\n確定：仍要進入編輯模式\n取消：先不要編輯`);
+      } finally {
+        this.blocker(false);
+      }
     },
 
     /** Ask for edit mode before an editing action; true when allowed. */
@@ -222,21 +252,42 @@
       if (msg) $("#blockerMsg").textContent = msg;
     },
 
-    async loadCloud(silent) {
+    /**
+     * Pull the cloud dataset.
+     *   opts.background - the page load: keep the local data already on screen and refresh behind it
+     *                     (the chip shows 更新中). A first visit has nothing to show, so it still waits.
+     *   opts.force      - read the whole bundle even when our version looks current (設定 → 從雲端重新載入,
+     *                     where the point is to throw local edits away).
+     */
+    async loadCloud(opts) {
       if (!Remote.active) return;
+      opts = opts || {};
+      const demo = !!(Store.data.source && Store.data.source.demo);
+      const hasLocal = !!Store.meta.cloudVersion && !demo;
+      const background = !!opts.background && hasLocal;
       let skipped = false;
       $("#blockerSkip").onclick = () => {
         skipped = true;
         this.blocker(false);
       };
-      if (!silent) this.blocker(true, "正在讀取雲端資料…");
+      if (background) {
+        this.cloudBusy = true;
+        this.refreshHeader();
+      } else {
+        this.blocker(true, "正在讀取雲端資料…");
+      }
       try {
-        const r = await Remote.load();
+        const r = await Remote.load(hasLocal && !opts.force ? Store.meta.cloudVersion : null);
         if (skipped) return;
         // The cloud is the source of truth: local data only wins when it holds real edits not yet synced.
         // Demo data (a first visit before cloud mode) never counts as unsynced edits.
-        const dirty = Store.meta.dirty && !(Store.data.source && Store.data.source.demo);
-        if (!r.data) {
+        const dirty = Store.meta.dirty && !demo;
+        if (r.unchanged) {
+          // Our copy already is the current cloud version: nothing to load, nothing to re-render.
+          if (r.savedAt) Store.meta.cloudAt = r.savedAt;
+          Store.save();
+          if (dirty) this.toast("這台電腦有尚未同步到雲端的修改", "", [{ label: "立即同步", run: () => this.syncCloud() }]);
+        } else if (!r.data) {
           this.toast("雲端試算表目前是空的。到「設定 → 雲端同步」按「上傳本機資料到雲端」即可開始共用。");
         } else if (dirty && r.version !== Store.meta.cloudVersion) {
           if (confirm("雲端有其他人更新的新版本，而這台電腦也有尚未同步的修改。\n\n確定：載入雲端版本（捨棄本機修改）\n取消：保留本機修改，稍後再決定"))
@@ -247,8 +298,9 @@
           Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
         }
       } catch (err) {
-        this.toast("讀取雲端失敗，先顯示這台電腦上次的資料（可能不是最新）：" + err.message, "error", [{ label: "重試", run: () => this.loadCloud() }]);
+        this.toast("讀取雲端失敗，先顯示這台電腦上次的資料（可能不是最新）：" + err.message, "error", [{ label: "重試", run: () => this.loadCloud({ force: true }) }]);
       } finally {
+        this.cloudBusy = false;
         this.blocker(false);
         this.refreshHeader();
       }
@@ -405,7 +457,7 @@
       ImportUI.bind();
       Help.bind();
       this.render();
-      this.loadCloud().then(() => this.oneTimeCleanup());
+      this.loadCloud({ background: true }).then(() => this.oneTimeCleanup());
     },
   };
 

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /*
  * Runs apps-script/Code.gs against an in-memory mock of the Apps Script services and checks that
- * saveAll -> bundle round-trips the seed dataset, and that the version lock reports conflicts.
+ * saveAll -> bundle round-trips the seed dataset, that the version lock reports conflicts, that
+ * ?since= skips the read when nothing changed, and that every save leaves a Drive snapshot.
  *   node tools/test_apps_script.js
  */
 const fs = require("fs");
@@ -46,16 +47,52 @@ function makeSheet() {
     _cells: () => cells,
   };
 }
+// Drive (snapshots): one in-memory folder.
+let fileSeq = 0;
+const driveFiles = [];
+const snapFolder = {
+  getId: () => "snapFolder",
+  createFile(name, content) {
+    const f = { name, content, created: ++fileSeq, trashed: false, getName: () => name, getDateCreated: () => f.created, setTrashed: (t) => (f.trashed = t) };
+    driveFiles.push(f);
+    return f;
+  },
+  getFiles() {
+    const live = driveFiles.filter((f) => !f.trashed);
+    let i = 0;
+    return { hasNext: () => i < live.length, next: () => live[i++] };
+  },
+};
+const liveSnapshots = () => driveFiles.filter((f) => !f.trashed);
+
 const sheets = {};
 const ss = { getSheetByName: (n) => sheets[n] || null, insertSheet: (n) => (sheets[n] = makeSheet()) };
 const props = {};
 const ctx = {
   SpreadsheetApp: { getActiveSpreadsheet: () => ss },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
-  PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null }) },
+  PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props[k] || null, setProperty: (k, v) => (props[k] = v) }) },
+  DriveApp: {
+    getFolderById: (id) => {
+      if (id === "snapFolder") return snapFolder;
+      throw new Error("no such folder");
+    },
+    getFoldersByName: () => ({ hasNext: () => false }),
+    createFolder: () => snapFolder,
+  },
   ContentService: { MimeType: { JSON: "json", JAVASCRIPT: "js" }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
   Session: { getScriptTimeZone: () => "Asia/Taipei" },
-  Utilities: { formatDate: (d) => d.toISOString().slice(0, 10) },
+  Utilities: {
+    formatDate: (d, tz, fmt) => {
+      const p = (n) => String(n).padStart(2, "0");
+      return String(fmt)
+        .replace("yyyy", d.getUTCFullYear())
+        .replace("MM", p(d.getUTCMonth() + 1))
+        .replace("dd", p(d.getUTCDate()))
+        .replace("HH", p(d.getUTCHours()))
+        .replace("mm", p(d.getUTCMinutes()));
+    },
+  },
   console,
 };
 vm.createContext(ctx);
@@ -111,4 +148,38 @@ tasks._cells()[1][head.indexOf("start")] = vm.runInContext("new Date(Date.UTC(20
 r = get({ action: "bundle" });
 assert.strictEqual(r.data.tasks[0].start, "2026-10-05");
 
-console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, key and date checks pass`);
+
+// ---------------------------------------------------------------- conditional read (?since=)
+r = get({ action: "bundle" });
+const cur = r.version;
+r = get({ action: "bundle", since: cur });
+assert.ok(r.ok && r.unchanged && !r.data && r.version === cur, "since = current version -> unchanged, no data");
+r = get({ action: "bundle", since: cur - 1 });
+assert.ok(r.ok && !r.unchanged && r.data, "stale since -> full bundle");
+r = get({ action: "bundle", since: "" });
+assert.ok(r.ok && r.data, "blank since -> full bundle");
+
+// ---------------------------------------------------------------- snapshots + lastBy
+const before = liveSnapshots().length;
+assert.ok(before >= 3, `每次 save 都留一份快照 (got ${before})`);
+r = post({ action: "saveAll", data: seed, baseVersion: cur, key: "secret", by: "張三" });
+assert.ok(r.ok && r.by === "張三", "saveAll records who");
+const snap = liveSnapshots()[liveSnapshots().length - 1];
+assert.strictEqual(liveSnapshots().length, before + 1, "one snapshot per save");
+assert.ok(/^llt800-v\d+-\d{8}-\d{4}-張三\.json$/.test(snap.getName()), `snapshot name: ${snap.getName()}`);
+assert.ok(snap.getName().startsWith(`llt800-v${r.version}-`), "snapshot name carries the version");
+// The snapshot is in 匯出 JSON 備份 shape, so 還原 JSON 備份 accepts it as-is.
+const restored = JSON.parse(snap.content);
+assert.strictEqual(restored.app, "LLT800_Dashboard");
+assert.deepStrictEqual(strip(restored.data), strip(seed), "snapshot restores the dataset");
+r = get({ action: "bundle" });
+assert.strictEqual(r.by, "張三", "bundle reports the last editor");
+
+// Only the newest SNAPSHOT_KEEP are kept (tiny dataset: this is about pruning, not round-tripping).
+const tiny = { projects: [], pfams: [], tasks: [], employees: [], trips: [], settings: {} };
+for (let i = 0; i < 35; i++) post({ action: "saveAll", data: tiny, baseVersion: null, key: "secret", by: "p" });
+assert.strictEqual(liveSnapshots().length, ctx.SNAPSHOT_KEEP, `pruned to ${ctx.SNAPSHOT_KEEP}`);
+const kept = liveSnapshots().map((f) => f.created);
+assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length), "kept ones are the newest");
+
+console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, key, date, ?since=, snapshot and prune checks pass`);

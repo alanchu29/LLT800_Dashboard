@@ -8,8 +8,14 @@
  * Optional write protection: Project Settings > Script properties > EDIT_KEY = <secret>,
  * and type the same key in the dashboard's 設定 > 雲端同步 > 寫入金鑰.
  *
- * GET  ?action=ping|bundle[&callback=fn]        (JSONP when callback is given)
- * POST {action:"saveAll", data, baseVersion}    replace everything; optimistic lock on Meta.version
+ * Every saved version is also kept as a JSON file in Drive (see SNAPSHOT_FOLDER), so a version someone
+ * overwrote can be restored with the dashboard's 設定 > 還原 JSON 備份.
+ *
+ * GET  ?action=ping|bundle[&since=n][&callback=fn]   (JSONP when callback is given)
+ *                                               since = the version the caller already has; when that is
+ *                                               still the current one the reply is {unchanged:true} and no
+ *                                               sheet is read
+ * POST {action:"saveAll", data, baseVersion, by}  replace everything; optimistic lock on Meta.version
  *                                               (baseVersion null = overwrite whatever is there)
  */
 
@@ -33,7 +39,7 @@ function doGet(e) {
   var p = (e && e.parameter) || {};
   var out;
   try {
-    if (p.action === 'bundle') out = bundle_();
+    if (p.action === 'bundle') out = bundle_(p.since);
     else out = { ok: true, service: 'LLT800_Dashboard', time: new Date().toISOString() };
   } catch (err) {
     out = { ok: false, error: String(err && err.message || err) };
@@ -48,7 +54,7 @@ function doPost(e) {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     checkKey_(body.key);
     lock.waitLock(30000);
-    if (body.action === 'saveAll') out = saveAll_(body.data, body.baseVersion);
+    if (body.action === 'saveAll') out = saveAll_(body.data, body.baseVersion, body.by);
     else out = { ok: false, error: 'Unknown action: ' + body.action };
   } catch (err) {
     out = { ok: false, error: String(err && err.message || err) };
@@ -73,10 +79,14 @@ function checkKey_(key) {
 
 // ---------------------------------------------------------------- read
 
-function bundle_() {
+function bundle_(since) {
   var meta = readMeta_();
   var version = Number(meta.version || 0);
   if (!version) return { ok: true, version: 0, savedAt: '', data: null };
+  // The caller already has this version: skip reading every sheet (most page loads, on a day nobody edits).
+  if (since !== null && since !== undefined && since !== '' && Number(since) === version) {
+    return { ok: true, version: version, savedAt: meta.savedAt || '', by: meta.lastBy || '', unchanged: true };
+  }
   var projects = readRows_('Projects').map(function (r) {
     return { id: r.id, name: r.name, color: r.color, status: r.status || 'active', notes: r.notes, src: src_(r), pfamCap: Number(r.pfamCap) || 0, link: r.link || '', linkName: r.linkName || '' };
   });
@@ -107,7 +117,7 @@ function bundle_() {
     projects: projects, pfams: pfams, tasks: tasks, employees: employees, trips: trips,
     importIgnored: ignored
   };
-  return { ok: true, version: version, savedAt: meta.savedAt || '', data: data };
+  return { ok: true, version: version, savedAt: meta.savedAt || '', by: meta.lastBy || '', data: data };
 }
 
 function src_(r) {
@@ -151,7 +161,7 @@ function readRows_(name) {
 
 // ---------------------------------------------------------------- write
 
-function saveAll_(data, baseVersion) {
+function saveAll_(data, baseVersion, by) {
   if (!data || !data.projects) throw new Error('資料格式錯誤');
   var meta = readMeta_();
   var current = Number(meta.version || 0);
@@ -190,10 +200,12 @@ function saveAll_(data, baseVersion) {
   writeRows_('Meta', [
     ['version', version],
     ['savedAt', savedAt],
+    ['lastBy', by || ''],
     ['settings', JSON.stringify(data.settings || {})],
     ['source', JSON.stringify(data.source || null)]
   ]);
-  return { ok: true, version: version, savedAt: savedAt };
+  snapshot_(data, version, savedAt, by);
+  return { ok: true, version: version, savedAt: savedAt, by: by || '' };
 }
 
 /** Replace a sheet's content (header + rows). Text format keeps dates and ids exactly as sent. */
@@ -209,4 +221,59 @@ function writeRows_(name, rows) {
     return r.map(function (v) { return typeof v === 'boolean' || typeof v === 'number' ? String(v) : v; });
   }));
   sh.setFrozenRows(1);
+}
+
+// ---------------------------------------------------------------- snapshots
+
+// A copy of every saved version, so an overwrite is recoverable. Set a SNAPSHOT_FOLDER_ID script
+// property to keep them in a folder of your choice; otherwise one is created on the first save.
+var SNAPSHOT_FOLDER = 'LLT800_Dashboard 快照';
+var SNAPSHOT_KEEP = 30;
+
+/**
+ * Keep the dataset just saved as a Drive JSON file, in the same shape as the dashboard's
+ * 匯出 JSON 備份: recovery is download the file > 設定 > 資料 > 還原 JSON 備份.
+ * Insurance must not break the thing it insures, so a failure here is logged and the save still succeeds.
+ */
+function snapshot_(data, version, savedAt, by) {
+  try {
+    var folder = snapshotFolder_();
+    var stamp = Utilities.formatDate(new Date(savedAt), Session.getScriptTimeZone(), 'yyyyMMdd-HHmm');
+    var who = String(by || '').replace(/[^\w\u4e00-\u9fff]+/g, '') || 'unknown';
+    var body = JSON.stringify({ app: 'LLT800_Dashboard', exportedAt: savedAt, version: version, by: by || '', data: data });
+    folder.createFile('llt800-v' + version + '-' + stamp + '-' + who + '.json', body, 'application/json');
+    pruneSnapshots_(folder);
+  } catch (err) {
+    console.warn('snapshot failed: ' + String((err && err.message) || err));
+  }
+}
+
+/** The snapshot folder: SNAPSHOT_FOLDER_ID when set, else one named SNAPSHOT_FOLDER (its id is remembered). */
+function snapshotFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty('SNAPSHOT_FOLDER_ID');
+  if (id) {
+    try {
+      return DriveApp.getFolderById(id);
+    } catch (err) {
+      /* trashed, or no longer ours: fall through and make a new one */
+    }
+  }
+  var it = DriveApp.getFoldersByName(SNAPSHOT_FOLDER);
+  var folder = it.hasNext() ? it.next() : DriveApp.createFolder(SNAPSHOT_FOLDER);
+  props.setProperty('SNAPSHOT_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+/** Trash all but the newest SNAPSHOT_KEEP snapshots, oldest first (version numbers do not sort as text). */
+function pruneSnapshots_(folder) {
+  var files = [];
+  var it = folder.getFiles();
+  while (it.hasNext()) {
+    var f = it.next();
+    if (/^llt800-v\d+-/.test(f.getName())) files.push(f);
+  }
+  if (files.length <= SNAPSHOT_KEEP) return;
+  files.sort(function (a, b) { return a.getDateCreated() - b.getDateCreated(); });
+  files.slice(0, files.length - SNAPSHOT_KEEP).forEach(function (f) { f.setTrashed(true); });
 }
