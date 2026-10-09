@@ -45,6 +45,30 @@ ok("load: one person with two tasks counts once; unassigned counts per PFAM", ()
   assert.ok(!days[2].alert, "Wednesday: 1 of 2 busy");
 });
 
+ok("holidays: skipped by load, pfamLoad and workdays; normalize keeps one valid entry per date", () => {
+  const data = C.normalize({
+    settings: { holidays: [{ date: "2026-10-09", name: "x" }, { date: "2026-10-09", name: "國慶日補假" }, { date: "2026-02-30" }, { date: "junk" }] },
+  });
+  assert.deepStrictEqual(data.settings.holidays, [{ date: "2026-10-09", name: "國慶日補假" }]);
+  data.employees = [{ id: "a", name: "A", active: true }];
+  data.pfams = [{ id: "f1", projectId: "p1" }];
+  data.tasks = [{ id: "1", pfamId: "f1", start: "2026-10-08", end: "2026-10-12", assignees: ["a"], done: false }];
+  const days = (rows) => rows.map((x) => E.fromDay(x.day));
+  assert.deepStrictEqual(days(M.load(data, d("2026-10-08"), d("2026-10-12"), { today: 0 })), ["2026-10-08", "2026-10-12"]);
+  assert.deepStrictEqual(days(M.pfamLoad(data, d("2026-10-08"), d("2026-10-12"), { today: 0 })), ["2026-10-08", "2026-10-12"]);
+  assert.strictEqual(M.workdays("2026-10-08", "2026-10-12"), 3, "no holidays passed: Mon-Fri only");
+  assert.strictEqual(M.workdays("2026-10-08", "2026-10-12", M.holidays(data)), 2);
+  assert.strictEqual(M.holidays(data).get(d("2026-10-09")), "國慶日補假");
+});
+
+ok("holidays: data without the field gets the company calendar (241 work days in 2026, 240 in 2027)", () => {
+  const data = C.normalize({ settings: { title: "x" } });
+  assert.strictEqual(M.workdays("2026-01-01", "2026-12-31", M.holidays(data)), 241);
+  assert.strictEqual(M.workdays("2027-01-01", "2027-12-31", M.holidays(data)), 240);
+  assert.ok(data.settings.holidays.every((h) => E.weekday(E.toDay(h.date)) % 6), "weekdays only");
+  assert.deepStrictEqual(C.normalize({ settings: { holidays: [] } }).settings.holidays, [], "a cleared list stays cleared");
+});
+
 ok("load: pct rule and project filter", () => {
   const data = C.emptyData();
   data.settings.alertMode = "pct";

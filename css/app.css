@@ -466,6 +466,15 @@ body.editing .g-row:hover .g-label .mini, body.editing .g-label .mini:focus-visi
 .emps td { padding: 4px 8px; }
 .emp-add { display: flex; flex-direction: column; gap: 6px; }
 .emp-add textarea { width: 100%; resize: vertical; }
+.hols td { padding: 4px 8px; }
+.hols tr.muted td { color: var(--muted); }
+.hol-sum { align-items: center; }
+.hol-sum span { margin-right: auto; }
+.hol-add { display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px dashed var(--axis); padding-top: 10px; margin-top: 12px; }
+.hol-add #hName { flex: 1; min-width: 140px; }
+.hol-bulk { margin-top: 10px; }
+.hol-bulk summary { cursor: pointer; color: var(--brand); font-size: 0.9rem; }
+.hol-bulk textarea { width: 100%; resize: vertical; margin-top: 6px; }
 .btn-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
 .danger-zone { border-top: 1px dashed var(--axis); padding-top: 10px; margin-top: 12px; }
 .phases th { white-space: nowrap; }

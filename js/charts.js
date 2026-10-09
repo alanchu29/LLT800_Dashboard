@@ -30,7 +30,7 @@
   /**
    * rows: [{ id, kind: "group"|"task"|"sub", label (html), meta (html), bars: [{ id, start, end, color, cls, text, base: {start,end} }], cls, rc (row accent color) }]
    * opts: { from, to, zoom, today, labelHead, tip(barId) -> html, onBar(barId, ev), onLabel(rowId, ev), marks: [{day, cls, title}],
-   *         fit (stretch the days to fill the container width), outLabels, clipText, scrollToToday, scrollToDay,
+   *         holidays (Map day -> name; default settings.holidays), fit (stretch the days to fill the container width), outLabels, clipText, scrollToToday, scrollToDay,
    *         band: { title, sub, height, cap, capLabel, capNote, days: [{ day, total, segs: [{ color, n }] }], tip(day) -> html,
    *                 pinned (day), onPick(day) } }
    * band = a stacked daily column chart drawn in the header above the date rows, on the same x axis.
@@ -48,6 +48,11 @@
     const W = Math.round((to - from + 1) * ppd);
     const x = (d) => Math.round((d - from) * ppd);
     const months = monthStarts(from, to);
+    const hol = opts.holidays || window.Model.holidays(Store.data);
+    // Holidays on weekdays get a band like the weekend (day and week zoom); weekends already have one in day zoom.
+    let holBands = "";
+    if (opts.zoom !== "month")
+      for (const d of hol.keys()) if (d >= from && d <= to && E.weekday(d) % 6) holBands += `<i class="g-we" style="left:${x(d)}px;width:${Math.max(ppd, 2)}px"></i>`;
 
     // Header: months, then weeks (Mondays) or days.
     let top = "";
@@ -62,15 +67,17 @@
       for (let d = from; d <= to; d++) {
         const wd = E.weekday(d);
         const txt = ppd >= 46 ? `${fmt(d, "short")} ${U.WD[wd]}` : E.fromDay(d).slice(8).replace(/^0/, "");
-        sub += `<div class="g-d${wd === 0 || wd === 6 ? " we" : ""}${d === opts.today ? " now" : ""}" style="left:${x(d)}px;width:${ppd}px">${txt}</div>`;
+        const off = hol.has(d);
+        sub += `<div class="g-d${wd === 0 || wd === 6 || off ? " we" : ""}${d === opts.today ? " now" : ""}" style="left:${x(d)}px;width:${ppd}px"${off ? ` title="${esc(hol.get(d) || "假日")}"` : ""}>${txt}</div>`;
       }
     } else if (opts.zoom === "week") {
       for (let d = from; d <= to; d++) if (E.weekday(d) === 1) sub += `<div class="g-w" style="left:${x(d)}px">${fmt(d, "short")}</div>`;
     }
 
-    // Background grid: month lines, weekend bands (day zoom), today line, extra marks.
+    // Background grid: month lines, weekend bands (day zoom), holiday bands, today line, extra marks.
     let grid = months.filter((m) => m.day > from).map((m) => `<i class="g-ml" style="left:${x(m.day)}px"></i>`).join("");
     if (opts.zoom === "day") for (let d = from; d <= to; d++) if (E.weekday(d) === 6) grid += `<i class="g-we" style="left:${x(d)}px;width:${ppd * 2}px"></i>`;
+    grid += holBands;
     for (const mk of opts.marks || []) if (mk.day >= from && mk.day <= to) grid += `<i class="g-mark ${mk.cls || ""}" style="left:${x(mk.day)}px;width:${Math.max(ppd, 2)}px" title="${esc(mk.title || "")}"></i>`;
     // The today line goes in .g-front (over the bars), not in the grid behind them.
     let front = "";
@@ -99,6 +106,7 @@
         ticks += `<span class="gb-tick" style="top:${yb(v)}px">${v}</span>`;
       }
       for (let d = from; d <= to; d++) if (E.weekday(d) === 6) g += `<i class="g-we" style="left:${x(d)}px;width:${ppd * 2}px"></i>`;
+      g += holBands;
       const cw = (d) => Math.max(x(d + 1) - x(d), 1); // day cell width: columns tile edge to edge
       for (const d of B.days) {
         if (d.day < from || d.day > to) continue;

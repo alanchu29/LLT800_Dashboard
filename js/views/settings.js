@@ -1,7 +1,44 @@
-/* 設定: general options, phases, sites, edit password, data import / export, cloud sync. */
+/* 設定: general options, phases, holidays, sites, edit password, data import / export, cloud sync. */
 (function () {
   const { esc, $, $$ } = U;
   let empsOpen = false; // 員工名冊 starts folded; stays open while you work in it (until the page reloads)
+  let holYear = 0; // year shown in the 假日 card (0 = this year)
+
+  // A date in a pasted holiday line: yyyy-mm-dd / yyyy/m/d / yyyy.m.d, or m/d (year taken from context).
+  const HOL_D = String.raw`(?:\d{4}[-/.])?\d{1,2}[-/.]\d{1,2}`;
+  const HOL_LINE = new RegExp(String.raw`(${HOL_D})(?:\s*[~～至到]\s*(${HOL_D}))?`);
+  const HOL_MAX_RANGE = 31;
+
+  /** "2026/2/14" or "2/14" (with year y) -> "2026-02-14"; null when it is not a real date. */
+  function holDate(txt, y) {
+    const p = txt.split(/[-/.]/).map(Number);
+    const [yy, m, d] = p.length === 3 ? p : [y, ...p];
+    const iso = `${yy}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return window.Engine.fromDay(window.Engine.toDay(iso)) === iso ? iso : null;
+  }
+
+  /**
+   * Pasted text -> { add: [{ date, name }], bad: [line] }. One holiday or range per line, the name before or after
+   * the date ("2026-10-10 國慶日", "春節 2026/2/14~2/22"). Weekends inside a range are skipped (already days off).
+   */
+  function parseHolidays(text, year) {
+    const E = window.Engine;
+    const add = [];
+    const bad = [];
+    for (const line of text.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)) {
+      const m = line.match(HOL_LINE);
+      const a = m && holDate(m[1], year);
+      let b = m && m[2] ? holDate(m[2], a ? +a.slice(0, 4) : year) : a;
+      if (a && b && b < a && m[2].split(/[-/.]/).length === 2) b = holDate(m[2], +a.slice(0, 4) + 1); // "12/31~1/2": into next year
+      if (!a || !b || b < a || E.toDay(b) - E.toDay(a) >= HOL_MAX_RANGE) {
+        bad.push(line);
+        continue;
+      }
+      const name = line.replace(m[0], " ").replace(/^[\s,，、:：-]+|[\s,，、:：-]+$/g, "").replace(/\s+/g, " ");
+      for (let d = E.toDay(a); d <= E.toDay(b); d++) if (a === b || E.weekday(d) % 6) add.push({ date: E.fromDay(d), name });
+    }
+    return { add, bad };
+  }
 
   /** yyyy-mm-01 of the previous month (default of 批次標記完成). */
   function firstOfLastMonth() {
@@ -14,6 +51,11 @@
     const d = Store.data;
     const lock = Store.editing ? "" : " disabled";
     if (arg === "emps") empsOpen = true;
+    const E = window.Engine;
+    if (!holYear) holYear = +E.fromDay(U.today()).slice(0, 4);
+    const hols = s.holidays.filter((h) => h.date.startsWith(holYear + "-"));
+    const isWeekend = (iso) => E.weekday(E.toDay(iso)) % 6 === 0;
+    const holOnWeekdays = hols.filter((h) => !isWeekend(h.date)).length;
     root.innerHTML = `
       <div class="page-head"><h2>設定</h2>${Store.editing ? "" : `<span class="muted">切換「編輯模式」後才能修改設定與匯入資料</span>`}</div>
       <div class="set-grid">
@@ -43,6 +85,24 @@
             .join("")}
           </tbody></table>
           <div class="row-end"><input id="newPhase" placeholder="新 Phase 名稱" class="edit-only"><button class="btn edit-only" id="addPhase" type="button">＋ 新增</button><button class="btn primary edit-only" id="savePhases" type="button">儲存</button></div>
+        </section>
+
+        <section class="card" id="set-hol"><header class="card-h"><h3>假日</h3><div class="seg year" role="group" aria-label="年度"><button type="button" id="hPrev" aria-label="前一年">‹</button><b>${holYear} 年</b><button type="button" id="hNext" aria-label="下一年">›</button></div></header>
+          <p class="muted small">週末以外的放假日（國定假日、公司休假）。假日不算工作日：忙碌人數、人力熱度、PFAM 負載與「n 個工作天」都會扣掉，甘特圖以灰底標示。</p>
+          <table class="grid-table hols"><thead><tr><th>日期</th><th>名稱</th><th></th></tr></thead><tbody>
+          ${hols.length ? hols
+            .map((h) => `<tr class="${isWeekend(h.date) ? "muted" : ""}"><td>${U.fmt(h.date, "full")}</td><td>${esc(h.name)}${isWeekend(h.date) ? ` <small class="muted">（週末，不影響計算）</small>` : ""}</td><td class="num"><button class="mini edit-only" type="button" data-delhol="${h.date}" title="刪除">✕</button></td></tr>`)
+            .join("") : `<tr><td colspan="3" class="empty">${holYear} 年還沒有設定假日</td></tr>`}
+          </tbody></table>
+          ${hols.length ? `<div class="row-end hol-sum"><span class="muted small">${holYear} 年共 ${hols.length} 天，其中 ${holOnWeekdays} 天在週一～五</span><button class="btn edit-only" id="hClear" type="button">清除 ${holYear} 年</button></div>` : ""}
+          <div class="hol-add edit-only">
+            <input type="date" id="hDate" aria-label="日期"><input id="hName" placeholder="名稱，例如 國慶日" aria-label="名稱"><button class="btn" id="hAdd" type="button">＋ 新增</button>
+          </div>
+          <details class="hol-bulk edit-only"><summary>批次貼上…</summary>
+            <textarea id="hBulk" rows="6" placeholder="一行一筆，日期在前或在後都可以&#10;2026-10-10 國慶日&#10;2026/2/14~2/22 春節&#10;10/10 國慶日（沒寫年份 = ${holYear} 年）"></textarea>
+            <p class="muted small">用 ~ 表示連續假期（期間內的週末會略過，最長 ${HOL_MAX_RANGE} 天）；已存在的日期會更新名稱。</p>
+            <div class="row-end"><button class="btn primary" id="hBulkAdd" type="button">加入</button></div>
+          </details>
         </section>
 
         <section class="card"><header class="card-h"><h3>編輯密碼</h3></header>
@@ -168,6 +228,43 @@
           });
         })
     );
+
+    // ---- holidays
+    const setHolidays = (fn) =>
+      Store.commit((dd) => {
+        const byDate = new Map(dd.settings.holidays.map((h) => [h.date, h.name]));
+        fn(byDate);
+        dd.settings.holidays = Convert.cleanHolidays([...byDate].map(([date, name]) => ({ date, name })));
+      });
+    $("#hPrev").onclick = () => {
+      holYear--;
+      App.render();
+    };
+    $("#hNext").onclick = () => {
+      holYear++;
+      App.render();
+    };
+    $("#hAdd").onclick = () => {
+      const date = $("#hDate").value;
+      if (!date) return $("#hDate").focus();
+      const name = $("#hName").value.trim();
+      holYear = +date.slice(0, 4);
+      setHolidays((m) => m.set(date, name));
+      App.toast(`已加入假日 ${U.fmt(date, "full")}${name ? " " + name : ""}`);
+    };
+    $("#hBulkAdd").onclick = () => {
+      const { add, bad } = parseHolidays($("#hBulk").value, holYear);
+      if (!add.length) return App.toast(bad.length ? `看不懂的日期：${bad[0]}` : "請先貼上假日", bad.length ? "error" : "");
+      holYear = +add[0].date.slice(0, 4);
+      setHolidays((m) => add.forEach((h) => m.set(h.date, h.name)));
+      App.toast(`已加入 ${add.length} 天假日${bad.length ? `；略過 ${bad.length} 行看不懂的：${bad.slice(0, 3).join("、")}` : ""}`, bad.length ? "error" : "");
+    };
+    if ($("#hClear"))
+      $("#hClear").onclick = () => {
+        if (!confirm(`刪除 ${holYear} 年的 ${hols.length} 天假日？（可按 ↶ 復原）`)) return;
+        setHolidays((m) => hols.forEach((h) => m.delete(h.date)));
+      };
+    root.querySelectorAll("[data-delhol]").forEach((b) => (b.onclick = () => setHolidays((m) => m.delete(b.dataset.delhol))));
 
     $("#saveGeneral").onclick = () => {
       const sites = $("#sSites").value.split(/[,，、\s]+/).map((x) => x.trim()).filter(Boolean);

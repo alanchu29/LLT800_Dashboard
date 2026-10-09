@@ -321,6 +321,7 @@
     const ui = Store.ui;
     const rows = [];
     const tipFor = new Map();
+    const hol = M.holidays(Store.data);
 
     for (const { proj, pfams } of scopes) {
       const pts = pfams.flatMap((f) => Store.tasksOf(f.id));
@@ -381,7 +382,7 @@
           });
           tipFor.set(
             "t:" + t.id,
-            `<b>${esc(t.name)}</b>${statusPill(k)}${multi ? `<div class="muted">${esc(proj.name)} › ${esc(f.name)}</div>` : ""}<div>${U.fmt(t.start, "wd")} – ${U.fmt(t.end, "wd")}・${M.workdays(t.start, t.end)} 個工作天</div>
+            `<b>${esc(t.name)}</b>${statusPill(k)}${multi ? `<div class="muted">${esc(proj.name)} › ${esc(f.name)}</div>` : ""}<div>${U.fmt(t.start, "wd")} – ${U.fmt(t.end, "wd")}・${M.workdays(t.start, t.end, hol)} 個工作天</div>
              ${t.baseStart ? `<div class="muted">基準 ${U.range(t.baseStart, t.baseEnd)} ${delta(t)}</div>` : ""}
              <div>指派：${t.assignees.length ? names(t.assignees) : "未指派"}</div>
              ${ph ? `<div class="muted">Phase：${esc(ph.label)}</div>` : ""}${t.lead ? `<div class="muted">LEAD：${esc(t.lead)}</div>` : ""}${t.notes ? `<div class="tt-note">${esc(t.notes)}</div>` : ""}

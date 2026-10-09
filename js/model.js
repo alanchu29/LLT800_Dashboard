@@ -40,13 +40,19 @@
     return !(t.done && day >= today);
   }
 
-  /** Workdays (Mon–Fri) in [start, end], both yyyy-mm-dd; 0 when a date is missing. */
-  function workdays(start, end) {
+  /** settings.holidays as day number -> name (a Map, so it also works as the holiday set of E.isWorkday). */
+  function holidays(data) {
+    const list = (data && data.settings && data.settings.holidays) || [];
+    return new Map(list.filter((h) => h && h.date).map((h) => [E.toDay(h.date), h.name || ""]));
+  }
+
+  /** Workdays (Mon–Fri, minus hol) in [start, end], both yyyy-mm-dd; 0 when a date is missing. */
+  function workdays(start, end, hol) {
     const s = D(start);
     const e = D(end);
     if (s == null || e == null) return 0;
     let n = 0;
-    for (let d = s; d <= e; d++) if (E.isWorkday(d)) n++;
+    for (let d = s; d <= e; d++) if (E.isWorkday(d, hol)) n++;
     return n;
   }
 
@@ -74,7 +80,7 @@
   }
 
   /**
-   * Department load for each workday in [from, to].
+   * Department load for each workday in [from, to] (weekends and settings.holidays skipped).
    * busy       = active employees with at least one task on that day (counted once however many tasks)
    * unassigned = PFAMs with a task on that day that has no active assignee (each such PFAM needs at least one person)
    * alert      = demand reaches the headcount ("full") or busy share reaches alertPct ("pct")
@@ -103,9 +109,10 @@
     const tasks = data.tasks.filter((t) => t.start && t.end && (!pfamOk || pfamOk.has(t.pfamId)));
     const mode = (data.settings && data.settings.alertMode) || "full";
     const pct = Number((data.settings && data.settings.alertPct) || 90);
+    const hol = holidays(data);
     const days = [];
     for (let d = from; d <= to; d++) {
-      if (!E.isWorkday(d)) continue;
+      if (!E.isWorkday(d, hol)) continue;
       const busy = new Map(); // empId -> [task]
       const unassigned = new Map(); // pfamId -> [task]
       for (const t of tasks) {
@@ -161,7 +168,7 @@
   }
 
   /**
-   * Concurrent PFAMs per workday in [from, to]: a PFAM counts once when any of its tasks runs that day; in a
+   * Concurrent PFAMs per workday (holidays skipped) in [from, to]: a PFAM counts once when any of its tasks runs that day; in a
    * catch-all PFAM (opts.isOthers(pfam), i.e. "Others") every task counts as one PFAM of its own.
    * opts: { today, projectIds (Set, optional), pfamIds (Set, optional), isOthers(pfam) }
    * -> [{ day, units: Map(key -> { pfam, projectId, tasks, others }), total }]
@@ -172,9 +179,10 @@
     const tasks = data.tasks.filter(
       (t) => t.start && t.end && pf.has(t.pfamId) && (!opts.projectIds || opts.projectIds.has(pf.get(t.pfamId).projectId)) && (!opts.pfamIds || opts.pfamIds.has(t.pfamId))
     );
+    const hol = holidays(data);
     const days = [];
     for (let d = from; d <= to; d++) {
-      if (!E.isWorkday(d)) continue;
+      if (!E.isWorkday(d, hol)) continue;
       const units = new Map();
       for (const t of tasks) {
         if (!occupies(t, d, opts.today)) continue;
@@ -189,5 +197,5 @@
     return days;
   }
 
-  return { STATUS, status, occupies, workdays, span, doneCount, weekStart, workforce, load, pfamLoad, overlapDays, tripDaysInYear, tripStats };
+  return { STATUS, status, occupies, holidays, workdays, span, doneCount, weekStart, workforce, load, pfamLoad, overlapDays, tripDaysInYear, tripStats };
 });

@@ -32,6 +32,43 @@
     { key: "VB", label: "VB", color: "#e87ba4", aliases: ["Volume"] },
   ];
   const DEFAULT_SITES = ["MX", "LZ", "MY", "CZ", "TN", "HQ"];
+  // Company calendars (2026 行事曆, 2027 WYHQ 行事曆), weekdays only (weekends are days off anyway).
+  // Check: 261 weekdays - 20 = 241 work days in 2026, 261 - 21 = 240 in 2027, as the calendars say.
+  const DEFAULT_HOLIDAYS = [
+    ["2026-01-01", "開國紀念日"],
+    ...["2026-02-16", "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20"].map((d) => [d, "春節"]),
+    ["2026-02-27", "和平紀念日連假"],
+    ["2026-04-03", "兒童節及民族掃墓節"],
+    ["2026-04-06", "兒童節及民族掃墓節"],
+    ["2026-05-01", "勞動節"],
+    ["2026-06-19", "端午節"],
+    ["2026-07-02", "活力假"],
+    ["2026-07-03", "活力假"],
+    ["2026-09-25", "中秋節及教師節"],
+    ["2026-09-28", "中秋節及教師節"],
+    ["2026-10-09", "國慶日連假"],
+    ["2026-10-26", "光復節連假"],
+    ["2026-11-27", "活力假"],
+    ["2026-12-24", "活力假"],
+    ["2026-12-25", "行憲紀念日"],
+    ["2027-01-01", "開國紀念日"],
+    ...["2027-02-04", "2027-02-05", "2027-02-08", "2027-02-09", "2027-02-10"].map((d) => [d, "春節"]),
+    ["2027-03-01", "和平紀念日連假"],
+    ["2027-04-05", "兒童節及民族掃墓節"],
+    ["2027-04-06", "兒童節及民族掃墓節"],
+    ["2027-04-30", "勞動節"],
+    ["2027-06-09", "端午節"],
+    ["2027-07-05", "活力假"],
+    ["2027-07-06", "活力假"],
+    ["2027-09-15", "中秋節"],
+    ["2027-09-28", "教師節"],
+    ["2027-10-11", "國慶日連假"],
+    ["2027-10-25", "光復節連假"],
+    ["2027-11-26", "活力假"],
+    ["2027-12-23", "活力假"],
+    ["2027-12-24", "行憲紀念日"],
+    ["2027-12-31", "開國紀念日補假"],
+  ].map(([date, name]) => ({ date, name }));
 
   let seq = 0;
   function uid(prefix) {
@@ -53,6 +90,7 @@
         notCounted: "Dixon", // names left out of manpower counts (busy / headcount, 人力熱度, PFAM limit)
         editHash: "",
         gen12Roles: "STE, TE",
+        holidays: DEFAULT_HOLIDAYS.map((h) => ({ ...h })), // [{ date: "yyyy-mm-dd", name }]: days off besides weekends; data without the field gets the company calendar
       },
       projects: [],
       pfams: [],
@@ -81,6 +119,7 @@
       p.link = /^https?:\/\/\S+$/i.test(String(p.link || "").trim()) ? String(p.link).trim() : ""; // 外部系統連結 (http/https only)
       p.linkName = String(p.linkName || "").trim(); // its button label ("" = 開啟 <project> 系統)
     }
+    out.settings.holidays = cleanHolidays(out.settings.holidays);
     migratePhases(out);
     // Colors go straight into style attributes: keep only #rgb / #rrggbb (anything else gets a palette color).
     const HEX = /^#[0-9a-f]{3}([0-9a-f]{3})?$/i;
@@ -88,6 +127,16 @@
     out.settings.phases.forEach((p, i) => { if (!HEX.test(p.color || "")) p.color = PALETTE[i % PALETTE.length]; });
     ensureOthers(out);
     return out;
+  }
+
+  /** Holidays: valid yyyy-mm-dd dates only, one entry per date, sorted. */
+  function cleanHolidays(list) {
+    const byDate = new Map();
+    for (const h of Array.isArray(list) ? list : []) {
+      const date = clean(h && h.date);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date) && E.fromDay(E.toDay(date)) === date) byDate.set(date, clean(h.name));
+    }
+    return [...byDate].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([date, name]) => ({ date, name }));
   }
 
   /** Color for a new project: the first palette color no project uses yet (then cycle). */
@@ -524,5 +573,5 @@
     return n;
   }
 
-  return { PALETTE, emptyData, normalize, uid, splitNames, parseRoles, leadMatches, monicaItems, gen12Groups, gen12Items, plan, apply, mergePhases, mergePhase, resolvePhase, migratePhases, markDoneBefore, removeGen12, normName, isOthers, ensureOthers, OTHERS, projectColor };
+  return { PALETTE, emptyData, normalize, uid, splitNames, parseRoles, leadMatches, monicaItems, gen12Groups, gen12Items, plan, apply, mergePhases, mergePhase, resolvePhase, migratePhases, markDoneBefore, removeGen12, cleanHolidays, normName, isOthers, ensureOthers, OTHERS, projectColor };
 });

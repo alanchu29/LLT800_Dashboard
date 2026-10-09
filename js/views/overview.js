@@ -99,6 +99,7 @@
   function renderSoon(el, live, today, st) {
     const from = today - SOON_BEFORE;
     const to = today + SOON_AFTER;
+    const hol = M.holidays(Store.data);
     const saved = soonFold;
     const setFold = (patch) => {
       soonFold = { ...saved, ...patch };
@@ -171,7 +172,7 @@
           });
           tip.set(
             "t:" + t.id,
-            `<b>${esc(t.name)}</b><div class="muted">${esc(p.name)} › ${esc(f.name)}</div><div>${U.fmt(t.start, "wd")} – ${U.fmt(t.end, "wd")}・${M.workdays(t.start, t.end)} 個工作天</div>` +
+            `<b>${esc(t.name)}</b><div class="muted">${esc(p.name)} › ${esc(f.name)}</div><div>${U.fmt(t.start, "wd")} – ${U.fmt(t.end, "wd")}・${M.workdays(t.start, t.end, hol)} 個工作天</div>` +
               `<div>指派：${t.assignees.length ? who(t.assignees) : "未指派"}</div>${ph ? `<div class="muted">Phase：${esc(ph.label)}</div>` : ""}` +
               `${t.notes ? `<div class="tt-note">${esc(t.notes)}</div>` : ""}<div class="tt-hint">${Store.editing ? "點一下編輯" : "點一下到專案甘特"}</div>`
           );
