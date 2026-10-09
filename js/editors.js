@@ -19,6 +19,7 @@
     async project(id) {
       if (!(await App.requireEdit())) return;
       const p = id ? Store.project(id) : null;
+      if (id && !p) return App.toast("這筆資料已經被其他人刪除了", "error");
       const r = await App.form({
         title: p ? "編輯 Project" : "新增 Project",
         del: !!p,
@@ -60,6 +61,7 @@
     async pfam(id, defaults) {
       if (!(await App.requireEdit())) return;
       const f = id ? Store.pfam(id) : null;
+      if (id && !f) return App.toast("這筆資料已經被其他人刪除了", "error");
       const projectId = f ? f.projectId : (defaults && defaults.projectId) || "";
       if (!Store.data.projects.length) return App.toast("請先新增 Project", "error");
       const builtin = Convert.isOthers(f);
@@ -107,6 +109,7 @@
     async task(id, defaults) {
       if (!(await App.requireEdit())) return;
       const t = id ? Store.task(id) : null;
+      if (id && !t) return App.toast("這筆資料已經被其他人刪除了", "error");
       const pfams = Store.data.pfams;
       if (!pfams.length) return App.toast("請先新增 PFAM", "error");
       const base = t || { pfamId: (defaults && defaults.pfamId) || pfams[0].id, start: "", end: "", assignees: [], done: false, phase: "", section: "", lead: "", notes: "", baseStart: "", baseEnd: "", ...(defaults || {}) };
@@ -169,6 +172,7 @@
     async employee(id) {
       if (!(await App.requireEdit())) return;
       const e = id ? Store.emp(id) : null;
+      if (id && !e) return App.toast("這筆資料已經被其他人刪除了", "error");
       const r = await App.form({
         title: e ? "編輯員工" : "新增員工",
         del: !!e,
@@ -199,6 +203,7 @@
     async trip(id, defaults) {
       if (!(await App.requireEdit())) return;
       const tr = id ? Store.data.trips.find((x) => x.id === id) : null;
+      if (id && !tr) return App.toast("這筆資料已經被其他人刪除了", "error");
       if (!Store.data.employees.length) return App.toast("請先新增員工", "error");
       const base = tr || { empId: (defaults && defaults.empId) || Store.activeEmployees()[0]?.id || Store.data.employees[0].id, start: "", end: "", location: "", purpose: "", projectId: "", notes: "" };
       const r = await App.form({

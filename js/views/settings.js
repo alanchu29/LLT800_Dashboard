@@ -396,7 +396,7 @@
     $("#cPull").onclick = async () => {
       if (Store.meta.dirty && !confirm("本機有尚未同步的修改，重新載入會捨棄它們。確定？")) return;
       Store.meta.dirty = false;
-      await App.loadCloud();
+      await App.loadCloud({ force: true }); // a re-read is the point here, so do not let "unchanged" skip it
     };
     $("#cPush").onclick = async () => {
       if (!confirm("用這台電腦的資料覆寫雲端？")) return;

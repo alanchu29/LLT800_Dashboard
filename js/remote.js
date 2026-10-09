@@ -16,7 +16,7 @@
     } catch {
       /* unreadable: defaults */
     }
-    const c = Object.assign({ url: "", key: "", enabled: false }, saved);
+    const c = Object.assign({ url: "", key: "", enabled: false, who: "" }, saved);
     if (DEFAULT_URL && !c.url) {
       c.url = DEFAULT_URL;
       c.enabled = true;
@@ -87,16 +87,22 @@
       return r;
     },
 
-    /** -> { version, savedAt, data|null } */
-    async load() {
-      const r = await this.jsonp({ action: "bundle" });
+    /**
+     * Read the cloud dataset. Pass the version we already hold as `since` and the backend answers
+     * { unchanged: true } without reading the sheets when nothing has changed since.
+     * -> { version, savedAt, by, data|null } or { version, savedAt, by, unchanged: true }
+     */
+    async load(since) {
+      const params = { action: "bundle" };
+      if (since) params.since = since;
+      const r = await this.jsonp(params);
       if (!r || !r.ok) throw new Error((r && r.error) || "讀取失敗");
       return r;
     },
 
     /** Whole-dataset save with an optimistic lock: -> { ok, version } or { conflict, version } */
     save(data, baseVersion, force) {
-      return this.post({ action: "saveAll", data, baseVersion: force ? null : baseVersion });
+      return this.post({ action: "saveAll", data, baseVersion: force ? null : baseVersion, by: this.config.who || "" });
     },
   };
 
