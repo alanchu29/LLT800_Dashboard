@@ -45,6 +45,23 @@ ok("load: one person with two tasks counts once; unassigned counts per PFAM", ()
   assert.ok(!days[2].alert, "Wednesday: 1 of 2 busy");
 });
 
+ok("pfamLoad: a PFAM counts once, Others counts one per 2 tasks (per project, leftover counts as one)", () => {
+  const data = C.emptyData();
+  data.pfams = [
+    { id: "f1", projectId: "p1", name: "PFAM A" },
+    { id: "o1", projectId: "p1", name: "Others" },
+    { id: "o2", projectId: "p2", name: "Others" },
+  ];
+  const run = (id, pfamId) => ({ id, pfamId, start: "2026-10-05", end: "2026-10-05", assignees: [], done: false });
+  data.tasks = [run("1", "f1"), run("2", "f1"), run("3", "o1"), run("4", "o1"), run("5", "o1"), run("6", "o2")];
+  const one = (opts) => M.pfamLoad(data, d("2026-10-05"), d("2026-10-05"), { today: d("2026-10-01"), ...opts })[0];
+  const mon = one({ isOthers: C.isOthers });
+  assert.strictEqual(mon.total, 4, "f1 (2 tasks -> 1) + o1 (3 tasks -> 2) + o2 (1 task -> 1)");
+  assert.deepStrictEqual([...mon.units.values()].map((u) => u.tasks.map((t) => t.id)), [["1", "2"], ["3", "4"], ["5"], ["6"]], "Others paired in task order");
+  assert.strictEqual(one({ isOthers: C.isOthers, projectIds: new Set(["p1"]) }).total, 3, "one project only");
+  assert.strictEqual(one({}).total, 3, "no isOthers: every PFAM counts once");
+});
+
 ok("holidays: skipped by load, pfamLoad and workdays; normalize keeps one valid entry per date", () => {
   const data = C.normalize({
     settings: { holidays: [{ date: "2026-10-09", name: "x" }, { date: "2026-10-09", name: "國慶日補假" }, { date: "2026-02-30" }, { date: "junk" }] },

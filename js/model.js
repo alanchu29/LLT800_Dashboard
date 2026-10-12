@@ -167,9 +167,41 @@
     return out;
   }
 
+  /** In a catch-all PFAM ("Others") this many tasks count as one PFAM. */
+  const OTHERS_PER_PFAM = 2;
+
   /**
-   * Concurrent PFAMs per workday (holidays skipped) in [from, to]: a PFAM counts once when any of its tasks runs that day; in a
-   * catch-all PFAM (opts.isOthers(pfam), i.e. "Others") every task counts as one PFAM of its own.
+   * How many PFAMs a set of tasks counts as: the tasks of one PFAM count as 1, but in a catch-all PFAM
+   * (isOthers(pfam), i.e. "Others") every OTHERS_PER_PFAM tasks count as one PFAM of their own -- a leftover
+   * task still counts as one. Tasks are paired per "Others" PFAM (so per Project) in the order given.
+   * pfamOf(task) -> the task's pfam (null / undefined: skipped); isOthers(pfam) optional.
+   * -> Map(key -> { pfam, projectId, tasks, others })
+   */
+  function pfamUnits(tasks, pfamOf, isOthers) {
+    const units = new Map();
+    const others = new Map(); // "Others" pfam -> its tasks, paired up below
+    for (const t of tasks) {
+      const f = pfamOf(t);
+      if (!f) continue;
+      if (isOthers && isOthers(f)) {
+        if (!others.has(f)) others.set(f, []);
+        others.get(f).push(t);
+        continue;
+      }
+      if (!units.has(f.id)) units.set(f.id, { pfam: f, projectId: f.projectId, tasks: [], others: false });
+      units.get(f.id).tasks.push(t);
+    }
+    for (const [f, ts] of others) {
+      for (let i = 0; i < ts.length; i += OTHERS_PER_PFAM) {
+        const group = ts.slice(i, i + OTHERS_PER_PFAM);
+        units.set("t:" + group[0].id, { pfam: f, projectId: f.projectId, tasks: group, others: true });
+      }
+    }
+    return units;
+  }
+
+  /**
+   * Concurrent PFAMs per workday (holidays skipped) in [from, to], counted by pfamUnits (so "Others" pairs its tasks).
    * opts: { today, projectIds (Set, optional), pfamIds (Set, optional), isOthers(pfam) }
    * -> [{ day, units: Map(key -> { pfam, projectId, tasks, others }), total }]
    */
@@ -183,19 +215,12 @@
     const days = [];
     for (let d = from; d <= to; d++) {
       if (!E.isWorkday(d, hol)) continue;
-      const units = new Map();
-      for (const t of tasks) {
-        if (!occupies(t, d, opts.today)) continue;
-        const f = pf.get(t.pfamId);
-        const others = !!(opts.isOthers && opts.isOthers(f));
-        const key = others ? "t:" + t.id : f.id;
-        if (!units.has(key)) units.set(key, { pfam: f, projectId: f.projectId, tasks: [], others });
-        units.get(key).tasks.push(t);
-      }
+      const run = tasks.filter((t) => occupies(t, d, opts.today));
+      const units = pfamUnits(run, (t) => pf.get(t.pfamId), opts.isOthers);
       days.push({ day: d, units, total: units.size });
     }
     return days;
   }
 
-  return { STATUS, status, occupies, holidays, workdays, span, doneCount, weekStart, workforce, load, pfamLoad, overlapDays, tripDaysInYear, tripStats };
+  return { STATUS, status, occupies, holidays, workdays, span, doneCount, weekStart, workforce, load, pfamLoad, pfamUnits, OTHERS_PER_PFAM, overlapDays, tripDaysInYear, tripStats };
 });

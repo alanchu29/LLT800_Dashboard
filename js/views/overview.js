@@ -299,19 +299,10 @@
     };
   }
 
-  // 人力熱度 tabs: "pfam" (default on every page load) = distinct PFAMs a person works in that day (each "Others"
-  // task counts as one, like the PFAM load); "task" = tasks.
+  // 人力熱度 tabs: "pfam" (default on every page load) = PFAMs a person works in that day, counted like
+  // 同時進行的 PFAM (M.pfamUnits: one per PFAM, "Others" one per 2 tasks); "task" = tasks, counted one by one.
   let heatMode = "pfam";
-  const heatUnits = (ts) => {
-    const m = new Map(); // key -> { pfam, tasks }
-    for (const t of ts) {
-      const f = Store.pfam(t.pfamId);
-      const key = Convert.isOthers(f) ? "t:" + t.id : t.pfamId;
-      if (!m.has(key)) m.set(key, { pfam: f, tasks: [] });
-      m.get(key).tasks.push(t);
-    }
-    return [...m.values()];
-  };
+  const heatUnits = (ts) => [...M.pfamUnits(ts, (t) => Store.pfam(t.pfamId), Convert.isOthers).values()];
 
   /** Next month, one column per workday: each cell = PFAMs (or tasks) the person has that day; the top row = department load. */
   function renderHeat(el, days, today) {

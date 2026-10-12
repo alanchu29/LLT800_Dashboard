@@ -1,7 +1,7 @@
 /*
  * 同時進行的 PFAM: the band chart drawn above a Gantt's date rows (Charts.gantt opts.band) and the pill button
  * that shows / hides it, shared by 總覽 › 專案總覽 and 專案甘特.
- *   count  : a PFAM counts once on a workday when any of its tasks runs; in "Others" every task counts as one
+ *   count  : a PFAM counts once on a workday when any of its tasks runs; in "Others" every 2 tasks count as one
  *   limit  : the active headcount
  */
 (function () {
@@ -65,7 +65,7 @@
 
     const band = {
       title: "同時進行的 PFAM",
-      sub: `同一 PFAM 只算 1・Others 每個 task 算 1${custom ? "" : `<br>人力上限＝計入人力的在職 ${head} 人`}<br>點柱子＝只看那天的 task`,
+      sub: `同一 PFAM 只算 1・Others 每 ${M.OTHERS_PER_PFAM} 個 task 算 1${custom ? "" : `<br>人力上限＝計入人力的在職 ${head} 人`}<br>點柱子＝只看那天的 task`,
       cap,
       capLabel,
       capNote: !cap ? opts.capNote || "" : "",
@@ -113,7 +113,7 @@
       .filter((p) => by.has(p.id))
       .map((p) => {
         const us = by.get(p.id);
-        const names = us.map((u) => (u.others ? `${u.pfam.name}：${u.tasks[0].name}` : u.pfam.name));
+        const names = us.map((u) => (u.others ? `${u.pfam.name}：${u.tasks.map((t) => t.name).join("、")}` : u.pfam.name));
         const pOver = d.projOver.includes(p);
         return `<div class="tt-sec"><i class="dot" style="--c:${p.color}"></i> ${esc(p.name)}・${us.length} 個${pOver ? `<span class="late">（超過警戒 ${p.pfamCap} 個）</span>` : ""}</div>${names
           .slice(0, 8)
