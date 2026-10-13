@@ -62,6 +62,20 @@ ok("pfamLoad: a PFAM counts once, Others counts one per 2 tasks (per project, le
   assert.strictEqual(one({}).total, 3, "no isOthers: every PFAM counts once");
 });
 
+ok("load: unassigned follows the same PFAM rule (Others: one per 2 tasks)", () => {
+  const data = C.emptyData();
+  data.employees = [{ id: "a", name: "A", active: true }];
+  data.pfams = [{ id: "f1", projectId: "p1", name: "PFAM A" }, { id: "o1", projectId: "p1", name: "Others" }];
+  const run = (id, pfamId, who) => ({ id, pfamId, start: "2026-10-05", end: "2026-10-05", assignees: who || [], done: false });
+  data.tasks = [run("1", "f1", ["a"]), run("2", "f1"), run("3", "o1"), run("4", "o1"), run("5", "o1")];
+  const one = (opts) => M.load(data, d("2026-10-05"), d("2026-10-05"), { today: d("2026-10-01"), ...opts })[0];
+  const mon = one({ isOthers: C.isOthers });
+  assert.strictEqual(mon.unassigned.size, 3, "f1 (1 task left) + o1 (3 tasks -> 2)");
+  assert.deepStrictEqual([...mon.unassigned.values()].map((u) => u.tasks.map((t) => t.id)), [["2"], ["3", "4"], ["5"]]);
+  assert.strictEqual(mon.demand, 4, "1 busy + 3 unassigned");
+  assert.strictEqual(one({}).unassigned.size, 2, "no isOthers: all of Others counts as one PFAM");
+});
+
 ok("holidays: skipped by load, pfamLoad and workdays; normalize keeps one valid entry per date", () => {
   const data = C.normalize({
     settings: { holidays: [{ date: "2026-10-09", name: "x" }, { date: "2026-10-09", name: "國慶日補假" }, { date: "2026-02-30" }, { date: "junk" }] },

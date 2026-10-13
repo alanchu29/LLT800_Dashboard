@@ -494,7 +494,7 @@
       ${multi ? `<div class="legend">${projects.map((p) => `<span class="lg"><i style="background:${p.color}"></i>${esc(p.name)}</span>`).join("")}</div>` : ""}`;
 
     // Alert days only make sense for the whole department.
-    const days = multi ? M.load(Store.data, r.from, r.to, { today, projectIds: sel, pfamIds }) : [];
+    const days = multi ? M.load(Store.data, r.from, r.to, { today, projectIds: sel, pfamIds, isOthers: Convert.isOthers }) : [];
     LoadView.renderPeople($("#allocPeople"), days, sel, r.from, r.to, null, today, { zoom, fit: true, involvedOnly: !multi, byPhase: !multi, pfamIds });
 
     // Keep the people timeline scrolled with the Gantt above.

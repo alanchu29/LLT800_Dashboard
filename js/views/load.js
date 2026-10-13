@@ -44,7 +44,7 @@
     const [from, to] = range(today);
     const projects = Store.liveProjects();
     const sel = ui.loadProjects && ui.loadProjects.length ? new Set(ui.loadProjects.filter((id) => Store.project(id))) : new Set(projects.map((p) => p.id));
-    const days = M.load(data, from, to, { today, projectIds: sel });
+    const days = M.load(data, from, to, { today, projectIds: sel, isOthers: Convert.isOthers });
     const alerts = days.filter((d) => d.alert);
     const peak = days.reduce((m, d) => (!m || d.demand > m.demand ? d : m), null);
     const avg = days.length ? days.reduce((n, d) => n + d.busy.size, 0) / days.length : 0;
@@ -168,7 +168,7 @@
       <header class="card-h"><h3>📌 ${fmt(d.day, "full")}</h3><span class="muted">忙碌 ${d.busy.size} / ${d.head} 人${d.unassigned.size ? `・未指派 ${d.unassigned.size} 個 PFAM` : ""}</span>${d.alert ? `<b class="late">⚠ 超出部門人力</b>` : ""}<button class="link" id="unpin" type="button">取消標記</button></header>
       <div class="pin-grid">
         <div><h4>空閒（${d.idle.length}）</h4>${d.idle.length ? `<div class="namecloud">${d.idle.map((e) => `<a class="pname free" href="#/people/${e.id}">${esc(e.name)}</a>`).join("")}</div>` : `<p class="muted">沒有人空著</p>`}
-          ${d.unassigned.size ? `<h4>未指派</h4><ul class="plain">${[...d.unassigned.entries()].map(([fid, ts]) => `<li><b>${esc((Store.pfam(fid) || {}).name || "")}</b> <small class="muted">${esc(ts.map((t) => t.name).join("、"))}</small></li>`).join("")}</ul>` : ""}</div>
+          ${d.unassigned.size ? `<h4>未指派</h4><ul class="plain">${[...d.unassigned.values()].map((u) => `<li><b>${esc(u.pfam.name || "")}</b> <small class="muted">${esc(u.tasks.map((t) => t.name).join("、"))}</small></li>`).join("")}</ul>` : ""}</div>
         <div><h4>忙碌（${d.busy.size}）</h4><ul class="plain">${busy.map(([id, ts]) => `<li><a href="#/people/${id}">${esc(Store.empName(id))}</a> <small class="muted">${esc(ts.map((t) => `${t.name}（${(Store.pfam(t.pfamId) || {}).name || ""}）`).join("、"))}</small></li>`).join("")}</ul></div>
       </div></section>`;
     $("#unpin").onclick = () => (Store.setUi({ loadPin: null }), App.render());
@@ -230,19 +230,15 @@
         );
       }
     }
-    // Unassigned work, one row per PFAM.
+    // Unassigned work, one row per PFAM ("Others": one row per 2 tasks, counted like 同時進行的 PFAM).
     const activeIds = new Set(Store.workforce().map((e) => e.id));
     const un = tasks.filter((t) => !t.assignees.some((id) => activeIds.has(id)) && M.status(t, today) !== "done");
-    const byPfam = new Map();
-    for (const t of un) {
-      if (!byPfam.has(t.pfamId)) byPfam.set(t.pfamId, []);
-      byPfam.get(t.pfamId).push(t);
-    }
+    const byPfam = M.pfamUnits(un, (t) => Store.pfam(t.pfamId) || { id: t.pfamId, projectId: "" }, Convert.isOthers);
     if (byPfam.size) {
       rows.push({ id: "un", kind: "sub", label: `<span class="g-sec">未指派（${byPfam.size} 個 PFAM）</span>`, bars: [] });
-      for (const [fid, ts] of byPfam) {
-        lanes(ts).forEach((l, i) =>
-          rows.push({ id: "u:" + fid + ":" + i, kind: i ? "lane" : "person", cls: "unassigned", label: i ? "" : `<span class="g-name">${esc((Store.pfam(fid) || {}).name || "")}</span>`, meta: i ? "" : `${ts.length} 件`, bars: l.tasks.map(barOf) })
+      for (const [key, u] of byPfam) {
+        lanes(u.tasks).forEach((l, i) =>
+          rows.push({ id: "u:" + key + ":" + i, kind: i ? "lane" : "person", cls: "unassigned", label: i ? "" : `<span class="g-name">${esc(u.pfam.name || "")}</span>`, meta: i ? "" : `${u.tasks.length} 件`, bars: l.tasks.map(barOf) })
         );
       }
     }

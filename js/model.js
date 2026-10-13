@@ -82,7 +82,8 @@
   /**
    * Department load for each workday in [from, to] (weekends and settings.holidays skipped).
    * busy       = active employees with at least one task on that day (counted once however many tasks)
-   * unassigned = PFAMs with a task on that day that has no active assignee (each such PFAM needs at least one person)
+   * unassigned = PFAMs with a task on that day that has no active assignee (each such PFAM needs at least one person),
+   *              counted by pfamUnits, so "Others" needs one person per OTHERS_PER_PFAM tasks
    * alert      = demand reaches the headcount ("full") or busy share reaches alertPct ("pct")
    */
   /** Active people who count as manpower: active and not named in settings.notCounted (e.g. the manager). */
@@ -102,6 +103,7 @@
   function load(data, from, to, opts) {
     opts = opts || {};
     const today = opts.today;
+    const pf = new Map(data.pfams.map((f) => [f.id, f]));
     const active = workforce(data);
     const activeIds = new Set(active.map((e) => e.id));
     const head = active.length;
@@ -114,19 +116,17 @@
     for (let d = from; d <= to; d++) {
       if (!E.isWorkday(d, hol)) continue;
       const busy = new Map(); // empId -> [task]
-      const unassigned = new Map(); // pfamId -> [task]
+      const nobody = []; // tasks with no active assignee, grouped into PFAM units below
       for (const t of tasks) {
         if (!occupies(t, d, today)) continue;
         const who = t.assignees.filter((id) => activeIds.has(id));
-        if (!who.length) {
-          if (!unassigned.has(t.pfamId)) unassigned.set(t.pfamId, []);
-          unassigned.get(t.pfamId).push(t);
-        }
+        if (!who.length) nobody.push(t);
         for (const id of who) {
           if (!busy.has(id)) busy.set(id, []);
           busy.get(id).push(t);
         }
       }
+      const unassigned = pfamUnits(nobody, (t) => pf.get(t.pfamId) || { id: t.pfamId, projectId: "" }, opts.isOthers); // key -> { pfam, tasks, ... }
       const demand = busy.size + unassigned.size;
       const alert = head > 0 && (mode === "pct" ? (busy.size / head) * 100 >= pct : demand >= head);
       days.push({ day: d, busy, unassigned, head, demand, alert, idle: active.filter((e) => !busy.has(e.id)) });

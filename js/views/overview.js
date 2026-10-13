@@ -35,7 +35,7 @@
     const activeProjects = live.filter((p) => Store.tasksOfProject(p.id).some((t) => st.get(t.id) === "active"));
     const weekTasks = tasks.filter((t) => st.get(t.id) !== "done" && D(t.start) <= ws + 6 && D(t.end) >= ws);
     const late = tasks.filter((t) => st.get(t.id) === "late").sort((a, b) => a.end.localeCompare(b.end));
-    const loadDays = M.load(data, today, today + HEAT_DAYS, { today, projectIds: liveIds });
+    const loadDays = M.load(data, today, today + HEAT_DAYS, { today, projectIds: liveIds, isOthers: Convert.isOthers });
     const now = loadDays.find((d) => d.day >= today);
     const [yy, mm] = E.fromDay(today).split("-");
     const mStart = E.toDay(`${yy}-${mm}-01`);

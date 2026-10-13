@@ -304,13 +304,13 @@
     const busy = [...d.busy.entries()]
       .map(([id, ts]) => ({ name: Store.empName(id), ts }))
       .sort((a, b) => a.name.localeCompare(b.name));
-    const un = [...d.unassigned.entries()].map(([fid, ts]) => ({ f: Store.pfam(fid), ts }));
+    const un = [...d.unassigned.values()].map((u) => ({ f: u.pfam, ts: u.tasks }));
     const line = (ts) => esc(ts.slice(0, 2).map((t) => t.name).join("、") + (ts.length > 2 ? ` 等 ${ts.length} 件` : ""));
     return `<b>${fmt(d.day, "full")}</b>
       <div class="tt-big">忙碌 ${d.busy.size} / ${d.head} 人${d.unassigned.size ? `　＋ 未指派 ${d.unassigned.size} 個 PFAM` : ""}</div>
       ${d.alert ? `<div class="tt-alert">⚠ 超出部門人力</div>` : ""}
       ${busy.length ? `<div class="tt-sec">忙碌</div>${busy.slice(0, 10).map((b) => `<div class="tt-row"><span>${esc(b.name)}</span><small>${line(b.ts)}</small></div>`).join("")}${busy.length > 10 ? `<div class="muted">…還有 ${busy.length - 10} 人</div>` : ""}` : ""}
-      ${un.length ? `<div class="tt-sec">未指派</div>${un.slice(0, 6).map((u) => `<div class="tt-row"><span>${esc(u.f ? u.f.name : "?")}</span><small>${line(u.ts)}</small></div>`).join("")}` : ""}
+      ${un.length ? `<div class="tt-sec">未指派</div>${un.slice(0, 6).map((u) => `<div class="tt-row"><span>${esc((u.f && u.f.name) || "?")}</span><small>${line(u.ts)}</small></div>`).join("")}` : ""}
       <div class="tt-sec">空閒</div><div>${d.idle.length ? esc(d.idle.map((e) => e.name).join("、")) : "沒有人空著"}</div>`;
   }
 
