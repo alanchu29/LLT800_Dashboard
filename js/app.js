@@ -35,7 +35,16 @@
         el.appendChild(b);
       }
       $("#toasts").appendChild(el);
-      setTimeout(() => el.remove(), kind === "error" ? 9000 : actions ? 8000 : 3500);
+      // Mid-screen, so it is seen; a plain note goes in 3 s, one with a button or an error stays long
+      // enough to act on, and none goes while the pointer is on it.
+      const close = () => {
+        el.classList.add("out");
+        setTimeout(() => el.remove(), 200);
+      };
+      const life = kind === "error" ? 8000 : actions && actions.length ? 6000 : 3000;
+      let timer = setTimeout(close, life);
+      el.onmouseenter = () => clearTimeout(timer);
+      el.onmouseleave = () => (timer = setTimeout(close, 1500));
     },
 
     // ------------------------------------------------------------ form dialog

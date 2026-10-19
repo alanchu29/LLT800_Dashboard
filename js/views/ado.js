@@ -2,7 +2,7 @@
  * ADO Task: the department's open Azure DevOps work items, in two readings of the same snapshot.
  *   看板     - every open item, with facet filters, distribution bars and a sortable list
  *   我的成員 - the same items paired with the 員工名冊, so each member's ADO workload is visible
- *              next to the department's own tasks, and ADO accounts nobody on the roster owns stand out
+ *              and ADO accounts nobody on the roster owns stand out
  *
  * The snapshot comes from js/ado.js (REST or a CSV) and lives in this browser only - it is another
  * system's data, so it is never written into the department dataset or the cloud sheet. The one thing
@@ -10,17 +10,20 @@
  */
 (function () {
   const A = window.AdoModel;
-  const M = window.Model;
   const E = window.Engine;
   const { $, $$, esc } = U;
 
   const PHASE = new Map(A.PHASES.map((p) => [p.key, p]));
   const DIM_LABEL = { assignee: "負責人", type: "類型", state: "狀態", tag: "專案標籤", ageBucket: "停滯區間" };
-  const QUICK_LABEL = { stale: `停滯 > ${A.STALE_DAYS - 1} 天`, unassigned: "未指派", noNoise: "排除 Worklog / Release Note", roster: "只看名冊成員", outside: "只看名冊外" };
+  const QUICK_LABEL = { stale: `停滯 > ${A.STALE_DAYS - 1} 天`, noNoise: "排除 Worklog / Release Note" };
+  // Whose items: a roster name, any other name, or nobody - disjoint, so at most one is on.
+  const SCOPES = [["", "全部"], ["roster", "名冊成員"], ["outside", "名冊外"], ["unassigned", "未指派"]];
+  const FACET_LIMIT = 12; // chips a facet shows before 更多
 
   // Filters, sort and the open person live in this module: they are a way of looking at the page,
   // not data, so they survive re-renders but not a reload.
   const F = { search: "", assignee: [], type: [], state: [], tag: [], age: "", from: "", to: "", quick: {}, group: "", sort: "ageDays", dir: "desc" };
+  const moreOpen = new Set(); // facets showing every value
   let openEmp = "";
   let autoTried = false; // the one automatic fetch per visit (see maybeAutoFetch)
   let snapshot = null; // { at, records } -> memoised normalise() result, see rows()
@@ -47,6 +50,13 @@
     F.age = F.from = F.to = "";
     F.quick = {};
     for (const d of A.DIMS) F[d] = [];
+  }
+
+  /** A quick toggle or a scope ("" = every scope off). */
+  function toggleQuick(k) {
+    const on = !!k && !F.quick[k];
+    if (!k || SCOPES.some(([s]) => s === k)) for (const [s] of SCOPES) if (s) F.quick[s] = false;
+    if (k) F.quick[k] = on;
   }
 
   function toggleValue(dim, value) {
@@ -202,9 +212,8 @@
     const list = A.sort(A.filter(all, f), F.sort, F.dir);
     const rosterNames = new Set(pair.empOf.keys());
     const mine = all.filter((r) => rosterNames.has(r.assignee)).length;
-    const outside = all.filter((r) => !rosterNames.has(r.assignee) && !r.unassigned).length;
     const stale = all.filter((r) => r.stale).length;
-    const mid = A.median(all.filter((r) => r.ageDays >= 0).map((r) => r.ageDays));
+    const scopeOn = (SCOPES.find(([s]) => s && F.quick[s]) || [""])[0];
 
     const kpi = (label, value, note, opts) =>
       `<${opts.act ? "button" : "div"} class="kpi${opts.tone ? " " + opts.tone : ""}${opts.on ? " on" : ""}"${opts.act ? ` type="button" data-kpi="${opts.act}"` : ""}>
@@ -214,10 +223,8 @@
       <section class="kpis small ado-kpis">
         ${kpi("未完成項目", all.length, anyFilter() ? `篩選後 <b>${list.length}</b> 筆` : "點下方條件可篩選", { act: "clear", on: !anyFilter() })}
         ${kpi("名冊成員的項目", mine, `${pair.byEmp.size} 位成員・名冊 ${Store.data.employees.filter((e) => e.active).length} 人`, { act: "roster", on: !!F.quick.roster })}
-        ${kpi("名冊外負責人", outside, `${pair.unmatched.size} 個未對應帳號`, { act: "outside", on: !!F.quick.outside, tone: pair.unmatched.size ? "" : "good" })}
         ${kpi("未指派", all.filter((r) => r.unassigned).length, "沒有 Assigned To", { act: "unassigned", on: !!F.quick.unassigned })}
         ${kpi(`停滯 > ${A.STALE_DAYS - 1} 天`, stale, `占 ${all.length ? Math.round((stale / all.length) * 100) : 0}%`, { act: "stale", on: !!F.quick.stale, tone: stale ? "bad" : "good" })}
-        ${kpi("停滯中位數", mid, "天未更新", { tone: mid > 90 ? "bad" : "" })}
       </section>
 
       <section class="card ado-filters">
@@ -226,20 +233,18 @@
           <label class="field-inline"><span>停滯</span><select id="fAge">
             <option value="">全部</option>
             ${A.AGE_BUCKETS.map((b) => `<option value="${b.key}"${F.age === b.key ? " selected" : ""}>${esc(b.label)}</option>`).join("")}
-            <option value="181-99999"${F.age === "181-99999" ? " selected" : ""}>超過 180 天</option>
           </select></label>
           <label class="field-inline"><span>更新日期</span><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="最後更新起"> – <input type="date" id="fTo" value="${esc(F.to)}" aria-label="最後更新迄"></label>
-          <label class="field-inline"><span>分組</span><select id="fGroup">
-            <option value="">不分組</option>
-            ${["assignee", "type", "state", "tag", "ageBucket"].map((d) => `<option value="${d}"${F.group === d ? " selected" : ""}>依${esc(DIM_LABEL[d])}</option>`).join("")}
-          </select></label>
         </div>
-        <div class="chips ado-quick">
-          <span class="muted">快捷</span>
-          ${Object.keys(QUICK_LABEL).map((k) => `<button type="button" class="chip${F.quick[k] ? " on" : ""}" style="--c:var(--brand)" data-quick="${k}">${esc(QUICK_LABEL[k])}</button>`).join("")}
+        <div class="ado-fgrid">
+          <span class="fl">負責人範圍</span>
+          <div class="fv"><div class="seg small" role="group" aria-label="負責人範圍">${SCOPES.map(
+            ([k, label]) => `<button type="button" data-scope="${k}" class="${scopeOn === k ? "on" : ""}" aria-pressed="${scopeOn === k}">${esc(label)}</button>`
+          ).join("")}</div>
+            ${Object.keys(QUICK_LABEL).map((k) => `<button type="button" class="chip${F.quick[k] ? " on" : ""}" style="--c:var(--brand)" data-quick="${k}" aria-pressed="${!!F.quick[k]}">${F.quick[k] ? "✓ " : ""}${esc(QUICK_LABEL[k])}</button>`).join("")}</div>
+          ${A.DIMS.map((dim) => facetRow(dim, all, f)).join("")}
         </div>
-        ${A.DIMS.map((dim) => facetGroup(dim, all, f)).join("")}
-        ${anyFilter() ? `<div class="ado-applied"><span class="muted">已套用</span>${appliedChips()}<button class="btn small" id="fClear" type="button">全部清除</button></div>` : ""}
+        <div class="ado-result"><span>顯示 <b>${list.length}</b> / ${all.length} 筆</span>${anyFilter() ? `<button class="btn small" id="fClear" type="button">清除全部篩選</button>` : ""}</div>
       </section>
 
       <details class="card fold-card" id="adoCharts" ${Store.ui.adoChartsOpen === false ? "" : "open"}>
@@ -257,6 +262,10 @@
 
       <section class="card">
         <header class="card-h"><h3>項目清單</h3><span class="muted">${list.length} 筆${anyFilter() ? `（共 ${all.length}）` : ""}</span><span class="grow"></span>
+          <label class="field-inline"><span>分組</span><select id="fGroup">
+            <option value="">不分組</option>
+            ${["assignee", "type", "state", "tag", "ageBucket"].map((d) => `<option value="${d}"${F.group === d ? " selected" : ""}>依${esc(DIM_LABEL[d])}</option>`).join("")}
+          </select></label>
           <button class="btn small" id="adoExport" type="button">匯出 CSV</button>
           <button class="btn small" id="adoMd" type="button">複製 Markdown</button></header>
         <div id="adoTable"></div>
@@ -285,19 +294,18 @@
     if ($("#fClear")) $("#fClear").onclick = () => (clearAll(), redraw());
 
     el.onclick = (ev) => {
-      const q = ev.target.closest("[data-quick]");
-      if (q) {
-        const k = q.dataset.quick;
-        F.quick[k] = !F.quick[k];
-        if (F.quick.roster && F.quick.outside) F.quick[k === "roster" ? "outside" : "roster"] = false; // mutually exclusive
-        return redraw();
-      }
+      const q = ev.target.closest("[data-quick],[data-scope]");
+      if (q) return (toggleQuick(q.dataset.quick ?? q.dataset.scope), redraw());
       const kpiBtn = ev.target.closest("[data-kpi]");
       if (kpiBtn) {
         const k = kpiBtn.dataset.kpi;
         if (k === "clear") return (clearAll(), redraw());
-        F.quick[k] = !F.quick[k];
-        if (F.quick.roster && F.quick.outside) F.quick[k === "roster" ? "outside" : "roster"] = false;
+        return (toggleQuick(k), redraw());
+      }
+      const more = ev.target.closest("[data-more]");
+      if (more) {
+        const d = more.dataset.more;
+        if (!moreOpen.delete(d)) moreOpen.add(d);
         return redraw();
       }
       const pick = ev.target.closest("[data-pick]");
@@ -307,17 +315,6 @@
           return redraw();
         }
         return toggleValue(pick.dataset.pick, pick.dataset.val);
-      }
-      const off = ev.target.closest("[data-off]");
-      if (off) {
-        const [kind, val] = [off.dataset.off, off.dataset.val || ""];
-        if (kind === "quick") F.quick[val] = false;
-        else if (kind === "search") F.search = "";
-        else if (kind === "age") F.age = "";
-        else if (kind === "from") F.from = "";
-        else if (kind === "to") F.to = "";
-        else F[kind] = F[kind].filter((v) => v !== val);
-        return redraw();
       }
     };
 
@@ -354,34 +351,29 @@
     renderTable($("#adoTable"), list, pair);
   }
 
-  /** One foldable facet: every value of a dimension with its count after the other filters. */
-  function facetGroup(dim, all, f) {
+  /**
+   * One facet as a label + chips row: every value with its count after the other filters. A picked
+   * value stays even when the others bring it to 0, so it can always be un-picked where it was picked.
+   */
+  function facetRow(dim, all, f) {
     const counts = A.facet(all, f, dim);
-    const pairs = A.toSortedPairs(counts);
     const sel = F[dim];
+    for (const v of sel) if (!counts.has(v)) counts.set(v, 0);
+    const pairs = A.toSortedPairs(counts);
     if (!pairs.length) return "";
-    return `<details class="ado-facet"${sel.length ? " open" : ""}>
-      <summary>${esc(DIM_LABEL[dim])} <span class="count">${sel.length ? `${sel.length} / ${pairs.length}` : pairs.length}</span></summary>
-      <div class="chips">${pairs
-        .map(
-          (p) =>
-            `<button type="button" class="chip${sel.includes(p.key) ? " on" : ""}" style="--c:var(--brand)" data-pick="${dim}" data-val="${esc(p.key)}" title="${esc(p.key)}">${esc(
-              dim === "assignee" ? shortOf(p.key) : p.key
-            )} <b>${p.value}</b></button>`
-        )
-        .join("")}</div></details>`;
-  }
-
-  function appliedChips() {
-    const out = [];
-    const chip = (kind, label, val) => `<button type="button" class="ado-chip" data-off="${kind}" data-val="${esc(val || "")}">${esc(label)} <span aria-hidden="true">✕</span></button>`;
-    if (F.search) out.push(chip("search", `搜尋：${F.search}`));
-    for (const dim of A.DIMS) for (const v of F[dim]) out.push(chip(dim, `${DIM_LABEL[dim]}：${dim === "assignee" ? shortOf(v) : v}`, v));
-    if (F.age) out.push(chip("age", `停滯：${(A.bucket(F.age) || { label: "超過 180 天" }).label}`));
-    if (F.from) out.push(chip("from", `更新 ≥ ${F.from}`));
-    if (F.to) out.push(chip("to", `更新 ≤ ${F.to}`));
-    for (const k of Object.keys(F.quick)) if (F.quick[k]) out.push(chip("quick", QUICK_LABEL[k], k));
-    return `<div class="ado-chips">${out.join("")}</div>`;
+    const showAll = moreOpen.has(dim) || pairs.length <= FACET_LIMIT + 2; // never hide just one or two
+    const shown = showAll ? pairs : pairs.filter((p, i) => i < FACET_LIMIT || sel.includes(p.key));
+    const hidden = pairs.length - shown.length;
+    const chip = (p) => {
+      const on = sel.includes(p.key);
+      return `<button type="button" class="chip${on ? " on" : ""}${p.value ? "" : " zero"}" style="--c:var(--brand)" data-pick="${dim}" data-val="${esc(p.key)}" title="${esc(p.key)}" aria-pressed="${on}">${on ? "✓ " : ""}${esc(
+        dim === "assignee" ? shortOf(p.key) : p.key
+      )} <b>${p.value}</b></button>`;
+    };
+    return `<span class="fl">${esc(DIM_LABEL[dim])}${sel.length ? ` <span class="count">${sel.length}</span>` : ""}</span>
+      <div class="fv chips">${shown.map(chip).join("")}${
+        hidden ? `<button type="button" class="chip more" data-more="${dim}">+${hidden} 更多</button>` : moreOpen.has(dim) && pairs.length > FACET_LIMIT + 2 ? `<button type="button" class="chip more" data-more="${dim}">收合</button>` : ""
+      }</div>`;
   }
 
   const SORTS = [
@@ -410,7 +402,7 @@
       return `<tr>
         <td class="col-id">${idLink(r)}</td>
         <td class="col-who" title="${esc(r.assignee)}">${r.unassigned ? `<span class="muted">${esc(r.who)}</span>` : esc(r.who)}${
-          empId ? `<a class="tag" href="#/ado/members" title="名冊成員">名冊</a>` : r.unassigned ? "" : `<span class="tag ghost" title="名冊裡找不到這個 ADO 帳號">名冊外</span>`
+          empId || r.unassigned ? "" : `<a class="tag ghost" href="#/ado/members" title="名冊裡找不到這個 ADO 帳號：到「我的成員」對應">名冊外</a>`
         }</td>
         <td>${esc(r.type)}</td>
         <td>${stateTag(r)}</td>
@@ -445,18 +437,15 @@
 
   // ------------------------------------------------------------------ 我的成員
   function renderMembers(el, snap, pair) {
-    const today = U.today();
     const emps = [...Store.data.employees].sort((a, b) => b.active - a.active || 0);
     const matched = [...pair.byEmp.values()].reduce((n, rs) => n + rs.length, 0);
-    const outsideRows = [...pair.unmatched.values()].reduce((n, rs) => n + rs.length, 0);
-    const unassigned = snap.rows.filter((r) => r.unassigned);
+    const unassigned = snap.rows.filter((r) => r.unassigned && !r.isNoise); // a Release Note with no owner is normal
     const withWork = emps.filter((e) => (pair.byEmp.get(e.id) || []).length).length;
 
     el.innerHTML = `
       <section class="kpis small">
         <div class="kpi"><span class="kpi-l">名冊成員的 ADO 項目</span><span class="kpi-v">${matched}</span><span class="kpi-s">${withWork} / ${emps.filter((e) => e.active).length} 位在職成員手上有項目</span></div>
-        <div class="kpi${pair.unmatched.size ? " bad" : " good"}"><span class="kpi-l">名冊外的負責人</span><span class="kpi-v">${pair.unmatched.size}<small> 人</small></span><span class="kpi-s">${outsideRows} 筆項目・需要對應或確認</span></div>
-        <div class="kpi"><span class="kpi-l">未指派</span><span class="kpi-v">${unassigned.length}</span><span class="kpi-s">ADO 上沒有 Assigned To</span></div>
+        <div class="kpi"><span class="kpi-l">未指派</span><span class="kpi-v">${unassigned.length}</span><span class="kpi-s">沒有 Assigned To（不含 Worklog / Release Note）</span></div>
         <div class="kpi"><span class="kpi-l">停滯 > ${A.STALE_DAYS - 1} 天</span><span class="kpi-v">${[...pair.byEmp.values()].flat().filter((r) => r.stale).length}</span><span class="kpi-s">成員手上最久沒更新的項目</span></div>
       </section>
 
@@ -465,8 +454,9 @@
         <div id="mTable"></div></section>
       <div id="mDetail"></div>
 
-      <section class="card"><header class="card-h"><h3>名冊外的負責人</h3><span class="muted">ADO 上有項目，但名冊裡找不到對應的人</span></header>
-        <div id="mOutside"></div></section>
+      <details class="card fold-card" id="mOutsideFold" ${Store.ui.adoOutsideOpen ? "open" : ""}>
+        <summary class="card-h"><h3>名冊外的負責人（${pair.unmatched.size}）</h3><span class="muted">ADO 上有項目，但名冊裡找不到對應的人</span></summary>
+        <div id="mOutside"></div></details>
 
       ${
         unassigned.length
@@ -477,18 +467,20 @@
           : ""
       }`;
 
-    renderMemberTable($("#mTable"), emps, pair, today);
+    renderMemberTable($("#mTable"), emps, pair);
     renderOutside($("#mOutside"), pair);
-    if (openEmp) renderMemberDetail($("#mDetail"), openEmp, pair, today);
+    $("#mOutsideFold").ontoggle = (ev) => Store.setUi({ adoOutsideOpen: ev.target.open });
+    if (openEmp) renderMemberDetail($("#mDetail"), openEmp, pair);
     if ($("#mGoUn"))
       $("#mGoUn").onclick = () => {
         clearAll();
         F.quick.unassigned = true;
+        F.quick.noNoise = true;
         App.go("#/ado");
       };
   }
 
-  function renderMemberTable(el, emps, pair, today) {
+  function renderMemberTable(el, emps, pair) {
     const list = emps
       .map((e) => ({ e, rs: pair.byEmp.get(e.id) || [] }))
       .filter((x) => x.e.active || x.rs.length)
@@ -497,7 +489,6 @@
     const rows = list
       .map(({ e, rs }) => {
         const stale = rs.filter((r) => r.stale).length;
-        const own = Store.data.tasks.filter((t) => t.assignees.includes(e.id) && ["active", "late"].includes(M.status(t, today)));
         const last = rs.map((r) => r.changed).filter(Boolean).sort().pop();
         const segs = A.PHASES.map((p) => rs.filter((r) => r.phase === p.key).length)
           .map((n, i) => (n ? `<i class="ph-${A.PHASES[i].key}" style="width:${(n / maxN) * 100}%" title="${esc(A.PHASES[i].label)}：${n}"></i>` : ""))
@@ -510,13 +501,12 @@
           <td class="num">${rs.length ? `<b>${rs.length}</b>` : `<span class="muted">0</span>`}</td>
           <td class="ado-mini"><span class="hb-track">${segs}</span></td>
           <td class="num">${stale ? `<b class="late">${stale}</b>` : `<span class="muted">—</span>`}</td>
-          <td class="num">${own.length ? `${own.length} 件` : `<span class="muted">—</span>`}</td>
           <td class="num">${last ? esc(U.fmt(last, "yy")) : `<span class="muted">—</span>`}</td>
         </tr>`;
       })
       .join("");
     el.innerHTML = `<div class="table-wrap"><table class="grid-table roster ado-members">
-      <thead><tr><th>姓名</th><th class="num">ADO 項目</th><th>狀態分布</th><th class="num">停滯 > ${A.STALE_DAYS - 1} 天</th><th class="num">部門 task 進行中</th><th class="num">最後更新</th></tr></thead>
+      <thead><tr><th>姓名</th><th class="num">ADO 項目</th><th>狀態分布</th><th class="num">停滯 > ${A.STALE_DAYS - 1} 天</th><th class="num">最後更新</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
       <div class="legend">${A.PHASES.map((p) => `<span class="lg"><i class="ph-${p.key}"></i>${esc(p.label)}</span>`).join("")}</div>`;
     el.onclick = (ev) => {
@@ -527,7 +517,7 @@
     };
   }
 
-  function renderMemberDetail(el, empId, pair, today) {
+  function renderMemberDetail(el, empId, pair) {
     const e = Store.emp(empId);
     if (!e) {
       openEmp = "";
@@ -535,32 +525,14 @@
     }
     const rs = A.sort(pair.byEmp.get(empId) || [], "ageDays", "desc");
     const names = [...pair.empOf.entries()].filter(([, id]) => id === empId).map(([n]) => n);
-    const own = Store.data.tasks.filter((t) => t.assignees.includes(empId) && ["active", "late"].includes(M.status(t, today)));
     el.innerHTML = `<section class="card detail">
       <header class="card-h"><h3>${esc(e.name)}</h3>
         <span class="muted">${rs.length} 筆 ADO 未完成項目${names.length ? `・對應 ADO 帳號：${names.map(esc).join("、")}` : ""}</span><span class="grow"></span>
         <button class="btn small" id="mFilter" type="button">在看板中只看他／她</button>
         <button class="btn small edit-only" id="mAlias" type="button">設定 ADO 帳號</button>
         <button class="icon" id="mClose" type="button" aria-label="關閉">✕</button></header>
-      <div class="detail-grid">
-        <div><h4>ADO 未完成項目（${rs.length}）</h4>
-          ${rs.length ? `<ul class="tlist ado-items">${rs.map(itemLine).join("")}</ul>` : `<p class="muted">目前沒有未完成的 ADO 項目。${A.aliasesOf(e).length ? "" : "若實際上有，請設定他／她的 ADO 帳號。"}</p>`}</div>
-        <div><h4>部門 task（進行中 ${own.length}）</h4>
-          ${
-            own.length
-              ? `<ul class="tlist">${own
-                  .map((t) => {
-                    const f = Store.pfam(t.pfamId);
-                    const p = f && Store.project(f.projectId);
-                    const k = M.status(t, today);
-                    return `<li class="st-${k}"><span class="dot" style="--c:${p ? p.color : "#888"}"></span><span class="a-main">${esc(t.name)}<small>${esc(p ? p.name : "")} › ${esc(f ? f.name : "")}</small></span><span class="a-side"><span class="pill st-${k}">${M.STATUS[k].icon} ${M.STATUS[k].label}</span>${U.range(t.start, t.end)}</span></li>`;
-                  })
-                  .join("")}</ul>`
-              : `<p class="muted">甘特圖上沒有進行中的 task</p>`
-          }
-          <p class="muted ado-note">ADO 項目來自 Azure DevOps，部門 task 來自這個 dashboard；兩邊是各自獨立的紀錄，這裡只是放在一起看他／她實際的負擔。</p>
-          <p><a href="#/load">人力資源 ›</a> <a href="#/people/${esc(empId)}">出差紀錄 ›</a></p></div>
-      </div></section>`;
+      ${rs.length ? `<ul class="tlist ado-items">${rs.map(itemLine).join("")}</ul>` : `<p class="muted">目前沒有未完成的 ADO 項目。${A.aliasesOf(e).length ? "" : "若實際上有，請設定他／她的 ADO 帳號。"}</p>`}
+      </section>`;
     $("#mClose").onclick = () => ((openEmp = ""), redraw());
     $("#mFilter").onclick = () => {
       clearAll();
@@ -742,5 +714,17 @@
     return { cfg: Ado.cfg(), count: snap ? snap.rows.length : 0, at: snap ? snap.at : "", pat: Ado.patSource(), patFile: Ado.patFile() };
   }
 
-  window.AdoView = { render, openConfig, forget, status };
+  /** Open items per roster member (empId -> rows), or null without a snapshot: 人力資源 › 每人工作 shows the count. */
+  function byEmployee() {
+    const snap = rows();
+    return snap ? A.matchRoster(snap.rows, Store.data.employees).byEmp : null;
+  }
+
+  /** 我的成員 with one person's detail open. */
+  function openMember(empId) {
+    openEmp = empId;
+    App.go("#/ado/members");
+  }
+
+  window.AdoView = { render, openConfig, forget, status, byEmployee, openMember, itemLine };
 })();

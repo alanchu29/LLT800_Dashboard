@@ -53,13 +53,13 @@
 
   const AGE_BUCKETS = [
     { key: "0-30", label: "≤30 天", min: 0, max: 30, tone: "" },
-    { key: "31-90", label: "31–90 天", min: 31, max: 90, tone: "" },
-    { key: "91-180", label: "91–180 天", min: 91, max: 180, tone: "warn" },
-    { key: "181-365", label: "181–365 天", min: 181, max: 365, tone: "serious" },
+    { key: "31-90", label: "31–90 天", min: 31, max: 90, tone: "warn" },
+    { key: "91-180", label: "91–180 天", min: 91, max: 180, tone: "serious" },
+    { key: "181-365", label: "181–365 天", min: 181, max: 365, tone: "critical" },
     { key: "366-99999", label: "> 365 天", min: 366, max: 99999, tone: "critical" },
   ];
 
-  const STALE_DAYS = 181; // what the 停滯 shortcut and the KPI mean by "stalled"
+  const STALE_DAYS = 31; // what the 停滯 shortcut and the KPI mean by "stalled": a month without an update
 
   const norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const key = (s) => String(s ?? "").toLowerCase().trim();
@@ -289,13 +289,6 @@
     return keys.map((k) => ({ key: k, rows: buckets.get(k) }));
   }
 
-  function median(nums) {
-    if (!nums.length) return 0;
-    const s = nums.slice().sort((a, b) => a - b);
-    const mid = s.length >> 1;
-    return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
-  }
-
   // ------------------------------------------------------------------ roster pairing
   /** Fold a name for comparison: drop (notes) and 【註】, punctuation to spaces, keep CJK. */
   function fold(s) {
@@ -413,7 +406,6 @@
     toSortedPairs,
     sort,
     group,
-    median,
     fold,
     shortName,
     nameTokens,

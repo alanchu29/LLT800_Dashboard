@@ -495,7 +495,7 @@
 
     // Alert days only make sense for the whole department.
     const days = multi ? M.load(Store.data, r.from, r.to, { today, projectIds: sel, pfamIds, isOthers: Convert.isOthers }) : [];
-    LoadView.renderPeople($("#allocPeople"), days, sel, r.from, r.to, null, today, { zoom, fit: true, involvedOnly: !multi, byPhase: !multi, pfamIds });
+    LoadView.renderPeople($("#allocPeople"), days, sel, r.from, r.to, today, { zoom, fit: true, involvedOnly: !multi, byPhase: !multi, pfamIds });
 
     // Keep the people timeline scrolled with the Gantt above.
     const a = document.querySelector("#projView .g-scroll");

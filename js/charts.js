@@ -1,7 +1,7 @@
 /*
  * Rendering helpers shared by the views:
  *   Charts.gantt()     timeline with a sticky label column (projects page, people timelines)
- *   Charts.loadChart() daily "busy people / headcount" columns (overview + load page)
+ *   Charts.loadTip()   tooltip for one day's load (who is busy, who is free)
  * Bars and cells carry data-tip ids; the caller supplies tooltip HTML through opts.tip(id).
  */
 (function () {
@@ -215,91 +215,7 @@
     return { from: a - pad, to: Math.max(b + pad, a + 30) };
   }
 
-  /**
-   * Daily load columns. days: Model.load() output.
-   * opts: { height, pinned, onPick(day), tip(dayObj) -> html, compact }
-   * Busy people stack at the bottom (blue), unassigned PFAMs on top (hatched); a dashed line marks the headcount.
-   * Alert days get a red cap and a ⚠ in the strip under the axis.
-   */
-  function loadChart(el, days, opts) {
-    opts = opts || {};
-    if (!days.length) {
-      el.innerHTML = `<p class="muted pad">這段期間沒有工作日</p>`;
-      return;
-    }
-    const H = opts.height || 220;
-    const head = days[0].head;
-    const maxV = Math.max(head, ...days.map((d) => d.demand), 1);
-    const yMax = Math.ceil(maxV * 1.1);
-    const padL = 34;
-    const padT = 10;
-    const padB = opts.compact ? 22 : 40;
-    const plotH = H - padT - padB;
-    const n = days.length;
-    const colW = Math.max(3, Math.min(22, Math.floor((el.clientWidth - padL - 8) / n) || 10));
-    const W = padL + n * colW + 8;
-    const y = (v) => padT + plotH - (v / yMax) * plotH;
-    const gap = colW >= 6 ? 2 : 1;
-
-    let ticks = "";
-    const step = yMax <= 6 ? 1 : yMax <= 12 ? 2 : yMax <= 30 ? 5 : 10;
-    for (let v = 0; v <= yMax; v += step) ticks += `<line class="grid" x1="${padL}" x2="${W - 4}" y1="${y(v)}" y2="${y(v)}"/><text class="tick" x="${padL - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`;
-
-    let cols = "";
-    let labels = "";
-    let lastMonth = "";
-    days.forEach((d, i) => {
-      const x0 = padL + i * colW + gap / 2;
-      const w = colW - gap;
-      const b = d.busy.size;
-      const u = d.unassigned.size;
-      const hb = y(0) - y(b);
-      const hu = y(0) - y(u);
-      const pinned = opts.pinned === d.day;
-      cols += `<g class="col${d.alert ? " alert" : ""}${pinned ? " pinned" : ""}" data-i="${i}">
-        <rect class="hit" x="${padL + i * colW}" y="${padT}" width="${colW}" height="${plotH + (opts.compact ? 6 : 16)}"/>
-        ${b ? `<rect class="busy" x="${x0}" y="${y(b)}" width="${w}" height="${hb}" rx="${Math.min(3, w / 2)}"/>` : ""}
-        ${u ? `<rect class="unas" x="${x0}" y="${y(b + u)}" width="${w}" height="${Math.max(hu - 1, 1)}"/>` : ""}
-        ${d.alert ? `<rect class="cap" x="${x0}" y="${y(Math.max(d.demand, 0)) - 4}" width="${w}" height="3" rx="1"/>` : ""}
-      </g>`;
-      const iso = E.fromDay(d.day);
-      const mon = iso.slice(0, 7);
-      if (!opts.compact && E.weekday(d.day) === 1 && colW * 5 >= 34) labels += `<text class="tick" x="${padL + i * colW}" y="${H - 22}">${fmt(d.day, "short")}</text>`;
-      if (mon !== lastMonth) {
-        labels += `<line class="mline" x1="${padL + i * colW}" x2="${padL + i * colW}" y1="${padT}" y2="${H - (opts.compact ? 18 : 8)}"/><text class="tick strong" x="${padL + i * colW + 3}" y="${H - (opts.compact ? 6 : 6)}">${+mon.slice(5)}月</text>`;
-        lastMonth = mon;
-      }
-      if (d.alert && !opts.compact) labels += `<text class="warn" x="${x0 + w / 2}" y="${y(d.demand) - 8}" text-anchor="middle">${colW >= 9 ? "⚠" : "•"}</text>`;
-    });
-    const todayIdx = days.findIndex((d) => d.day >= opts.today);
-    const todayLine =
-      todayIdx >= 0 && opts.today >= days[0].day ? `<line class="today" x1="${padL + todayIdx * colW}" x2="${padL + todayIdx * colW}" y1="${padT - 4}" y2="${y(0)}"/>` : "";
-
-    el.innerHTML = `<div class="lc-scroll"><svg class="lc" width="${W}" height="${H}" role="img" aria-label="每日忙碌人數">
-      ${ticks}${todayLine}${cols}
-      <line class="head" x1="${padL}" x2="${W - 4}" y1="${y(head)}" y2="${y(head)}"/>
-      <text class="head-t" x="${W - 6}" y="${y(head) - 5}" text-anchor="end">在職 ${head} 人</text>
-      ${labels}
-    </svg></div>`;
-
-    const svg = el.querySelector("svg");
-    svg.addEventListener("mousemove", (ev) => {
-      const g = ev.target.closest(".col");
-      if (!g) return U.tip.hide();
-      const d = days[+g.dataset.i];
-      U.tip.show(opts.tip ? opts.tip(d) : `${fmt(d.day, "full")}：忙碌 ${d.busy.size} / ${d.head}`, ev);
-    });
-    svg.addEventListener("mouseleave", () => U.tip.hide());
-    if (opts.onPick)
-      svg.addEventListener("click", (ev) => {
-        const g = ev.target.closest(".col");
-        if (g) opts.onPick(days[+g.dataset.i].day);
-      });
-    const sc = el.querySelector(".lc-scroll");
-    if (todayIdx > 0) sc.scrollLeft = Math.max(0, padL + todayIdx * colW - sc.clientWidth * 0.25);
-  }
-
-  /** Tooltip body for one load day. */
+  /** Tooltip body for one load day (the 人力熱度 department row). */
   function loadTip(d) {
     const busy = [...d.busy.entries()]
       .map(([id, ts]) => ({ name: Store.empName(id), ts }))
@@ -314,5 +230,5 @@
       <div class="tt-sec">空閒</div><div>${d.idle.length ? esc(d.idle.map((e) => e.name).join("、")) : "沒有人空著"}</div>`;
   }
 
-  window.Charts = { ZOOM, gantt, rangeFor, loadChart, loadTip, monthStarts };
+  window.Charts = { ZOOM, gantt, rangeFor, loadTip, monthStarts };
 })();
