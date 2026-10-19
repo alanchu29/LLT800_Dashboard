@@ -65,7 +65,7 @@
 
     const band = {
       title: "同時進行的 PFAM",
-      sub: `同一 PFAM 只算 1・Others 每 ${M.OTHERS_PER_PFAM} 個 task 算 1${custom ? "" : `<br>人力上限＝計入人力的在職 ${head} 人`}<br>點柱子＝只看那天的 task`,
+      sub: "點柱子＝只看那天的 task",
       cap,
       capLabel,
       capNote: !cap ? opts.capNote || "" : "",

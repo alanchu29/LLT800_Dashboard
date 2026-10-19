@@ -67,10 +67,13 @@
     redraw();
   }
 
-  /** The filter the list and the bars use; roster / outside need the pairing, so they come in as extra. */
-  function effective(pair) {
-    const f = { ...F };
-    const { roster, outside } = F.quick;
+  /**
+   * The filter the list and the bars use; roster / outside need the pairing, so they come in as extra.
+   * quick: the toggles to apply (default: all of F.quick) - the KPIs leave their own out.
+   */
+  function effective(pair, quick) {
+    const f = { ...F, quick: quick || F.quick };
+    const { roster, outside } = f.quick;
     if (roster || outside) {
       const names = new Set(pair.empOf.keys());
       f.extra = (r) => (roster ? names.has(r.assignee) : !names.has(r.assignee) && !r.unassigned);
@@ -211,8 +214,13 @@
     const f = effective(pair);
     const list = A.sort(A.filter(all, f), F.sort, F.dir);
     const rosterNames = new Set(pair.empOf.keys());
-    const mine = all.filter((r) => rosterNames.has(r.assignee)).length;
-    const stale = all.filter((r) => r.stale).length;
+    // A KPI counts like a facet chip: every other filter applied, only its own toggle left out, so the
+    // cards follow what the board shows (名冊成員 under 名冊外 is 0, as the list would be).
+    const without = (key) => A.filter(all, effective(pair, { ...F.quick, [key]: false }));
+    const mine = without("roster").filter((r) => rosterNames.has(r.assignee)).length;
+    const unassigned = without("unassigned").filter((r) => r.unassigned).length;
+    const stalePool = without("stale");
+    const stale = stalePool.filter((r) => r.stale).length;
     const scopeOn = (SCOPES.find(([s]) => s && F.quick[s]) || [""])[0];
 
     const kpi = (label, value, note, opts) =>
@@ -223,8 +231,8 @@
       <section class="kpis small ado-kpis">
         ${kpi("未完成項目", all.length, anyFilter() ? `篩選後 <b>${list.length}</b> 筆` : "點下方條件可篩選", { act: "clear", on: !anyFilter() })}
         ${kpi("名冊成員的項目", mine, `${pair.byEmp.size} 位成員・名冊 ${Store.data.employees.filter((e) => e.active).length} 人`, { act: "roster", on: !!F.quick.roster })}
-        ${kpi("未指派", all.filter((r) => r.unassigned).length, "沒有 Assigned To", { act: "unassigned", on: !!F.quick.unassigned })}
-        ${kpi(`停滯 > ${A.STALE_DAYS - 1} 天`, stale, `占 ${all.length ? Math.round((stale / all.length) * 100) : 0}%`, { act: "stale", on: !!F.quick.stale, tone: stale ? "bad" : "good" })}
+        ${kpi("未指派", unassigned, "沒有 Assigned To", { act: "unassigned", on: !!F.quick.unassigned })}
+        ${kpi(`停滯 > ${A.STALE_DAYS - 1} 天`, stale, `占 ${stalePool.length ? Math.round((stale / stalePool.length) * 100) : 0}%`, { act: "stale", on: !!F.quick.stale, tone: stale ? "bad" : "good" })}
       </section>
 
       <section class="card ado-filters">
