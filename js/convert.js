@@ -70,6 +70,23 @@
     ["2027-12-31", "開國紀念日補假"],
   ].map(([date, name]) => ({ date, name }));
 
+  const DEFAULT_LINKS = [
+    {
+      id: "l_cdp",
+      group: "工具",
+      title: "CDP Cerberus Query",
+      url: "https://cdp-api-psi.vercel.app/",
+      note: "批次貼上 SN，選廠區 / 機種 / PRD・DEV，查 Cerberus 的金鑰與憑證紀錄（一個 SN 可能有多筆）。表格可排序、篩選、點列看明細，可切 JSON、匯出 CSV；Ctrl+Enter 送出。",
+    },
+    {
+      id: "l_monica_wiki",
+      group: "工具",
+      title: "Monica Project Wiki",
+      url: "http://10.248.39.109:8082/Monica_wiki/",
+      note: "Monica 產測知識庫（Gen9～Gen12）。基礎篇給各 function 與新人：產測流程、名詞解析、各 test case 的用途與執行流程、Log 導讀。進階篇給 MTE review：結合 test plan 與 log 做 script 風險評估與 AI code review、檢查產測與 test plan 是否對齊，高風險 case 自動開 ADO ticket 指派修正。",
+    },
+  ];
+
   let seq = 0;
   function uid(prefix) {
     seq = (seq + 1) % 1296;
@@ -91,6 +108,8 @@
         editHash: "",
         gen12Roles: "STE, TE",
         holidays: DEFAULT_HOLIDAYS.map((h) => ({ ...h })), // [{ date: "yyyy-mm-dd", name }]: days off besides weekends; data without the field gets the company calendar
+        links: [], // 常用連結: [{ id, group, title, url, note }]; DEFAULT_LINKS are added by normalize
+        linksSeeded: [], // ids of the DEFAULT_LINKS this dataset has already been given
       },
       projects: [],
       pfams: [],
@@ -126,6 +145,15 @@
       p.linkName = String(p.linkName || "").trim(); // its button label ("" = 開啟 <project> 系統)
     }
     out.settings.holidays = cleanHolidays(out.settings.holidays);
+    out.settings.links = cleanLinks(out.settings.links);
+    // Each default link reaches a dataset once: one added later still shows up, one the department deleted stays deleted.
+    const seeded = new Set(Array.isArray(out.settings.linksSeeded) ? out.settings.linksSeeded : []);
+    for (const l of DEFAULT_LINKS) {
+      if (seeded.has(l.id)) continue;
+      if (!out.settings.links.some((x) => x.id === l.id || x.url === l.url)) out.settings.links.push({ ...l });
+      seeded.add(l.id);
+    }
+    out.settings.linksSeeded = [...seeded];
     migratePhases(out);
     // Colors go straight into style attributes: keep only #rgb / #rrggbb (anything else gets a palette color).
     const HEX = /^#[0-9a-f]{3}([0-9a-f]{3})?$/i;
@@ -133,6 +161,13 @@
     out.settings.phases.forEach((p, i) => { if (!HEX.test(p.color || "")) p.color = PALETTE[i % PALETTE.length]; });
     ensureOthers(out);
     return out;
+  }
+
+  /** 常用連結: http(s) only (the url goes straight into an href), trimmed, every entry with an id and a title. */
+  function cleanLinks(list) {
+    return (Array.isArray(list) ? list : [])
+      .filter((l) => l && /^https?:\/\/\S+$/i.test(clean(l.url)))
+      .map((l) => ({ id: clean(l.id) || uid("l"), group: clean(l.group), title: clean(l.title) || clean(l.url), url: clean(l.url), note: clean(l.note) }));
   }
 
   /** Holidays: valid yyyy-mm-dd dates only, one entry per date, sorted. */

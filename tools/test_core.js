@@ -102,6 +102,21 @@ ok("holidays: data without the field gets the company calendar (241 work days in
   assert.deepStrictEqual(C.normalize({ settings: { holidays: [] } }).settings.holidays, [], "a cleared list stays cleared");
 });
 
+ok("links: each default reaches a dataset once; only http(s) links are kept", () => {
+  const fresh = C.normalize({ settings: { title: "x" } }).settings;
+  assert.deepStrictEqual(fresh.links.map((l) => l.id), ["l_cdp", "l_monica_wiki"]);
+  // A dataset that already had the first default gets the new one, without a duplicate.
+  const older = C.normalize({ settings: { links: [{ id: "l_cdp", url: "https://cdp-api-psi.vercel.app/", title: "CDP" }] } }).settings;
+  assert.deepStrictEqual(older.links.map((l) => l.id), ["l_cdp", "l_monica_wiki"]);
+  // Deleted defaults stay deleted once they have been given.
+  assert.deepStrictEqual(C.normalize({ settings: { links: [], linksSeeded: fresh.linksSeeded } }).settings.links, [], "a cleared list stays cleared");
+  const kept = C.normalize({ settings: { linksSeeded: fresh.linksSeeded, links: [{ url: " https://a.example/x ", title: "" }, { url: "javascript:alert(1)", title: "bad" }, { url: "\\\\share\\dir" }] } }).settings.links;
+  assert.strictEqual(kept.length, 1);
+  assert.strictEqual(kept[0].url, "https://a.example/x");
+  assert.strictEqual(kept[0].title, "https://a.example/x", "no title -> the url");
+  assert.ok(kept[0].id, "every link gets an id");
+});
+
 ok("load: pct rule and project filter", () => {
   const data = C.emptyData();
   data.settings.alertMode = "pct";

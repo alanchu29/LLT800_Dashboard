@@ -1,4 +1,4 @@
-/* Edit dialogs for every record type (project, PFAM, task, employee, trip). All writes go through Store.commit. */
+/* Edit dialogs for every record type (project, PFAM, task, employee, trip, link). All writes go through Store.commit. */
 (function () {
   const uid = Convert.uid;
   const dateOrder = (v, all) => (all.start && all.end && all.end < all.start ? "結束日不能早於開始日" : "");
@@ -234,6 +234,35 @@
         if (tr) Object.assign(d.trips.find((x) => x.id === id), r.values);
         else d.trips.push({ id: uid("r"), ...r.values });
         d.trips.sort((a, b) => a.start.localeCompare(b.start));
+      });
+    },
+
+    async link(id, defaults) {
+      if (!(await App.requireEdit())) return;
+      const links = Store.data.settings.links;
+      const l = id ? links.find((x) => x.id === id) : null;
+      if (id && !l) return App.toast("這筆資料已經被其他人刪除了", "error");
+      const base = l || { title: "", url: "", group: (defaults && defaults.group) || "", note: "" };
+      const r = await App.form({
+        title: l ? "編輯連結" : "新增連結",
+        del: !!l,
+        fields: [
+          { key: "title", label: "名稱", required: true, value: base.title, wide: true, placeholder: "例如 Monica ADO Board" },
+          { key: "url", label: "網址", type: "url", required: true, value: base.url, wide: true, placeholder: "https://…", validate: (v) => (/^https?:\/\/\S+$/i.test(v) ? "" : "請填 http:// 或 https:// 開頭的網址") },
+          { key: "group", label: "分類", value: base.group, list: [...new Set(links.map((x) => x.group).filter(Boolean))], placeholder: "例如 ADO、文件、工具（空白＝其他）" },
+          { key: "note", label: "說明", value: base.note, wide: true, placeholder: "一句話說明用途（選填）" },
+        ],
+      });
+      if (!r) return;
+      if (r.action === "delete") {
+        if (!confirm(`刪除連結「${l.title}」？`)) return;
+        Store.commit((d) => (d.settings.links = d.settings.links.filter((x) => x.id !== id)));
+        return;
+      }
+      const v = { title: r.values.title.trim(), url: r.values.url.trim(), group: r.values.group.trim(), note: r.values.note.trim() };
+      Store.commit((d) => {
+        if (l) Object.assign(d.settings.links.find((x) => x.id === id), v);
+        else d.settings.links.push({ id: uid("l"), ...v });
       });
     },
   };
