@@ -6,6 +6,7 @@
   const D = (iso) => (iso ? E.toDay(iso) : null);
   const HEAT_DAYS = 30; // 人力熱度: today .. today + 30
   const TRIP_DAYS = 60; // 近期出差: on a trip now or leaving within 60 days
+  const TRIP_KPI_DAYS = 30; // the 出差 KPI: on a trip now or leaving within 30 days
   const SOON_BEFORE = 7; // 專案總覽: today - 7 ..
   const SOON_AFTER = 30; //            .. today + 30
 
@@ -37,10 +38,9 @@
     const late = tasks.filter((t) => st.get(t.id) === "late").sort((a, b) => a.end.localeCompare(b.end));
     const loadDays = M.load(data, today, today + HEAT_DAYS, { today, projectIds: liveIds, isOthers: Convert.isOthers });
     const now = loadDays.find((d) => d.day >= today);
-    const [yy, mm] = E.fromDay(today).split("-");
-    const mStart = E.toDay(`${yy}-${mm}-01`);
-    const mEnd = E.toDay(new Date(Date.UTC(+yy, +mm, 0)).toISOString().slice(0, 10));
-    const monthTrips = data.trips.filter((r) => D(r.start) <= mEnd && D(r.end) >= mStart);
+    // A rolling window, not the calendar month: at the end of October, a trip on 11/3 is still "soon".
+    const soonTrips = data.trips.filter((r) => D(r.start) <= today + TRIP_KPI_DAYS && D(r.end) >= today);
+    const awayNow = new Set(soonTrips.filter((r) => D(r.start) <= today).map((r) => r.empId)).size;
 
     const kpis = [
       kpi("進行中專案", activeProjects.length, `共 ${live.length} 個未封存專案`, "", "#/projects"),
@@ -55,7 +55,13 @@
             "#/load"
           )
         : kpi("今日忙碌人數", "—", "", "", "#/load"),
-      kpi("本月出差", `${monthTrips.length}<small> 人次</small>`, `${new Set(monthTrips.map((r) => r.empId)).size} 人・${+mm} 月`, "", "#/people"),
+      kpi(
+        `${TRIP_KPI_DAYS} 天內出差`,
+        `${new Set(soonTrips.map((r) => r.empId)).size}<small> 人</small>`,
+        `${soonTrips.length} 人次${awayNow ? `・出差中 ${awayNow} 人` : ""}・到 ${fmt(today + TRIP_KPI_DAYS, "short")}`,
+        "",
+        "#/people"
+      ),
     ].join("");
 
     root.innerHTML = `
