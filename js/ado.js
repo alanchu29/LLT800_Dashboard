@@ -205,13 +205,34 @@
       write(localStorage, LS_CFG, { ...this.cfg(), ...patch });
     },
 
-    /** The PAT for this tab: the session copy first, then the one the user asked to remember. */
+    /** A PAT as it comes from a file or a paste: one line, no quotes, no "PAT=" in front. */
+    cleanPat(text) {
+      const line = String(text ?? "").split(/[\r\n]+/).find((l) => l.trim()) || "";
+      return line.trim().replace(/^['"]|['"]$/g, "").replace(/^(?:ado[_-]?)?pat\s*[=:]\s*/i, "").trim();
+    },
+
+    /**
+     * The PAT for this tab, in order: what was typed here, what the viewer asked to remember, and
+     * finally %USERPROFILE%\.ado_pat as tools/ado_pat.ps1 handed it over (window.LLT_ADO_PAT).
+     */
     pat() {
       try {
-        return sessionStorage.getItem(SS_PAT) || localStorage.getItem(LS_PAT) || "";
+        const own = sessionStorage.getItem(SS_PAT) || localStorage.getItem(LS_PAT);
+        if (own) return own;
       } catch {
-        return "";
+        /* private mode: fall through to the file */
       }
+      return this.cleanPat(window.LLT_ADO_PAT || "");
+    },
+    /** session | remembered | file | none - what 設定 and the hints below report. */
+    patSource() {
+      try {
+        if (sessionStorage.getItem(SS_PAT)) return "session";
+        if (localStorage.getItem(LS_PAT)) return "remembered";
+      } catch {
+        /* private mode */
+      }
+      return this.cleanPat(window.LLT_ADO_PAT || "") ? "file" : "none";
     },
     patRemembered() {
       try {
@@ -219,6 +240,10 @@
       } catch {
         return false;
       }
+    },
+    /** Where a file-provided PAT came from, for the UI's hints. */
+    patFile() {
+      return window.LLT_ADO_PAT_FROM || "C:\\Users\\<登入者>\\.ado_pat";
     },
     /** Never log this, never put it in the URL, never send it anywhere but dev.azure.com. */
     setPat(pat, remember) {
@@ -230,6 +255,7 @@
       if (remember) write(localStorage, LS_PAT, pat) || window.App?.toast("瀏覽器拒絕儲存 PAT，這次只記在這個分頁。", "error");
       else drop(localStorage, LS_PAT);
     },
+    /** Clears what this browser stores. A PAT that came from the file is still there on the next load. */
     forgetPat() {
       drop(localStorage, LS_PAT);
       drop(sessionStorage, SS_PAT);

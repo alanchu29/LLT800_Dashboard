@@ -22,6 +22,7 @@
   // not data, so they survive re-renders but not a reload.
   const F = { search: "", assignee: [], type: [], state: [], tag: [], age: "", from: "", to: "", quick: {}, group: "", sort: "ageDays", dir: "desc" };
   let openEmp = "";
+  let autoTried = false; // the one automatic fetch per visit (see maybeAutoFetch)
   let snapshot = null; // { at, records } -> memoised normalise() result, see rows()
 
   const redraw = () => App.render();
@@ -68,6 +69,9 @@
   }
 
   // ------------------------------------------------------------------ small pieces of markup
+  /** ADO display name -> how it is shown ("Dixon Chu WYHQ Wiwynn" -> "Dixon Chu"); the full name stays the filter value. */
+  const shortOf = (k) => A.shortName(k);
+
   const stateTag = (r) => `<span class="ado-state ph-${r.phase}" title="${esc(PHASE.get(r.phase).label)}">${esc(r.state)}</span>`;
 
   function ageCell(r) {
@@ -127,7 +131,8 @@
           : `尚未擷取資料。資料只存在這台電腦，不會寫入部門資料或雲端。`
       }</p>
       <div id="adoBody"></div>
-      <input type="file" id="adoFile" accept=".csv,text/csv" hidden>`;
+      <input type="file" id="adoFile" accept=".csv,text/csv" hidden>
+      <input type="file" id="adoPatFile" hidden>`;
 
     $$("[data-tab]", root).forEach((b) => (b.onclick = () => App.go("#/ado" + (b.dataset.tab === "members" ? "/members" : ""))));
     $("#adoFetch").onclick = () => fetchNow();
@@ -138,12 +143,41 @@
       if (file) await loadCsv(file);
       ev.target.value = "";
     };
+    $("#adoPatFile").onchange = async (ev) => {
+      const file = ev.target.files[0];
+      if (file) await readPatFile(file);
+      ev.target.value = "";
+    };
 
     const body = $("#adoBody");
-    if (!snap) return renderEmpty(body, cfg);
-    const pair = A.matchRoster(snap.rows, Store.data.employees);
-    if (tab === "members") renderMembers(body, snap, pair);
-    else renderBoard(body, snap, pair);
+    if (!snap) renderEmpty(body, cfg);
+    else {
+      const pair = A.matchRoster(snap.rows, Store.data.employees);
+      if (tab === "members") renderMembers(body, snap, pair);
+      else renderBoard(body, snap, pair);
+    }
+    maybeAutoFetch(snap);
+  }
+
+  /**
+   * Opening this page with a PAT already in hand (typically %USERPROFILE%\.ado_pat via
+   * tools/ado_pat.ps1) fetches by itself, once per visit: nothing to paste, nothing to press.
+   * Today's snapshot is good enough, so a second visit in the same day costs no request.
+   * Without a PAT anywhere, say so once and leave it at that.
+   */
+  function maybeAutoFetch(snap) {
+    if (autoTried) return;
+    autoTried = true;
+    if (!Ado.pat()) {
+      if (!snap)
+        App.toast(`找不到 PAT（${Ado.patFile()}）：請手動輸入，或選 .ado_pat 檔`, "", [
+          { label: "輸入 PAT", run: () => openConfig() },
+          { label: "載入 PAT 檔…", run: () => $("#adoPatFile").click() },
+        ]);
+      return;
+    }
+    if (snap && snap.day === E.fromDay(U.today())) return;
+    fetchNow({ auto: true });
   }
 
   function renderEmpty(el, cfg) {
@@ -151,12 +185,14 @@
       <ol class="h-steps ado-steps">
         <li>到 <a href="https://dev.azure.com/${esc(cfg.org)}/_usersSettings/tokens" target="_blank" rel="noopener">Personal Access Tokens</a> 建一組 PAT，scope 只要勾 <b>Work Items (Read)</b>。</li>
         <li>按右上角 <b>⟳ 從 ADO 擷取</b>，貼上 PAT 即可。預設查 <b>${esc(cfg.org)} / ${esc(cfg.project)}</b> 的未完成項目（可在「ADO 設定」改）。</li>
+        <li>不想每次貼：把 PAT 存成單獨一行放在 <code>${esc(Ado.patFile())}</code>，跑一次 <code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code>，之後每次開這一頁都會自動擷取。也可以直接按下面的 <b>載入 PAT 檔…</b> 選那個檔案。</li>
         <li>沒有 PAT 也可以用 <b>載入 CSV…</b> 丟 ADO Queries 匯出的檔案。</li>
       </ol>
       <p class="muted">PAT 預設只記在這個分頁（勾「記住」才會存在這台電腦），而且只會送到 dev.azure.com。擷取回來的項目同樣只存在這台電腦。</p>
-      <div class="row-end"><button class="btn" id="adoCsv2" type="button">載入 CSV…</button><button class="btn primary" id="adoFetch2" type="button">⟳ 從 ADO 擷取</button></div></section>`;
+      <div class="row-end"><button class="btn" id="adoPat2" type="button">載入 PAT 檔…</button><button class="btn" id="adoCsv2" type="button">載入 CSV…</button><button class="btn primary" id="adoFetch2" type="button">⟳ 從 ADO 擷取</button></div></section>`;
     $("#adoFetch2").onclick = () => fetchNow();
     $("#adoCsv2").onclick = () => $("#adoFile").click();
+    $("#adoPat2").onclick = () => $("#adoPatFile").click();
   }
 
   // ------------------------------------------------------------------ 看板
@@ -209,7 +245,7 @@
       <details class="card fold-card" id="adoCharts" ${Store.ui.adoChartsOpen === false ? "" : "open"}>
         <summary class="card-h"><h3>分布概況</h3><span class="muted">點長條即可套用篩選</span></summary>
         <div class="ado-charts">
-          <div><h4>各負責人（${A.tally(list, "assignee").size} 人）</h4>${bars(A.toSortedPairs(A.tally(list, "assignee")), { dim: "assignee", selected: F.assignee, limit: 14 })}</div>
+          <div><h4>各負責人（${A.tally(list, "assignee").size} 人）</h4>${bars(A.toSortedPairs(A.tally(list, "assignee")), { dim: "assignee", selected: F.assignee, limit: 14, label: shortOf })}</div>
           <div><h4>狀態</h4>${bars(A.toSortedPairs(A.tally(list, "state")), { dim: "state", selected: F.state, color: "var(--s7)" })}</div>
           <div><h4>類型</h4>${bars(A.toSortedPairs(A.tally(list, "type")), { dim: "type", selected: F.type, color: "var(--s3)", limit: 10 })}</div>
           <div><h4>停滯天數</h4>${bars(
@@ -327,7 +363,12 @@
     return `<details class="ado-facet"${sel.length ? " open" : ""}>
       <summary>${esc(DIM_LABEL[dim])} <span class="count">${sel.length ? `${sel.length} / ${pairs.length}` : pairs.length}</span></summary>
       <div class="chips">${pairs
-        .map((p) => `<button type="button" class="chip${sel.includes(p.key) ? " on" : ""}" style="--c:var(--brand)" data-pick="${dim}" data-val="${esc(p.key)}">${esc(p.key)} <b>${p.value}</b></button>`)
+        .map(
+          (p) =>
+            `<button type="button" class="chip${sel.includes(p.key) ? " on" : ""}" style="--c:var(--brand)" data-pick="${dim}" data-val="${esc(p.key)}" title="${esc(p.key)}">${esc(
+              dim === "assignee" ? shortOf(p.key) : p.key
+            )} <b>${p.value}</b></button>`
+        )
         .join("")}</div></details>`;
   }
 
@@ -335,7 +376,7 @@
     const out = [];
     const chip = (kind, label, val) => `<button type="button" class="ado-chip" data-off="${kind}" data-val="${esc(val || "")}">${esc(label)} <span aria-hidden="true">✕</span></button>`;
     if (F.search) out.push(chip("search", `搜尋：${F.search}`));
-    for (const dim of A.DIMS) for (const v of F[dim]) out.push(chip(dim, `${DIM_LABEL[dim]}：${v}`, v));
+    for (const dim of A.DIMS) for (const v of F[dim]) out.push(chip(dim, `${DIM_LABEL[dim]}：${dim === "assignee" ? shortOf(v) : v}`, v));
     if (F.age) out.push(chip("age", `停滯：${(A.bucket(F.age) || { label: "超過 180 天" }).label}`));
     if (F.from) out.push(chip("from", `更新 ≥ ${F.from}`));
     if (F.to) out.push(chip("to", `更新 ≤ ${F.to}`));
@@ -368,7 +409,7 @@
       const empId = pair.empOf.get(r.assignee);
       return `<tr>
         <td class="col-id">${idLink(r)}</td>
-        <td class="col-who">${r.unassigned ? `<span class="muted">${esc(r.assignee)}</span>` : esc(r.assignee)}${
+        <td class="col-who" title="${esc(r.assignee)}">${r.unassigned ? `<span class="muted">${esc(r.who)}</span>` : esc(r.who)}${
           empId ? `<a class="tag" href="#/ado/members" title="名冊成員">名冊</a>` : r.unassigned ? "" : `<span class="tag ghost" title="名冊裡找不到這個 ADO 帳號">名冊外</span>`
         }</td>
         <td>${esc(r.type)}</td>
@@ -379,7 +420,7 @@
       </tr>`;
     };
     const groups = A.group(list, F.group);
-    const label = (k) => (F.group === "ageBucket" ? (A.bucket(k) || {}).label || k : k);
+    const label = (k) => (F.group === "ageBucket" ? (A.bucket(k) || {}).label || k : F.group === "assignee" ? shortOf(k) : k);
     const bodies = groups
       .map((g) =>
         F.group
@@ -497,7 +538,7 @@
     const own = Store.data.tasks.filter((t) => t.assignees.includes(empId) && ["active", "late"].includes(M.status(t, today)));
     el.innerHTML = `<section class="card detail">
       <header class="card-h"><h3>${esc(e.name)}</h3>
-        <span class="muted">${rs.length} 筆 ADO 未完成項目${names.length ? `・對應帳號：${names.map(esc).join("、")}` : ""}</span><span class="grow"></span>
+        <span class="muted">${rs.length} 筆 ADO 未完成項目${names.length ? `・對應 ADO 帳號：${names.map(esc).join("、")}` : ""}</span><span class="grow"></span>
         <button class="btn small" id="mFilter" type="button">在看板中只看他／她</button>
         <button class="btn small edit-only" id="mAlias" type="button">設定 ADO 帳號</button>
         <button class="icon" id="mClose" type="button" aria-label="關閉">✕</button></header>
@@ -539,7 +580,7 @@
       ${list
         .map(([name, rs]) => {
           const p = pair.people.find((x) => x.name === name) || {};
-          return `<tr><th>${esc(name)}</th><td class="muted">${esc(p.email || "—")}</td><td class="num"><b>${rs.length}</b></td>
+          return `<tr><th>${esc(A.shortName(name))}${A.shortName(name) === name ? "" : `<small class="muted"> ${esc(name)}</small>`}</th><td class="muted">${esc(p.email || "—")}</td><td class="num"><b>${rs.length}</b></td>
             <td class="num">${rs.filter((r) => r.stale).length || `<span class="muted">—</span>`}</td>
             <td class="ado-acts"><button class="btn small" data-see="${esc(name)}" type="button">查看</button><button class="btn small primary" data-map="${esc(name)}" type="button">對應到員工</button></td></tr>`;
         })
@@ -588,20 +629,39 @@
   }
 
   // ------------------------------------------------------------------ fetching
-  async function fetchNow() {
+  /** opts.auto: the fetch nobody asked for (page load) - it reports, but never opens a dialog. */
+  async function fetchNow(opts) {
+    opts = opts || {};
     const cfg = Ado.cfg();
-    if (!Ado.pat()) return openConfig();
+    const from = Ado.patSource();
+    if (!Ado.pat()) return opts.auto ? undefined : openConfig();
     $("#blockerSkip").onclick = () => App.blocker(false);
-    App.blocker(true, "正在向 ADO 擷取…");
+    App.blocker(true, opts.auto ? `正在向 ADO 擷取（PAT 來自 ${from === "file" ? Ado.patFile() : "這個瀏覽器"}）…` : "正在向 ADO 擷取…");
     try {
       const r = await Ado.fetchOpenItems({ ...cfg, pat: Ado.pat(), onProgress: (m) => App.blocker(true, m) });
       saveSnapshot(r.records, `${cfg.org} / ${cfg.project}`);
       App.toast(`已擷取 ${r.records.length} 筆未完成項目`);
       redraw();
     } catch (err) {
-      App.toast("擷取失敗：" + err.message, "error", err.kind === "auth" ? [{ label: "重新輸入 PAT", run: () => openConfig() }] : [{ label: "重試", run: () => fetchNow() }]);
+      const where = err.kind === "auth" && from === "file" ? `（PAT 來自 ${Ado.patFile()}，可能已過期，請更新那個檔案後重跑 tools\\ado_pat.ps1）` : "";
+      App.toast("擷取失敗：" + err.message + where, "error", [
+        err.kind === "auth" ? { label: "重新輸入 PAT", run: () => openConfig() } : { label: "重試", run: () => fetchNow() },
+      ]);
     } finally {
       App.blocker(false);
+    }
+  }
+
+  /** The PAT out of a file the viewer picks (typically the same %USERPROFILE%\\.ado_pat). */
+  async function readPatFile(file) {
+    try {
+      const pat = Ado.cleanPat(await U.readFile(file));
+      if (!/^[A-Za-z0-9._-]{20,}$/.test(pat)) return App.toast(`${file.name} 裡看不到像 PAT 的內容（應該是單獨一行英數字）`, "error");
+      Ado.setPat(pat, false); // only this tab: the file itself is the place it is kept
+      App.toast(`已讀取 ${file.name} 的 PAT（只記在這個分頁）`);
+      fetchNow();
+    } catch (err) {
+      App.toast("讀取 PAT 檔失敗：" + err.message, "error");
     }
   }
 
@@ -636,20 +696,31 @@
     const r = await App.form({
       title: "ADO 連線設定",
       saveLabel: "儲存並擷取",
-      extra: Ado.patRemembered() || Ado.pat() ? [{ value: "forget", label: "清除已存的 PAT" }] : [],
+      extra: [{ value: "file", label: "從 .ado_pat 檔載入" }].concat(Ado.patRemembered() || Ado.pat() ? [{ value: "forget", label: "清除已存的 PAT" }] : []),
       fields: [
         { key: "org", label: "組織", value: cfg.org, required: true },
         { key: "project", label: "專案", value: cfg.project, required: true },
-        { key: "pat", label: "PAT", type: "password", value: Ado.pat(), wide: true, required: true, hint: "在 ADO 的 User settings → Personal access tokens 建立，scope 只要勾 Work Items (Read)。只會送到 dev.azure.com。" },
+        {
+          key: "pat",
+          label: "PAT",
+          type: "password",
+          value: Ado.pat(),
+          wide: true,
+          required: true,
+          hint:
+            { file: `目前的 PAT 來自 ${Ado.patFile()}（tools/ado_pat.ps1 產生），開這一頁就會自動擷取。`, remembered: "目前的 PAT 存在這台電腦。", session: "目前的 PAT 只記在這個分頁。", none: `還沒有 PAT。可貼上，或按「從 .ado_pat 檔載入」選 ${Ado.patFile()}。` }[Ado.patSource()] +
+            " 在 ADO 的 User settings → Personal access tokens 建立，scope 只要勾 Work Items (Read)；只會送到 dev.azure.com。",
+        },
         { key: "remember", label: "PAT 保存方式", type: "check", text: "記住 PAT（存在這台電腦）", value: Ado.patRemembered(), hint: "不勾選只記在這個分頁，關掉就消失；共用電腦建議不要勾" },
         { key: "where", label: "額外條件（WIQL）", value: cfg.where, more: true, wide: true, placeholder: "[System.AreaPath] UNDER 'Monica\\Gen11'" },
         { key: "queryId", label: "已存查詢 GUID", value: cfg.queryId, more: true, wide: true, hint: "填了就改用 ADO 上存好的查詢，忽略上面的額外條件" },
       ],
     });
     if (!r) return;
+    if (r.action === "file") return $("#adoPatFile").click();
     if (r.action === "forget") {
       Ado.forgetPat();
-      return App.toast("已清除這台電腦上儲存的 PAT");
+      return App.toast(Ado.pat() ? `已清除瀏覽器裡的 PAT；${Ado.patFile()} 提供的那一組仍然有效（要停用請刪掉 data/ado_pat.js）` : "已清除這台電腦上儲存的 PAT");
     }
     if (r.action !== "save") return;
     const { pat, remember, ...rest } = r.values;
@@ -668,7 +739,7 @@
   /** What 設定 shows about this browser's ADO state. */
   function status() {
     const snap = rows();
-    return { cfg: Ado.cfg(), count: snap ? snap.rows.length : 0, at: snap ? snap.at : "", pat: Ado.patRemembered() ? "remembered" : Ado.pat() ? "session" : "none" };
+    return { cfg: Ado.cfg(), count: snap ? snap.rows.length : 0, at: snap ? snap.at : "", pat: Ado.patSource(), patFile: Ado.patFile() };
   }
 
   window.AdoView = { render, openConfig, forget, status };

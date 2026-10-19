@@ -33,7 +33,13 @@
   /** Bookkeeping item types: real work, but noise in a workload view - the 排除 shortcut hides them. */
   const NOISE_TYPES = ["worklog", "release note"];
 
-  const SITE_CODES = ["WYMX", "WYMY", "WYMTN", "WYMUS", "WYLZ", "WYUS", "WCZ", "WYSZ", "WYTN"];
+  const SITE_CODES = ["WYHQ", "WYMX", "WYMY", "WYMTN", "WYMUS", "WYLZ", "WYUS", "WCZ", "WYSZ", "WYTN"];
+
+  /**
+   * Tokens an ADO display name carries besides the person's name: ADO shows them as
+   * "Dixon Chu WYHQ Wiwynn", so the site and the company are dropped from the tail before matching.
+   */
+  const NAME_NOISE = new Set(["wiwynn", "inc", "corp", "corporation", "ltd", "co", "hq", ...SITE_CODES.map((c) => c.toLowerCase())]);
 
   const UNASSIGNED = "(未指派)";
 
@@ -168,6 +174,7 @@
         id,
         idNum: Number(id) || 0,
         assignee,
+        who: shortName(assignee),
         email,
         type: get(rec, "type"),
         state,
@@ -299,19 +306,44 @@
       .trim();
   }
 
+  /** The name as a person reads it: "Dixon Chu WYHQ Wiwynn" -> "Dixon Chu". Filtering still uses the full one. */
+  function shortName(name) {
+    const t = String(name ?? "").trim().split(/\s+/).filter(Boolean);
+    while (t.length > 2 && NAME_NOISE.has(fold(t[t.length - 1]))) t.pop();
+    return t.join(" ") || String(name ?? "");
+  }
+
+  /** Folded name tokens, with a trailing site / company tail dropped ("Dixon Chu WYHQ Wiwynn"). */
+  function nameTokens(text) {
+    const t = fold(text).split(/\s+/).filter(Boolean);
+    while (t.length > 2 && NAME_NOISE.has(t[t.length - 1])) t.pop();
+    return t;
+  }
+
   /**
-   * Every key an identity may be recognised by: the folded name without spaces, its token-sorted
-   * form ("Chu, Dixon" = "Dixon Chu"), and the same for an email's local part ("dixon.chu@…").
+   * Every key an identity may be recognised by, so that one person written four different ways still
+   * lands on one roster entry:
+   *   the whole name ("dixonchu"), its token-sorted form ("Chu, Dixon" = "Dixon Chu"),
+   *   first + last ("Timothy PH Lee" = "Timothy Lee", for middle initials),
+   *   the first two tokens (an unknown suffix after the name), and all of the above from an email's
+   *   local part, which is the surest of the lot ("Dixon_Chu@wiwynn.com").
    */
   function identityKeys(name, email) {
     const out = new Set();
     const add = (s) => s && s.length > 1 && out.add(s);
+    const pair = (a, b) => {
+      add(a + b);
+      add([a, b].sort().join(""));
+    };
     const push = (text) => {
-      const f = fold(text);
-      if (!f) return;
-      add(f.replace(/\s+/g, ""));
-      const parts = f.split(/\s+/).filter(Boolean);
-      if (parts.length > 1) add(parts.slice().sort().join(""));
+      const t = nameTokens(text);
+      if (!t.length) return;
+      add(t.join(""));
+      if (t.length > 1) add(t.slice().sort().join(""));
+      if (t.length > 2) {
+        pair(t[0], t[t.length - 1]);
+        pair(t[0], t[1]);
+      }
     };
     push(name);
     const local = String(email ?? "").split("@")[0];
@@ -383,6 +415,8 @@
     group,
     median,
     fold,
+    shortName,
+    nameTokens,
     identityKeys,
     aliasesOf,
     matchRoster,

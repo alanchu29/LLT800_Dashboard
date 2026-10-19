@@ -114,10 +114,10 @@
         <section class="card" id="set-ado"><header class="card-h"><h3>ADO Task</h3><span class="muted">選用</span></header>
           ${(() => {
             const a = AdoView.status();
-            const pat = { remembered: "已存在這台電腦", session: "只記在這個分頁", none: "尚未輸入" }[a.pat];
+            const pat = { file: `來自 <code>${esc(a.patFile)}</code>（開 ADO Task 時自動擷取）`, remembered: "已存在這台電腦", session: "只記在這個分頁", none: "尚未輸入" }[a.pat];
             return `<p class="muted small">「<a href="#/ado">ADO Task</a>」的連線設定、PAT 與擷取回來的項目都只存在這台電腦的瀏覽器，<b>不會</b>同步到雲端，也不會寫進部門資料。</p>
               <p class="small">組織 / 專案：<b>${esc(a.cfg.org)} / ${esc(a.cfg.project)}</b>${a.cfg.queryId ? `・已存查詢 <code>${esc(a.cfg.queryId)}</code>` : a.cfg.where ? `・額外條件 <code>${esc(a.cfg.where)}</code>` : ""}<br>
-              本機快照：<b>${a.count ? `${a.count} 筆` : "尚未擷取"}</b>${a.at ? `（擷取於 ${esc(new Date(a.at).toLocaleString("zh-TW", { hour12: false }))}）` : ""}・PAT：<b>${pat}</b></p>`;
+              本機快照：<b>${a.count ? `${a.count} 筆` : "尚未擷取"}</b>${a.at ? `（擷取於 ${esc(new Date(a.at).toLocaleString("zh-TW", { hour12: false }))}）` : ""}・PAT：<b>${pat}</b>${a.pat === "none" ? `<br>要免手動輸入：把 PAT 存成單獨一行放進 <code>${esc(a.patFile)}</code>，再跑 <code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code>。` : ""}</p>`;
           })()}
           <div class="btn-list">
             <button class="btn" id="adoSet" type="button">ADO 連線設定…</button>
@@ -204,7 +204,7 @@
     $("#adoWipe").onclick = () => {
       if (!confirm("清除這台電腦上的 ADO 快照與已儲存的 PAT？\n\n部門資料不受影響；下次要看 ADO Task 需要重新擷取。")) return;
       AdoView.forget();
-      App.toast("已清除這台電腦的 ADO 快照與 PAT");
+      App.toast(Ado.pat() ? "已清除快照與瀏覽器裡的 PAT；檔案提供的 PAT 仍然有效（要停用請刪掉 data/ado_pat.js）" : "已清除這台電腦的 ADO 快照與 PAT");
       App.render();
     };
 

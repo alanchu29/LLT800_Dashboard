@@ -354,6 +354,31 @@ ok("ado: grouping keeps the stalling buckets in order and sorts the rest by size
   assert.deepStrictEqual(AM.group(ado.rows, "ageBucket").map((g) => g.key), ["0-30", "181-365", "366-99999"]);
 });
 
+ok("ado: a real ADO display name (name + site + company) still finds its person", () => {
+  // What dev.azure.com actually returns: "Dixon Chu WYHQ Wiwynn", sometimes with no mailbox at all.
+  const emps = [
+    { id: "e1", name: "Dixon Chu", active: true },
+    { id: "e2", name: "Timothy Lee", active: true },
+    { id: "e3", name: "吳佩琪（Zoey）", active: true, ado: "Zoey Wu" },
+    { id: "e4", name: "Nick Chen", active: true },
+  ];
+  const rows = AM.normalise(
+    [
+      ["Dixon Chu WYHQ Wiwynn", "Dixon_Chu@wiwynn.com"],
+      ["Timothy PH Lee WYHQ Wiwynn", ""], // middle initials, no mailbox
+      ["Zoey Wu WYHQ Wiwynn", "Zoey_Wu@wiwynn.com"], // roster name is Chinese: only the alias can match
+      ["Nick XR Chen WYHQ Wiwynn", "Nick_XR_Chen@wiwynn.com"],
+      ["Abimael Salamanca WYMX Wiwynn", "Abimael_Salamanca@wiwynn.com"], // not on the roster
+    ].map(([name, email], i) => ({ ID: String(301 + i), "Assigned To": name, Email: email, State: "Doing", "Changed Date": "2026-10-18", Title: "live-shaped row", "Work Item Type": "Task" })),
+    { today: "2026-10-19" }
+  ).rows;
+  const pair = AM.matchRoster(rows, emps);
+  assert.deepStrictEqual(["e1", "e2", "e3", "e4"].map((id) => (pair.byEmp.get(id) || []).length), [1, 1, 1, 1]);
+  assert.deepStrictEqual([...pair.unmatched.keys()], ["Abimael Salamanca WYMX Wiwynn"]);
+  assert.deepStrictEqual(AM.nameTokens("Dixon Chu WYHQ Wiwynn"), ["dixon", "chu"], "the site and the company are dropped");
+  assert.deepStrictEqual(AM.nameTokens("Wiwynn Lin"), ["wiwynn", "lin"], "but never below two tokens");
+});
+
 ok("ado: roster pairing by name, by a reversed name, by alias and by mail", () => {
   const emps = [
     { id: "e1", name: "Dixon Chu", active: true },

@@ -64,12 +64,28 @@
 ### 擷取資料
 
 1. 到 ADO 的 [Personal access tokens](https://dev.azure.com/Manufacturing-Test-Engineering/_usersSettings/tokens) 建一組 PAT，scope 只要勾 **Work Items (Read)**。
-2. 按「⟳ 從 ADO 擷取」貼上 PAT。之後按同一個按鈕就是重新擷取。
-3. 沒有 PAT 時也可以用「載入 CSV…」丟 ADO Queries 匯出的檔案；欄位採**別名比對**（`Assigned To` / `AssignedTo`、`Changed Date` / `ChangedDate` …），順序不同、少幾欄也讀得到。
+2. **自動（建議）**：把 PAT 存成單獨一行放在 `C:\Users\<登入者>\.ado_pat`，然後跑一次
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File tools\ado_pat.ps1          # 寫出 data/ado_pat.js
+   powershell -ExecutionPolicy Bypass -File tools\ado_pat.ps1 -Open    # 寫完直接開 index.html
+   powershell -ExecutionPolicy Bypass -File tools\ado_pat.ps1 -Clear   # 不用了，刪掉
+   ```
+
+   之後每次進「ADO Task」，只要本機還沒有**今天**的快照就會自己去 ADO 擷取（一次瀏覽只自動擷取一次），不必再貼 PAT。
+   檔案位置可用 `-Path` 改；內容容許 `PAT=xxx`、引號與前後空白。
+3. **手動**：沒有那個檔案時，進這一頁會提示「找不到 PAT」。按「⟳ 從 ADO 擷取」貼上，或在「ADO 連線設定」按「**從 .ado_pat 檔載入**」用檔案選擇器挑那個檔案（只記在這個分頁）。
+4. 連 PAT 都沒有時，可用「載入 CSV…」丟 ADO Queries 匯出的檔案；欄位採**別名比對**（`Assigned To` / `AssignedTo`、`Changed Date` / `ChangedDate` …），順序不同、少幾欄也讀得到。
+
+> **為什麼需要那個腳本**：瀏覽器不能自己讀 `C:\Users\...\.ado_pat`（沒有檔案系統權限，`file://` 下連 `fetch()` 本機檔案也被擋）。
+> 腳本只是把 PAT 寫成 `data/ado_pat.js`（`window.LLT_ADO_PAT`），`index.html` 用「有就用、沒有就跳過」的方式載入它——
+> 跟 `data/seed.js` 一樣的做法。這個檔案含有 PAT，**已列入 .gitignore**，請勿 commit 或分享；GitHub Pages 上沒有這個檔案，
+> 瀏覽器 console 會出現一筆 `data/ado_pat.js` 404，屬正常。
 
 「ADO 設定」可以改組織 / 專案、加 WIQL 額外條件（例如 `[System.AreaPath] UNDER 'Monica\Gen11'`）、改用 ADO 上已存查詢的 GUID，或清除已存的 PAT。
 
-**PAT 與資料存放**：PAT 預設只在 `sessionStorage`（關掉分頁就消失），勾「記住」才寫進這台電腦的 `localStorage`，而且只會送到 `dev.azure.com`。擷取回來的項目存在這台電腦的 `localStorage`（`llt800.ado.*`），**不會**寫進部門資料、不會同步到雲端、也不能從這裡修改 ADO。
+**PAT 與資料存放**：取用順序是「這個分頁輸入的（`sessionStorage`）→ 勾了記住的（`localStorage`）→ `.ado_pat` 檔（`data/ado_pat.js`）」，而且只會送到 `dev.azure.com`。
+設定頁會顯示目前這一組來自哪裡；「清除 ADO 快照與 PAT」清掉的是瀏覽器裡那兩種，檔案提供的要刪 `data/ado_pat.js`（`-Clear`）。擷取回來的項目存在這台電腦的 `localStorage`（`llt800.ado.*`），**不會**寫進部門資料、不會同步到雲端、也不能從這裡修改 ADO。
 
 ### 怎麼解讀
 
@@ -166,6 +182,7 @@ node tools/build_seed.js [monica.json]   # 重新產生 data/seed.js（示範資
 | `js/pfam-band.js` | 「同時進行的 PFAM」柱狀圖、PFAM 負載按鈕與標記日（總覽與專案甘特共用） |
 | `js/charts.js` | 甘特圖（含日期列上方的柱狀圖）與每日負載圖 |
 | `js/ado.js` | ADO REST 呼叫（WIQL + workitemsbatch）、連線設定 / PAT / 快照的本機存取、CSV 讀寫 |
+| `tools/ado_pat.ps1` | 把 `%USERPROFILE%\.ado_pat` 的 PAT 寫成 `data/ado_pat.js`（gitignore），讓「ADO Task」開頁即自動擷取 |
 | `js/ado-model.js` | ADO 項目的正規化、衍生欄位、篩選 / 分組，以及與員工名冊的比對；Node 與瀏覽器共用 |
 | `js/views/*.js` | 六個頁面 |
 | `js/editors.js`、`js/import-ui.js` | 編輯對話框、匯入預覽 |

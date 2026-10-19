@@ -1,3 +1,6 @@
 node_modules/
 __pycache__/
 *.pyc
+
+# tools/ado_pat.ps1 writes your ADO PAT into this file - never commit it
+data/ado_pat.js

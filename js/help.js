@@ -89,8 +89,9 @@
       <p>把 Azure DevOps 上<b>尚未完成</b>的工作項目拉進來看，並對應到部門名冊。資料是 ADO 的即時快照，<b>只存在你這台電腦</b>，不會寫進部門資料或雲端，也不能從這裡改 ADO。</p>
       <h4>先擷取資料</h4>
       <ul>
-        <li>到 ADO 的 <b>User settings → Personal access tokens</b> 建一組 PAT，scope 只要勾 <b>Work Items (Read)</b>，按 ${k("⟳ 從 ADO 擷取")} 貼上即可。</li>
-        <li>PAT 預設只記在這個分頁，勾「記住」才會存在這台電腦；只會送到 dev.azure.com。在「ADO 設定」可以清除、改組織／專案，或填 WIQL 條件與已存查詢 GUID。</li>
+        <li><b>自動（建議）：</b>把 PAT 存成單獨一行放在 <code>C:\\Users\\&lt;登入者&gt;\\.ado_pat</code>，跑一次 <code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code>（可加 <code>-Open</code> 直接開網頁）。之後每次進這一頁，若本機還沒有「今天」的快照就會自己去擷取，不用再貼 PAT。<br>腳本只是把 PAT 寫成 <code>data/ado_pat.js</code> 給網頁讀（瀏覽器不能自己讀本機檔案）；這個檔案含 PAT，已列入 .gitignore，不用了就跑 <code>-Clear</code> 刪掉。</li>
+        <li><b>手動：</b>沒有那個檔案時，進這一頁會提示「找不到 PAT」。按 ${k("⟳ 從 ADO 擷取")} 貼上，或在設定對話框按「從 .ado_pat 檔載入」直接選檔案（只記在這個分頁）。PAT 在 ADO 的 <b>User settings → Personal access tokens</b> 建立，scope 只要勾 <b>Work Items (Read)</b>。</li>
+        <li>自己貼的 PAT 預設只記在這個分頁，勾「記住」才會存在這台電腦；不論哪一種都只會送到 dev.azure.com。在「ADO 設定」可以清除、改組織／專案，或填 WIQL 條件與已存查詢 GUID。</li>
         <li>沒有 PAT 時可用 ${k("載入 CSV…")} 丟 ADO Queries 匯出的檔案，欄位採別名比對，順序不同也讀得到。</li>
       </ul>
       <h4>看板</h4>
