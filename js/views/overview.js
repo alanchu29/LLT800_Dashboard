@@ -119,7 +119,7 @@
       const pf = Store.pfamsOf(p.id)
         .map((f) => ({ f, ts: Store.tasksOf(f.id).filter(soon).sort((a, b) => a.start.localeCompare(b.start)) }))
         .filter((x) => x.ts.length)
-        .sort((a, b) => a.ts[0].start.localeCompare(b.ts[0].start));
+        .sort((a, b) => Convert.isOthers(a.f) - Convert.isOthers(b.f) || a.ts[0].start.localeCompare(b.ts[0].start)); // "Others" always last
       if (!pf.length) continue;
       const pts = pf.flatMap((x) => x.ts);
       nTasks += pts.length;
