@@ -97,7 +97,7 @@
 /* ------------------------------------------------------------------ base */
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { font-size: 14px; scrollbar-gutter: stable; } /* keeps widths steady while sections render (the Gantt fits its width) */
+html { font-size: 15px; scrollbar-gutter: stable; } /* keeps widths steady while sections render (the Gantt fits its width) */
 body { margin: 0; background: var(--page); color: var(--ink); font-family: var(--font); line-height: 1.45; }
 a { color: var(--brand); text-decoration: none; }
 a:hover { text-decoration: underline; }
@@ -505,12 +505,15 @@ body.editing .g-row:hover .g-label .mini, body.editing .g-label .mini:focus-visi
 
 /* ------------------------------------------------------------------ toasts, tooltip, blocker */
 .toasts { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 10px; z-index: 100; align-items: center; width: max-content; max-width: calc(100vw - 32px); pointer-events: none; }
-.toast { background: #1f2937; color: #fff; padding: 14px 22px; border-radius: 12px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.12); display: flex; gap: 14px; align-items: center; font-size: 1rem; line-height: 1.45; text-align: center; pointer-events: auto; animation: toast-in 0.18s ease-out; transition: opacity 0.2s, transform 0.2s; }
+/* Solid brand blue / alarm red with a halo: seen against both the light and the dark page. */
+.toast { background: #1d5fc4; color: #fff; font-weight: 600; padding: 14px 22px; border-radius: 12px; box-shadow: 0 0 0 4px rgba(29, 95, 196, 0.3), 0 14px 44px rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.35); display: flex; gap: 14px; align-items: center; font-size: 1rem; line-height: 1.45; text-align: center; pointer-events: auto; animation: toast-in 0.18s ease-out; transition: opacity 0.2s, transform 0.2s; }
 .toast.out { opacity: 0; transform: scale(0.96); }
 @keyframes toast-in { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; transition: none; } }
-.toast.error { background: #8f1d1d; }
-.toast .link { color: #9cc5ff; font-weight: 650; }
+.toast.error { background: #c62828; box-shadow: 0 0 0 4px rgba(198, 40, 40, 0.32), 0 14px 44px rgba(0, 0, 0, 0.5); }
+.toast.error::before { content: "⚠"; font-size: 1.15em; }
+.toast .link { color: #fff; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.7); border-radius: 999px; padding: 3px 12px; white-space: nowrap; }
+.toast .link:hover { background: rgba(255, 255, 255, 0.18); text-decoration: none; }
 .tooltip { position: fixed; z-index: 120; max-width: 380px; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22); padding: 9px 12px; font-size: 0.82rem; pointer-events: none; }
 .tooltip .pill { margin-left: 6px; }
 .tt-big { font-size: 1rem; font-weight: 700; margin: 2px 0; }
@@ -778,15 +781,24 @@ button.kpi:hover { border-color: var(--brand); }
 .ado-fgrid { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; align-items: start; border-top: 1px dashed var(--grid); padding-top: 12px; }
 .ado-fgrid > .fl { font-size: 0.85rem; font-weight: 650; color: var(--ink-2); line-height: 28px; white-space: nowrap; }
 .ado-fgrid > .fv { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0; min-height: 28px; }
-.ado-fgrid .chip { padding: 2px 10px; }
-.ado-fgrid .chip:hover { border-color: var(--brand); color: var(--ink); }
-.ado-fgrid .chip b { margin-left: 5px; color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
-.ado-fgrid .chip.on { background: color-mix(in srgb, var(--brand) 22%, var(--surface)); font-weight: 600; }
-.ado-fgrid .chip.on b { color: var(--ink); }
-.ado-fgrid .chip.zero { opacity: 0.55; }
-.ado-fgrid .chip.more { border-style: dashed; color: var(--brand); }
+/* Filled chips: an option reads as a button against the card, a picked one as solid brand. */
+.ado-fgrid .chip { padding: 3px 4px 3px 12px; gap: 6px; background: var(--surface-3); border-color: var(--surface-3); color: var(--ink); font-weight: 500; transition: background 0.12s, border-color 0.12s; }
+.ado-fgrid .chip:hover { background: var(--brand-wash); border-color: var(--brand); }
+.ado-fgrid .chip b { min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--surface); color: var(--ink-2); font-size: 0.78rem; font-weight: 650; text-align: center; font-variant-numeric: tabular-nums; }
+.ado-fgrid .chip.on { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 650; }
+.ado-fgrid .chip.on b { background: rgba(255, 255, 255, 0.24); color: #fff; }
+.ado-fgrid .chip.on:hover { filter: brightness(1.08); }
+.ado-fgrid .chip.zero { opacity: 0.45; }
+.ado-fgrid .chip.more, .ado-fgrid .fv > .chip[data-quick] { padding-right: 12px; }
+.ado-fgrid .chip.more { background: transparent; border: 1px dashed var(--axis); color: var(--brand); }
+.ado-fgrid .chip:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .seg.small button { padding: 3px 11px; font-size: 0.85rem; }
-.ado-fgrid .seg { margin-right: 6px; }
+.ado-fgrid .seg { margin-right: 6px; background: var(--surface-3); border-color: var(--surface-3); }
+.ado-fgrid .seg button { color: var(--ink); }
+.ado-fgrid .seg button + button { border-left-color: var(--surface); }
+.ado-fgrid .seg button:not(.on):hover { background: var(--brand-wash); }
+.ado-fgrid .seg button.on { color: #fff; font-weight: 650; }
+.field-inline > span { white-space: nowrap; }
 .ado-result { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--grid); font-size: 0.88rem; color: var(--muted); }
 .ado-result b { color: var(--ink); font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) {
@@ -813,8 +825,13 @@ button.kpi:hover { border-color: var(--brand); }
 .ado-grp + .ado-grp tr.grp th { border-top: 2px solid var(--axis); }
 .ado-items li { cursor: default; }
 .ado-items .ado-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ado-members .ado-mini { width: 150px; }
-.ado-members .hb-track { height: 11px; }
+.ado-members { font-size: 1rem; }
+.ado-members th, .ado-members td { padding: 10px 10px; }
+.ado-members thead th { font-size: 0.86rem; }
+.ado-members tbody th { font-size: 1.02rem; }
+#mTable .legend { font-size: 0.88rem; }
+.ado-members .ado-mini { width: 180px; }
+.ado-members .hb-track { height: 14px; }
 .ado-members .hb-track i { border-radius: 2px; background: var(--c); }
 .ado-acts { display: flex; gap: 6px; justify-content: flex-end; }
 .emps input[data-f="ado"] { width: 100%; max-width: 200px; }
