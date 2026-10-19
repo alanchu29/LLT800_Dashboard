@@ -111,6 +111,23 @@
           <div class="row-end"><button class="btn edit-only" id="setPw" type="button">${s.editHash ? "變更密碼" : "設定密碼"}</button>${s.editHash ? `<button class="btn edit-only" id="clearPw" type="button">移除密碼</button>` : ""}</div>
         </section>
 
+        <section class="card" id="set-ado"><header class="card-h"><h3>ADO Task</h3><span class="muted">選用</span></header>
+          ${(() => {
+            const a = AdoView.status();
+            const pat = { remembered: "已存在這台電腦", session: "只記在這個分頁", none: "尚未輸入" }[a.pat];
+            return `<p class="muted small">「<a href="#/ado">ADO Task</a>」的連線設定、PAT 與擷取回來的項目都只存在這台電腦的瀏覽器，<b>不會</b>同步到雲端，也不會寫進部門資料。</p>
+              <p class="small">組織 / 專案：<b>${esc(a.cfg.org)} / ${esc(a.cfg.project)}</b>${a.cfg.queryId ? `・已存查詢 <code>${esc(a.cfg.queryId)}</code>` : a.cfg.where ? `・額外條件 <code>${esc(a.cfg.where)}</code>` : ""}<br>
+              本機快照：<b>${a.count ? `${a.count} 筆` : "尚未擷取"}</b>${a.at ? `（擷取於 ${esc(new Date(a.at).toLocaleString("zh-TW", { hour12: false }))}）` : ""}・PAT：<b>${pat}</b></p>`;
+          })()}
+          <div class="btn-list">
+            <button class="btn" id="adoSet" type="button">ADO 連線設定…</button>
+            <button class="btn" id="adoGo" type="button">前往 ADO Task</button>
+          </div>
+          <div class="btn-list danger-zone">
+            <button class="btn danger" id="adoWipe" type="button">清除這台電腦的 ADO 快照與 PAT</button>
+          </div>
+        </section>
+
         <section class="card" id="set-data"><header class="card-h"><h3>資料</h3></header>
           <p class="muted small">目前：${d.projects.length} 個 Project、${d.pfams.length} 個 PFAM、${d.tasks.length} 個 task、${d.employees.length} 位員工、${d.trips.length} 筆出差${d.source && d.source.demo ? "（示範資料）" : ""}</p>
           <div class="btn-list">
@@ -151,20 +168,21 @@
         <details class="card wide-card fold-card" id="set-emps"${empsOpen ? " open" : ""}><summary class="card-h"><h3>員工名冊</h3><span class="muted">${d.employees.filter((e) => e.active).length} 位在職${d.employees.some((e) => !e.active) ? `・${d.employees.filter((e) => !e.active).length} 位已離開` : ""}・點一下展開 / 收合</span></summary>
           <div class="emp-grid">
             <div>
-              <table class="grid-table emps"><thead><tr><th>#</th><th>姓名</th><th>在職</th><th class="num">指派 task</th><th class="num">出差紀錄</th><th></th></tr></thead><tbody>
+              <table class="grid-table emps"><thead><tr><th>#</th><th>姓名</th><th>ADO 帳號</th><th>在職</th><th class="num">指派 task</th><th class="num">出差紀錄</th><th></th></tr></thead><tbody>
               ${d.employees.length ? d.employees
                 .map((e, i) => {
                   const nt = d.tasks.filter((t) => t.assignees.includes(e.id)).length;
                   const nr = d.trips.filter((r) => r.empId === e.id).length;
                   return `<tr data-emp="${e.id}" class="${e.active ? "" : "gone"}"><td class="muted small">${i + 1}</td>
                     <td><input value="${esc(e.name)}" data-f="name"${lock}></td>
+                    <td><input value="${esc(e.ado || "")}" data-f="ado" placeholder="同姓名" title="ADO 上的顯示名稱或信箱，多個用逗號分隔（給「ADO Task」比對用）"${lock}></td>
                     <td><label class="check"><input type="checkbox" data-f="active"${e.active ? " checked" : ""}${lock}> ${e.active ? "在職" : "已離開"}</label></td>
                     <td class="num">${nt}</td><td class="num">${nr}</td>
                     <td><button class="mini edit-only" type="button" data-delemp="${e.id}" title="刪除">✕</button></td></tr>`;
                 })
-                .join("") : `<tr><td colspan="6" class="empty">名冊是空的，從右邊輸入員工姓名。</td></tr>`}
+                .join("") : `<tr><td colspan="7" class="empty">名冊是空的，從右邊輸入員工姓名。</td></tr>`}
               </tbody></table>
-              <p class="muted small">${d.employees.filter((e) => e.active).length} 位在職・${d.employees.filter((e) => !e.active).length} 位已離開。離開部門請取消「在職」（不再計入人力，保留歷史 task 與出差紀錄）；刪除會把此人從 task 指派中移除，並刪除其出差紀錄。</p>
+              <p class="muted small">${d.employees.filter((e) => e.active).length} 位在職・${d.employees.filter((e) => !e.active).length} 位已離開。離開部門請取消「在職」（不再計入人力，保留歷史 task 與出差紀錄）；刪除會把此人從 task 指派中移除，並刪除其出差紀錄。「ADO 帳號」只在 ADO 上的顯示名稱與這裡的姓名不同時才需要填（給「ADO Task」比對用）。</p>
               <div class="row-end"><button class="btn primary edit-only" id="saveEmps" type="button"${d.employees.length ? "" : " disabled"}>儲存名冊變更</button></div>
             </div>
             <div class="emp-add edit-only">
@@ -179,6 +197,16 @@
 
     $("#set-emps").addEventListener("toggle", (ev) => (empsOpen = ev.target.open));
     if (arg) setTimeout(() => (document.getElementById("set-" + arg) || {}).scrollIntoView?.({ block: "start", behavior: "smooth" }), 30);
+
+    // ---- ADO Task (everything here is per-browser, never part of the dataset)
+    $("#adoSet").onclick = () => AdoView.openConfig();
+    $("#adoGo").onclick = () => App.go("#/ado");
+    $("#adoWipe").onclick = () => {
+      if (!confirm("清除這台電腦上的 ADO 快照與已儲存的 PAT？\n\n部門資料不受影響；下次要看 ADO Task 需要重新擷取。")) return;
+      AdoView.forget();
+      App.toast("已清除這台電腦的 ADO 快照與 PAT");
+      App.render();
+    };
 
     // ---- employees
     $("#addEmps").onclick = () => {
@@ -203,13 +231,18 @@
         id: tr.dataset.emp,
         name: tr.querySelector('[data-f="name"]').value.trim(),
         active: tr.querySelector('[data-f="active"]').checked,
+        ado: tr.querySelector('[data-f="ado"]').value.trim(),
       }));
       if (rows.some((r) => !r.name)) return App.toast("姓名不能空白", "error");
       const keys = rows.map((r) => Convert.normName(r.name));
       const dupName = rows.find((r, i) => keys.indexOf(keys[i]) !== i);
       if (dupName) return App.toast(`名冊裡有重複的姓名：${dupName.name}`, "error");
       Store.commit((dd) => {
-        for (const r of rows) Object.assign(dd.employees.find((e) => e.id === r.id), { name: r.name, active: r.active });
+        for (const r of rows) {
+          const e = Object.assign(dd.employees.find((x) => x.id === r.id), { name: r.name, active: r.active });
+          if (r.ado) e.ado = r.ado;
+          else delete e.ado;
+        }
       });
       App.toast("已儲存名冊");
     };

@@ -11,6 +11,7 @@
   - 「**全部專案**」卡片：所有案子在同一條時間軸（Project 列 → PFAM 列，點 PFAM 展開 task），下方「人力分配」是每人時間軸（每人一列標題，底下每個 PFAM 一列，條上直接寫 task 名稱；人力資源頁相同）。
   - 單一專案：下方「人力分配」只列參與這個專案的人。
   - 人力分配的時間軸與上方甘特圖同一時間尺度，左右捲動會同步。
+- **ADO Task**：Azure DevOps（預設 `Manufacturing-Test-Engineering / Monica`）上**尚未完成**的工作項目。兩個分頁：**看板**（KPI、搜尋 / 負責人 / 類型 / 狀態 / 專案標籤 / 停滯區間 / 更新日期篩選、分布長條點了就篩選、可排序與分組的清單、匯出 CSV 與複製 Markdown）；**我的成員**（把 ADO 負責人對應到員工名冊，列出每位成員手上的 ADO 項目、停滯數、狀態分布，以及他在本 dashboard 上進行中的 task 數；名冊外的 ADO 帳號單獨列出，可一鍵對應到員工）。資料是唯讀快照，只存在本機瀏覽器，不會寫入部門資料或雲端。
 - **人力資源**：每個工作日「忙碌人數 / 在職人數」柱狀圖，滑過看誰忙誰空，點一下標記該日；「每人工作」列出每人目前任務（PFAM › task，剩幾天 / 逾期）與下一個 task（點 task 跳到專案甘特）；下方是每個人的 task 時間軸。
 - **出差紀錄**：名冊（姓名、出差中、進行中 task 數、年度出差、下次出差）；出差紀錄（起訖日、地點、目的、關聯專案）、年度出差天數統計（依專案 / 依地點兩個分頁，預設依專案）與出差行事曆。
 - **設定**：**員工名冊**（批次輸入姓名、改名、在職 / 離開、刪除）、Phase 清單與顏色、**假日**（逐筆新增或批次貼上，例如 `2026/2/14~2/22 春節`；不算工作日，甘特圖以灰底標示）、廠區 / 地點清單、不計入人力的人員（預設 Dixon，主管等不算進忙碌 / 在職人數與人力上限）、標紅規則、編輯密碼、匯入 / 匯出、Google Sheet 雲端同步。
@@ -35,7 +36,7 @@
 | **Project** | 名稱、顏色、狀態（進行中 / 封存）、PFAM 負載警戒上限、外部系統連結與連結名稱、備註 |
 | **PFAM** | 名稱、所屬 Project、廠區、備註 |
 | **Task** | 名稱、PFAM、起日、迄日、指派人（多選）、已完成（勾選）、Phase；更多欄位：Section、LEAD 角色、基準起訖日、備註 |
-| **員工** | 姓名、在職（取消勾選＝已離開，不計入人力，但保留歷史） |
+| **員工** | 姓名、在職（取消勾選＝已離開，不計入人力，但保留歷史）、ADO 帳號（選填，給 ADO Task 比對用） |
 | **出差** | 員工、地點、出發、返回、目的、關聯專案、備註 |
 
 - Project / PFAM 的時程由底下 task 的最早起日與最晚迄日自動算出。
@@ -55,6 +56,36 @@
 ## 年度出差天數
 
 日曆年（1/1–12/31）、日曆天（含週末，起訖日都算），跨年的出差按天數拆到兩個年度。
+
+## ADO Task（Azure DevOps）
+
+「ADO Task」分頁把 ADO 上**尚未完成**的工作項目拉進來看。網頁直接呼叫 `dev.azure.com` 的 REST API，不需要伺服器或 proxy（ADO 回應帶 `Access-Control-Allow-Origin: *` 並允許 `authorization` header，連 `file://` 開啟也能直連）。
+
+### 擷取資料
+
+1. 到 ADO 的 [Personal access tokens](https://dev.azure.com/Manufacturing-Test-Engineering/_usersSettings/tokens) 建一組 PAT，scope 只要勾 **Work Items (Read)**。
+2. 按「⟳ 從 ADO 擷取」貼上 PAT。之後按同一個按鈕就是重新擷取。
+3. 沒有 PAT 時也可以用「載入 CSV…」丟 ADO Queries 匯出的檔案；欄位採**別名比對**（`Assigned To` / `AssignedTo`、`Changed Date` / `ChangedDate` …），順序不同、少幾欄也讀得到。
+
+「ADO 設定」可以改組織 / 專案、加 WIQL 額外條件（例如 `[System.AreaPath] UNDER 'Monica\Gen11'`）、改用 ADO 上已存查詢的 GUID，或清除已存的 PAT。
+
+**PAT 與資料存放**：PAT 預設只在 `sessionStorage`（關掉分頁就消失），勾「記住」才寫進這台電腦的 `localStorage`，而且只會送到 `dev.azure.com`。擷取回來的項目存在這台電腦的 `localStorage`（`llt800.ado.*`），**不會**寫進部門資料、不會同步到雲端、也不能從這裡修改 ADO。
+
+### 怎麼解讀
+
+- **未完成** = State 不在結案清單（Done / Closed / Removed / Resolved / Completed / Cancelled / Abandoned / Rejected / Inactive…）。CSV 裡混到已結案的項目會在載入時濾掉並註明筆數。
+- **停滯天數** = 擷取當天 − Changed Date。91–180 天黃、181–365 天橘、超過 365 天紅；「停滯」的快捷與 KPI 指超過 180 天。
+- **狀態**分成四個階段上色：待辦 / 進行中 / 審查驗證 / 待發布（`js/ado-model.js` 的 `PHASES`）；`To do` 與 `To Do` 會自動合併成同一個篩選值。
+- **專案標籤**自動取自標題開頭的中括號（`[Gen8/Gen8.3]` → `Gen8`、`Gen8.3`）、標題中的 `GenX` 與站點代碼（WYMX、WCZ、WYLZ…），以及 ADO 的 Tags 欄位。
+
+### 對應到員工名冊
+
+「我的成員」靠下面的順序把 ADO 負責人對應到名冊：
+
+1. 員工的 **ADO 帳號**欄位（設定 → 員工名冊的一欄，或編輯員工 → 更多欄位）：可填多個 ADO 顯示名稱或信箱，用逗號分隔。
+2. 員工**姓名**（忽略大小寫、括號註記與標點；姓名順序顛倒的 `Chu, Dixon` 也認得）。
+
+對不上的 ADO 帳號會列在「名冊外的負責人」，是部門同事的話按「對應到員工」即可（會寫進該員工的 ADO 帳號欄位，屬於部門資料，需要編輯模式並同步到雲端）。
 
 ## 匯入
 
@@ -120,7 +151,7 @@ Gen12AMD_Pilot_gantt 使用的 NPI Dashboard Excel（例如 `To MSFT_Wiwynn NPI 
 ## 開發者
 
 ```bash
-node tools/test_core.js            # 負載計算、出差天數、MONICA / Gen12 匯入與重新匯入；若找得到 Gen12 Excel，比對瀏覽器匯入器與 seed 完全一致
+node tools/test_core.js            # 負載計算、出差天數、ADO 項目模型（正規化 / 篩選 / 名冊比對）、MONICA / Gen12 匯入與重新匯入；若找得到 Gen12 Excel，比對瀏覽器匯入器與 seed 完全一致
 node tools/test_apps_script.js     # 以模擬的 Apps Script 環境測試 Code.gs：整份資料往返、版本衝突、寫入金鑰、日期格式
 node tools/build_seed.js [monica.json]   # 重新產生 data/seed.js（示範資料，只含 MONICA）
 ```
@@ -134,7 +165,9 @@ node tools/build_seed.js [monica.json]   # 重新產生 data/seed.js（示範資
 | `js/util.js`、`js/remote.js` | 共用小工具（日期格式、提示框）、Apps Script 雲端讀寫 |
 | `js/pfam-band.js` | 「同時進行的 PFAM」柱狀圖、PFAM 負載按鈕與標記日（總覽與專案甘特共用） |
 | `js/charts.js` | 甘特圖（含日期列上方的柱狀圖）與每日負載圖 |
-| `js/views/*.js` | 五個頁面 |
+| `js/ado.js` | ADO REST 呼叫（WIQL + workitemsbatch）、連線設定 / PAT / 快照的本機存取、CSV 讀寫 |
+| `js/ado-model.js` | ADO 項目的正規化、衍生欄位、篩選 / 分組，以及與員工名冊的比對；Node 與瀏覽器共用 |
+| `js/views/*.js` | 六個頁面 |
 | `js/editors.js`、`js/import-ui.js` | 編輯對話框、匯入預覽 |
 | `js/help.js` | 「？ 使用說明」對話框的內容與目錄 |
 | `apps-script/Code.gs` | Google Apps Script 後端 |

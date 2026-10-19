@@ -15,6 +15,7 @@
       <div class="h-pages">
         <a href="#/overview"><b>總覽</b><span>今天要注意什麼、接下來一個月的工作與人力</span></a>
         <a href="#/projects"><b>專案甘特</b><span>Project → PFAM → task 的時程與指派</span></a>
+        <a href="#/ado"><b>ADO Task</b><span>Azure DevOps 未完成項目、成員的 ADO 任務</span></a>
         <a href="#/load"><b>人力資源</b><span>每天有幾個人在忙、每個人手上的工作</span></a>
         <a href="#/people"><b>出差紀錄</b><span>誰在出差、年度出差天數</span></a>
         <a href="#/settings"><b>設定</b><span>員工名冊、Phase、假日、匯入匯出、雲端同步</span></a>
@@ -82,6 +83,38 @@
       ${page("#/projects", "專案甘特")}`,
     ],
     [
+      "ado",
+      "ADO Task",
+      () => `
+      <p>把 Azure DevOps 上<b>尚未完成</b>的工作項目拉進來看，並對應到部門名冊。資料是 ADO 的即時快照，<b>只存在你這台電腦</b>，不會寫進部門資料或雲端，也不能從這裡改 ADO。</p>
+      <h4>先擷取資料</h4>
+      <ul>
+        <li>到 ADO 的 <b>User settings → Personal access tokens</b> 建一組 PAT，scope 只要勾 <b>Work Items (Read)</b>，按 ${k("⟳ 從 ADO 擷取")} 貼上即可。</li>
+        <li>PAT 預設只記在這個分頁，勾「記住」才會存在這台電腦；只會送到 dev.azure.com。在「ADO 設定」可以清除、改組織／專案，或填 WIQL 條件與已存查詢 GUID。</li>
+        <li>沒有 PAT 時可用 ${k("載入 CSV…")} 丟 ADO Queries 匯出的檔案，欄位採別名比對，順序不同也讀得到。</li>
+      </ul>
+      <h4>看板</h4>
+      <ul>
+        <li>上方 6 張卡片：未完成數、名冊成員的項目、名冊外負責人、未指派、停滯超過 180 天、停滯中位數；前 5 張點一下就是篩選。</li>
+        <li><b>篩選：</b>搜尋（多個字詞是 AND）、負責人 / 類型 / 狀態 / 專案標籤（旁邊的數字是「套用其他條件後」的筆數）、停滯區間、更新日期，以及快捷鍵。「已套用」列可逐條移除。</li>
+        <li><b>分布概況</b>的長條點一下即套用該條件；清單可依任一欄排序，也可依負責人 / 類型 / 狀態 / 標籤 / 停滯區間分組。</li>
+        <li>可把篩選結果<b>匯出 CSV</b>或<b>複製成 Markdown 表格</b>貼到 Teams、郵件或 Wiki。</li>
+      </ul>
+      <h4>我的成員</h4>
+      <ul>
+        <li>每位名冊成員手上有幾個 ADO 項目、其中多少停滯超過 180 天、狀態分布，以及他在<b>這個 dashboard</b> 上進行中的 task 數——兩個系統的負擔放在一起看。點一列展開明細，點 ID 直接開 ADO。</li>
+        <li><b>名冊外的負責人</b>＝ADO 上有項目、但名冊比對不到的人。是部門同事的話按「對應到員工」，會把這個 ADO 名稱寫進該員工的 <b>ADO 帳號</b>欄位（屬於部門資料，需要編輯模式，會同步給大家）。</li>
+        <li>比對順序：員工的「ADO 帳號」（可填多個顯示名稱或信箱，用逗號分隔）→ 姓名。姓名順序顛倒（Chu, Dixon）也認得。</li>
+      </ul>
+      <h4>名詞</h4>
+      <dl class="h-defs">
+        <dt>未完成</dt><dd>State 不在結案清單（Done / Closed / Removed / Resolved / Completed / Cancelled / Abandoned / Rejected…）。</dd>
+        <dt>停滯天數</dt><dd>擷取當天 − Changed Date（最後更新日）。91 天以上開始上色，超過 365 天最重。</dd>
+        <dt>專案標籤</dt><dd>自動取自標題開頭的中括號（<code>[Gen8/Gen8.3]</code> → Gen8、Gen8.3）、標題中的 GenX 與站點代碼（WYMX、WCZ…），以及 ADO 的 Tags 欄位。</dd>
+      </dl>
+      ${page("#/ado", "ADO Task")}`,
+    ],
+    [
       "load",
       "人力資源",
       () => `
@@ -112,6 +145,7 @@
       () => `
       <ul>
         <li><b>員工名冊：</b>開始使用前先輸入部門成員（一行一位或用逗號分隔）。員工離職時取消「在職」即可，歷史紀錄會保留。</li>
+        <li><b>ADO 帳號</b>（名冊裡的一欄）：只有在 ADO 顯示名稱與這裡的姓名不同時才要填（給「ADO Task › 我的成員」比對用），多個用逗號分隔。</li>
         <li><b>不計入人力的人員：</b>例如主管，不算進忙碌 / 在職人數與人力上限。</li>
         <li><b>假日：</b>週末以外的放假日（國定假日、公司休假），不算工作日，甘特圖以灰底標示。可逐筆新增，或一次貼上多行，例如 <code>2026-10-10 國慶日</code>、<code>2026/2/14~2/22 春節</code>（連續假期的週末會自動略過）。</li>
         <li><b>Phase 清單、廠區 / 地點清單、標紅規則、編輯密碼</b>（密碼只用來防止誤改）。</li>
@@ -221,7 +255,7 @@
 
     /** Opens on the section of the page the user is on. */
     forRoute() {
-      const map = { overview: "intro", projects: "projects", load: "load", people: "trips", settings: "settings" };
+      const map = { overview: "intro", projects: "projects", ado: "ado", load: "load", people: "trips", settings: "settings" };
       return map[App.route.name] || "intro";
     },
   };

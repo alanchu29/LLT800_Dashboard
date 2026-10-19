@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /*
- * Checks the pure logic: department load, trip days, MONICA / Gen12 import and re-import.
+ * Checks the pure logic: department load, trip days, MONICA / Gen12 import and re-import,
+ * and the ADO work-item model (normalise / filter / roster pairing).
  *   node tools/test_core.js [gen12.xlsx]
  * With an Excel path (default: the workbook next to the repos, if present) it also checks that the
  * browser Excel importer yields exactly the same tasks as the Gen12 seed.
@@ -11,6 +12,7 @@ const assert = require("assert");
 const E = require("../js/engine.js");
 const M = require("../js/model.js");
 const C = require("../js/convert.js");
+const AM = require("../js/ado-model.js");
 
 const root = path.join(__dirname, "..");
 const d = (iso) => E.toDay(iso);
@@ -300,5 +302,81 @@ if (fs.existsSync(gen12Seed)) {
     });
   } else console.log("  - (Excel check skipped: workbook not found)");
 } else console.log("  - (Gen12 checks skipped: ../Gen12AMD_Pilot_gantt not found)");
+
+// ---------------------------------------------------------------- ADO work items
+const adoRecords = [
+  { ID: "101", "Assigned To": "Dixon Chu", "Work Item Type": "Task", State: "To do", "Changed Date": "2026-10-15", "Created Date": "2026-01-02", Title: "[Gen11/Gen11.5] WYMX fixture debug", Tags: "pilot", "Area Path": "Monica\Gen11", "Iteration Path": "", Link: "https://x/101", Email: "dixon.chu@wiwynn.com" },
+  { ID: "102", "Assigned To": "Chu, Dixon", "Work Item Type": "Worklog", State: "To Do", "Changed Date": "2026-04-01", "Created Date": "2026-01-02", Title: "weekly worklog", Tags: "", "Area Path": "", "Iteration Path": "", Link: "", Email: "" },
+  { ID: "103", "Assigned To": "", "Work Item Type": "Bug", State: "Doing", "Changed Date": "2026-10-01", "Created Date": "2026-09-01", Title: "[Gen12] WCZ yield drop", Tags: "", "Area Path": "", "Iteration Path": "", Link: "", Email: "" },
+  { ID: "104", "Assigned To": "Monica Lin", "Work Item Type": "Task", State: "QE review", "Changed Date": "2025-02-01", "Created Date": "2024-12-01", Title: "old item nobody touched", Tags: "", "Area Path": "", "Iteration Path": "", Link: "", Email: "monica.lin@wiwynn.com" },
+  { ID: "105", "Assigned To": "Dixon Chu", "Work Item Type": "Task", State: "Closed", "Changed Date": "2026-10-10", "Created Date": "2026-02-01", Title: "finished, must not show up", Tags: "", "Area Path": "", "Iteration Path": "", Link: "", Email: "" },
+];
+const ado = AM.normalise(adoRecords, { today: "2026-10-19" });
+
+ok("ado: closed items are dropped at load, open ones keep their derived fields", () => {
+  assert.strictEqual(ado.dropped, 1);
+  assert.deepStrictEqual(ado.rows.map((r) => r.id), ["101", "102", "103", "104"]);
+  const first = ado.rows[0];
+  assert.strictEqual(first.ageDays, 4);
+  assert.strictEqual(first.ageBucket, "0-30");
+  assert.strictEqual(first.phase, "backlog");
+  assert.deepStrictEqual(first.tags, ["Gen11", "Gen11.5", "WYMX", "pilot"], "leading [..] groups, Gen tokens, site codes, ADO Tags");
+  assert.strictEqual(ado.rows[1].isNoise, true, "Worklog is noise");
+  assert.strictEqual(ado.rows[2].unassigned, true, "no Assigned To");
+  assert.strictEqual(ado.rows[2].phase, "doing");
+  assert.strictEqual(ado.rows[3].phase, "review");
+  assert.ok(ado.rows[3].stale, "last touched in 2025");
+});
+
+ok("ado: one state spelling wins, so To do / To Do is one filter value", () => {
+  const states = [...AM.tally(ado.rows, "state").keys()].sort();
+  assert.deepStrictEqual(states, ["Doing", "QE review", "To do"]);
+});
+
+ok("ado: filters and facet counts", () => {
+  assert.strictEqual(AM.filter(ado.rows, { quick: { noNoise: true } }).length, 3);
+  assert.strictEqual(AM.filter(ado.rows, { quick: { unassigned: true } }).length, 1);
+  assert.strictEqual(AM.filter(ado.rows, { quick: { stale: true } }).length, 2, "the 2026-04 worklog and the 2025 item");
+  assert.strictEqual(AM.filter(ado.rows, { search: "wymx fixture" }).length, 1, "terms are AND");
+  assert.strictEqual(AM.filter(ado.rows, { tag: ["Gen12"] }).length, 1);
+  assert.strictEqual(AM.filter(ado.rows, { age: "0-30", from: "2026-10-10" }).length, 1);
+  // A facet leaves its own dimension out: with Gen11 picked, the tag counts still show the others.
+  const tags = AM.facet(ado.rows, { tag: ["Gen11"] }, "tag");
+  assert.strictEqual(tags.get("Gen11"), 1);
+  assert.strictEqual(tags.get("Gen12"), 1);
+  assert.strictEqual(AM.facet(ado.rows, { tag: ["Gen11"] }, "assignee").get("Dixon Chu"), 1, "other dimensions do respect it");
+});
+
+ok("ado: grouping keeps the stalling buckets in order and sorts the rest by size", () => {
+  // Groups are the ADO display names as they come (same size here, so collated); merging two spellings
+  // of one person is matchRoster's job, not the group's.
+  assert.deepStrictEqual(AM.group(ado.rows, "assignee").map((g) => g.key), ["(未指派)", "Chu, Dixon", "Dixon Chu", "Monica Lin"]);
+  assert.deepStrictEqual(AM.group(ado.rows, "ageBucket").map((g) => g.key), ["0-30", "181-365", "366-99999"]);
+});
+
+ok("ado: roster pairing by name, by a reversed name, by alias and by mail", () => {
+  const emps = [
+    { id: "e1", name: "Dixon Chu", active: true },
+    { id: "e2", name: "林美玲", active: true, ado: "Meiling Lin, meiling@wiwynn.com" },
+    { id: "e3", name: "Nobody Here", active: true },
+  ];
+  const pair = AM.matchRoster(ado.rows, emps);
+  assert.strictEqual(pair.byEmp.get("e1").length, 2, "Dixon Chu and Chu, Dixon are the same person");
+  assert.strictEqual(pair.byEmp.has("e3"), false);
+  assert.deepStrictEqual([...pair.unmatched.keys()], ["Monica Lin"], "未指派 is not an unmatched person");
+
+  const extra = AM.normalise(
+    [
+      { ID: "201", "Assigned To": "Meiling Lin", State: "Doing", "Changed Date": "2026-10-18", Title: "alias match", "Work Item Type": "Task" },
+      { ID: "202", "Assigned To": "M. Lin", Email: "meiling@wiwynn.com", State: "Doing", "Changed Date": "2026-10-18", Title: "mail match", "Work Item Type": "Task" },
+      { ID: "203", "Assigned To": "Someone Else <nobody@elsewhere.com>", State: "Doing", "Changed Date": "2026-10-18", Title: "name <mail> in one column", "Work Item Type": "Task" },
+    ],
+    { today: "2026-10-19" }
+  ).rows;
+  const pair2 = AM.matchRoster(extra, emps);
+  assert.strictEqual(pair2.byEmp.get("e2").length, 2, "alias name and alias mailbox both land on 林美玲");
+  assert.deepStrictEqual([...pair2.unmatched.keys()], ["Someone Else"]);
+  assert.strictEqual(extra[2].email, "nobody@elsewhere.com", '"Name <mail>" is split');
+});
 
 console.log(`core OK: ${n} checks`);

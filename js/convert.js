@@ -113,7 +113,13 @@
       t.done = t.done != null ? t.done === true || t.done === "true" : (Number(t.pct) || 0) >= 100;
       delete t.pct;
     }
-    for (const e of out.employees) if (e.active === undefined) e.active = true;
+    for (const e of out.employees) {
+      if (e.active === undefined) e.active = true;
+      // "ADO Task" pairs ADO work items with the roster by name; e.ado holds the display names /
+      // mailboxes to use instead, when they differ. Kept out of the data when empty.
+      if (e.ado != null) e.ado = String(e.ado).trim();
+      if (!e.ado) delete e.ado;
+    }
     for (const p of out.projects) {
       p.pfamCap = Math.max(0, Math.floor(Number(p.pfamCap) || 0)); // 專案甘特 PFAM 負載警戒上限 (0 = none)
       p.link = /^https?:\/\/\S+$/i.test(String(p.link || "").trim()) ? String(p.link).trim() : ""; // 外部系統連結 (http/https only)

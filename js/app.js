@@ -13,7 +13,7 @@
     return out;
   }
 
-  const VIEWS = { overview: window.OverviewView, projects: window.ProjectsView, load: window.LoadView, people: window.PeopleView, settings: window.SettingsView };
+  const VIEWS = { overview: window.OverviewView, projects: window.ProjectsView, ado: window.AdoView, load: window.LoadView, people: window.PeopleView, settings: window.SettingsView };
 
   const App = {
     route: { name: "overview", arg: "" },

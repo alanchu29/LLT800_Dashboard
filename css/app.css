@@ -779,3 +779,60 @@ body { padding-bottom: 30px; }
   .h-defs { grid-template-columns: 1fr; gap: 0; }
   .h-defs dt { margin-top: 8px; white-space: normal; }
 }
+
+/* ---------------------------------------------------------------- ADO Task */
+/* Phase and ageing are filled blocks, never a bare colour: every one sits next to its own text. */
+.ado-state { display: inline-block; padding: 0 7px; border-radius: 6px; font-size: 0.78rem; font-weight: 650; line-height: 1.7; white-space: nowrap; background: color-mix(in srgb, var(--c) 18%, var(--surface)); color: color-mix(in srgb, var(--c) 72%, var(--ink)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 35%, transparent); }
+.ph-backlog { --c: var(--unas); }
+.ph-doing { --c: var(--s1); }
+.ph-review { --c: var(--s2); }
+.ph-release { --c: var(--s3); }
+.lg i.ph-backlog, .lg i.ph-doing, .lg i.ph-review, .lg i.ph-release { background: var(--c); }
+.ado-age { display: inline-block; min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+.ado-age.t-warn, .ado-age.t-serious, .ado-age.t-critical { padding: 0 6px; border-radius: 6px; font-weight: 650; }
+.ado-age.t-warn { background: color-mix(in srgb, var(--warn) 22%, var(--surface)); color: var(--warn); }
+.ado-age.t-serious { background: color-mix(in srgb, var(--s2) 22%, var(--surface)); color: var(--s2); }
+.ado-age.t-critical { background: color-mix(in srgb, var(--critical) 20%, var(--surface)); color: var(--late); font-weight: 750; }
+.ado-src { margin: -6px 0 14px; font-size: 0.86rem; }
+.ado-steps { max-width: 760px; }
+button.kpi { font: inherit; text-align: left; cursor: pointer; }
+button.kpi:hover { border-color: var(--brand); }
+.ado-kpis .kpi.on { box-shadow: var(--shadow), inset 0 0 0 2px var(--brand); }
+.ado-filters .toolbar { margin-top: 0; }
+.ado-filters .field-inline input[type="search"] { width: 100%; }
+.ado-quick { margin: 4px 0 2px; }
+.ado-facet { border-top: 1px dashed var(--grid); padding-top: 6px; }
+.ado-facet > summary { cursor: pointer; font-size: 0.88rem; font-weight: 650; color: var(--ink-2); padding: 3px 0; }
+.ado-facet > summary:hover { color: var(--brand); }
+.ado-facet .chips { margin: 6px 0 8px; max-height: 190px; overflow: auto; }
+.ado-facet .chip b { margin-left: 5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ado-applied { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px dashed var(--grid); padding-top: 10px; }
+.ado-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.ado-chip { border: 1px solid var(--brand); background: var(--brand-wash); color: var(--ink); border-radius: 999px; padding: 2px 9px; font-size: 0.82rem; cursor: pointer; }
+.ado-chip:hover { background: color-mix(in srgb, var(--late) 14%, var(--surface)); border-color: var(--late); }
+.ado-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 4px 24px; }
+.ado-charts h4 { margin: 10px 0 6px; }
+.ado-charts .hbar { width: 100%; border: 0; background: none; font: inherit; cursor: pointer; padding: 1px 2px; border-radius: 7px; grid-template-columns: 136px 1fr 40px; }
+.ado-charts .hbar:hover { background: var(--surface-2); }
+.ado-charts .hbar.on { background: var(--brand-wash); font-weight: 650; }
+.ado-charts .hb-name { text-align: left; }
+.ado-more { margin: 4px 0 0; font-size: 0.8rem; }
+.ado-table th.sortable { cursor: pointer; white-space: nowrap; }
+.ado-table th.sortable:hover { color: var(--brand); }
+.ado-table th.sorted { color: var(--brand); }
+.ado-table th .caret { font-size: 0.7em; margin-left: 3px; }
+.ado-table .col-id { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ado-table .col-who { white-space: nowrap; }
+.ado-table .col-title { min-width: 320px; }
+.ado-table .col-title a { color: inherit; }
+.ado-table .col-title a:hover { color: var(--brand); }
+.ado-tag { display: inline-block; background: var(--surface-3); color: var(--ink-2); border-radius: 5px; padding: 0 6px; font-size: 0.72rem; margin-left: 5px; white-space: nowrap; }
+.ado-grp + .ado-grp tr.grp th { border-top: 2px solid var(--axis); }
+.ado-items li { cursor: default; }
+.ado-items .ado-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ado-members .ado-mini { width: 150px; }
+.ado-members .hb-track { height: 11px; }
+.ado-members .hb-track i { border-radius: 2px; background: var(--c); }
+.ado-acts { display: flex; gap: 6px; justify-content: flex-end; }
+.ado-note { border-left: 3px solid var(--grid); padding-left: 10px; font-size: 0.82rem; }
+.emps input[data-f="ado"] { width: 100%; max-width: 200px; }

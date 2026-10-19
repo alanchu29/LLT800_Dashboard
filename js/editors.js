@@ -179,6 +179,9 @@
         fields: [
           { key: "name", label: "姓名", required: true, value: e ? e.name : "", wide: true, validate: (v) => (Store.data.employees.some((x) => x.id !== id && Convert.normName(x.name) === Convert.normName(v)) ? "名冊裡已經有同名的人" : "") },
           { key: "active", label: "狀態", type: "check", text: "在職（計入部門人力）", value: e ? e.active : true, hint: "離開部門後取消勾選：不再計入總人數，歷史 task 與出差紀錄保留" },
+          // "ADO Task" pairs work items with the roster by name; this field is for the cases where the
+          // ADO display name differs (英文名、姓在前、或用信箱).
+          { key: "ado", label: "ADO 帳號", value: e ? e.ado || "" : "", wide: true, more: true, placeholder: "Dixon Chu, dixon.chu@wiwynn.com", hint: "ADO 上的顯示名稱或信箱，多個用逗號分隔。姓名就對得上的話留空即可。" },
         ],
       });
       if (!r) return;
@@ -195,8 +198,10 @@
         return;
       }
       Store.commit((d) => {
-        if (e) Object.assign(d.employees.find((x) => x.id === id), r.values);
-        else d.employees.push({ id: uid("e"), ...r.values });
+        let target;
+        if (e) target = Object.assign(d.employees.find((x) => x.id === id), r.values);
+        else d.employees.push((target = { id: uid("e"), ...r.values }));
+        if (!target.ado) delete target.ado; // an empty ADO 帳號 stays out of the data
       });
     },
 
