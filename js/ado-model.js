@@ -348,6 +348,33 @@
   const aliasesOf = (emp) => String(emp.ado ?? "").split(/[,;、，]+/).map((x) => x.trim()).filter(Boolean);
 
   /**
+   * Who on the roster an unpaired ADO person most likely is, best first. Used to pre-fill 批次對應,
+   * never to pair on its own: every suggestion is confirmed by a person.
+   * Scores shared name tokens (the mail's local part counts too), with the given name and the
+   * surname weighted, so "Ryan Chu WYHQ Wiwynn" suggests "Ryan Chu" ahead of "Ryan Lin".
+   */
+  function rankCandidates(name, email, employees) {
+    const mine = new Set([...nameTokens(name), ...nameTokens(String(email ?? "").split("@")[0] || "")].filter(Boolean));
+    if (!mine.size) return [];
+    const first = nameTokens(name)[0] || "";
+    const last = nameTokens(name).slice(-1)[0] || "";
+    return employees
+      .map((e) => {
+        const theirs = [e.name, ...aliasesOf(e)].flatMap(nameTokens);
+        const set = new Set(theirs.filter(Boolean));
+        let score = 0;
+        for (const t of set) if (mine.has(t)) score += 3;
+        if (first && set.has(first)) score += 2;
+        if (last && set.has(last)) score += 2;
+        // A roster "Dixon" against "dixonchu": one being the start of the other still counts for something.
+        if (!score) for (const t of set) for (const m of mine) if (t.length > 2 && m.length > 2 && (t.startsWith(m) || m.startsWith(t))) score += 1;
+        return { empId: e.id, score };
+      })
+      .filter((c) => c.score > 0)
+      .sort((a, b) => b.score - a.score);
+  }
+
+  /**
    * Pair ADO assignees with the roster.
    *   byEmp     Map(empId -> rows)            tasks of each matched person
    *   empOf     Map(assignee name -> empId)   how each ADO name was resolved
@@ -449,6 +476,7 @@
     sort,
     group,
     fold,
+    rankCandidates,
     shortName,
     nameTokens,
     identityKeys,

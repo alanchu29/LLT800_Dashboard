@@ -422,6 +422,23 @@ ok("ado: a roster kept on given names still matches, but never guesses between t
   assert.strictEqual(explicit.firstName.size, 0, "both were decided by the full name / alias");
 });
 
+ok("ado: 批次對應 suggests the likeliest member, and nobody when there is none", () => {
+  const emps = [
+    { id: "e1", name: "Ryan", active: true },
+    { id: "e2", name: "Ryan Lin", active: true },
+    { id: "e3", name: "陳小明", active: true, ado: "Nick XR Chen" },
+  ];
+  const top = (name, email) => {
+    const r = AM.rankCandidates(name, email || "", emps);
+    return r.length ? r[0].empId : "";
+  };
+  assert.strictEqual(top("Ryan Chu WYHQ Wiwynn"), "e1", "given name alone still ranks");
+  assert.strictEqual(top("Ryan Lin WYHQ Wiwynn"), "e2", "given name + surname outranks given name alone");
+  assert.strictEqual(top("Nick XR Chen WYHQ Wiwynn"), "e3", "an alias is the strongest signal");
+  assert.strictEqual(top("Abimael Salamanca WYMX Wiwynn", "Abimael_Salamanca@wiwynn.com"), "", "a stranger gets no suggestion");
+  assert.strictEqual(top("N. Chen WYHQ Wiwynn", "Nick_XR_Chen@wiwynn.com"), "e3", "the mailbox carries the match when the name is short");
+});
+
 ok("ado: roster pairing by name, by a reversed name, by alias and by mail", () => {
   const emps = [
     { id: "e1", name: "Dixon Chu", active: true },
