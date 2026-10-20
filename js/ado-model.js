@@ -352,8 +352,10 @@
    *   byEmp     Map(empId -> rows)            tasks of each matched person
    *   empOf     Map(assignee name -> empId)   how each ADO name was resolved
    *   unmatched Map(assignee name -> rows)    ADO people not on the roster (未指派 excluded)
-   *   people    [{ name, email, rows, empId }] one entry per ADO assignee
-   * An employee's ADO 帳號 field (emp.ado, comma separated names or emails) wins over a name match.
+   *   people    [{ name, email, rows, empId, byFirstName }] one entry per ADO assignee
+   *   firstName Set(assignee name)            the ones only the given-name pass could place
+   * An employee's ADO 帳號 field (emp.ado, comma separated names or emails) wins over a name match,
+   * and a full-name match wins over the given-name pass below.
    */
   function matchRoster(rows, employees) {
     const index = new Map(); // identity key -> empId
@@ -381,7 +383,47 @@
         byEmp.get(empId).push(...p.rows);
       } else unmatched.set(p.name, p.rows);
     }
-    return { byEmp, empOf, unmatched, people: [...people.values()] };
+
+    /*
+     * Second pass, for a roster kept on given names only ("Dixon") against ADO's full display names
+     * ("Dixon Chu WYHQ Wiwynn"). Accepted only when that given name picks out exactly one person on
+     * each side and the employee has nothing else yet, so two Ryans can never collapse into one -
+     * those stay unmatched and are mapped by hand in 「名冊外的負責人」.
+     */
+    const firstName = new Set();
+    const given = (text) => nameTokens(text)[0] || "";
+    const byGivenEmp = new Map();
+    for (const e of employees) {
+      if (byEmp.has(e.id)) continue;
+      const g = given(e.name);
+      if (!g) continue;
+      if (!byGivenEmp.has(g)) byGivenEmp.set(g, []);
+      byGivenEmp.get(g).push(e.id);
+    }
+    const byGivenAdo = new Map();
+    for (const name of unmatched.keys()) {
+      const g = given(name);
+      if (!g) continue;
+      if (!byGivenAdo.has(g)) byGivenAdo.set(g, []);
+      byGivenAdo.get(g).push(name);
+    }
+    for (const [g, names] of byGivenAdo) {
+      const cands = byGivenEmp.get(g) || [];
+      if (names.length !== 1 || cands.length !== 1) continue;
+      const name = names[0];
+      const empId = cands[0];
+      empOf.set(name, empId);
+      byEmp.set(empId, unmatched.get(name));
+      unmatched.delete(name);
+      firstName.add(name);
+      const p = people.get(name);
+      if (p) {
+        p.empId = empId;
+        p.byFirstName = true;
+      }
+    }
+
+    return { byEmp, empOf, unmatched, firstName, people: [...people.values()] };
   }
 
   return {

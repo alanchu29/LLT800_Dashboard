@@ -24,6 +24,20 @@
     return c;
   }
 
+  /**
+   * A deployment older than the Employees sheet's `ado` column drops employee.ado on every save, so
+   * loading the cloud copy would silently wipe the roster's ADO 帳號 (「ADO Task › 我的成員」的對應).
+   * Until Code.gs is redeployed, keep what this browser holds and tell the caller. The current backend
+   * always sends the key, empty or not, so this never fires against it.
+   */
+  function keepAdoFromOldBackend(employees) {
+    if (!employees.length || employees.some((e) => "ado" in e)) return false;
+    const mine = new Map((window.Store && Store.data ? Store.data.employees : []).filter((e) => e.ado).map((e) => [e.id, e.ado]));
+    if (!mine.size) return false;
+    for (const e of employees) if (mine.has(e.id)) e.ado = mine.get(e.id);
+    return true;
+  }
+
   const Remote = {
     config: loadConfig(),
 
@@ -97,6 +111,7 @@
       if (since) params.since = since;
       const r = await this.jsonp(params);
       if (!r || !r.ok) throw new Error((r && r.error) || "讀取失敗");
+      if (r.data && Array.isArray(r.data.employees)) r.legacyAdo = keepAdoFromOldBackend(r.data.employees);
       return r;
     },
 

@@ -24,7 +24,7 @@ var SCHEMA = {
   PFAMs: ['id', 'projectId', 'projectName', 'name', 'site', 'notes', 'srcKind', 'srcKey'],
   Tasks: ['id', 'pfamId', 'pfamName', 'name', 'phase', 'section', 'start', 'end', 'assignees', 'assigneeNames', 'lead', 'done',
     'notes', 'baseStart', 'baseEnd', 'srcKind', 'srcKey', 'srcAlt'],
-  Employees: ['id', 'name', 'active'],
+  Employees: ['id', 'name', 'active', 'ado'],
   Trips: ['id', 'empId', 'empName', 'start', 'end', 'location', 'purpose', 'projectId', 'notes'],
   Ignored: ['kind', 'key'],
   Meta: ['key', 'value']
@@ -101,7 +101,9 @@ function bundle_(since) {
     };
   });
   var employees = readRows_('Employees').map(function (r) {
-    return { id: r.id, name: r.name, active: r.active !== false && String(r.active).toUpperCase() !== 'FALSE' };
+    // ado: the ADO display names / mailboxes this person owns, for the ADO Task page. Always sent,
+    // even empty, so the page can tell a deployment that still lacks the column from an empty value.
+    return { id: r.id, name: r.name, active: r.active !== false && String(r.active).toUpperCase() !== 'FALSE', ado: r.ado || '' };
   });
   var trips = readRows_('Trips').map(function (r) {
     return { id: r.id, empId: r.empId, start: r.start, end: r.end || r.start, location: r.location, purpose: r.purpose, projectId: r.projectId, notes: r.notes };
@@ -186,7 +188,7 @@ function saveAll_(data, baseVersion, by) {
       a.join(','), a.map(function (id) { return empName[id] || id; }).join('、'), t.lead || '', !!t.done, t.notes || '',
       t.baseStart || '', t.baseEnd || '', s(t).kind || '', s(t).key || '', s(t).alt || ''];
   }));
-  writeRows_('Employees', data.employees.map(function (e) { return [e.id, e.name, e.active !== false]; }));
+  writeRows_('Employees', data.employees.map(function (e) { return [e.id, e.name, e.active !== false, e.ado || '']; }));
   writeRows_('Trips', (data.trips || []).map(function (r) {
     return [r.id, r.empId, empName[r.empId] || '', r.start || '', r.end || '', r.location || '', r.purpose || '', r.projectId || '', r.notes || ''];
   }));

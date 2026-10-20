@@ -502,8 +502,11 @@
           .map((n, i) => (n ? `<i class="ph-${A.PHASES[i].key}" style="width:${(n / maxN) * 100}%" title="${esc(A.PHASES[i].label)}：${n}"></i>` : ""))
           .join("");
         const aliases = A.aliasesOf(e);
+        // Matched only because the given name picked out one person on each side: worth saying, since
+        // 名冊 keeps first names and ADO shows "Dixon Chu WYHQ Wiwynn".
+        const guessed = rs.length && [...pair.empOf.entries()].every(([n, id]) => id !== e.id || pair.firstName.has(n));
         return `<tr data-emp="${e.id}" class="${e.active ? "" : "gone"}${openEmp === e.id ? " on" : ""}">
-          <th>${esc(e.name)}${e.active ? "" : `<span class="tag ghost">已離開</span>`}${
+          <th>${esc(e.name)}${e.active ? "" : `<span class="tag ghost">已離開</span>`}${guessed ? `<span class="tag ghost" title="名冊只有名字，是用名字對上 ADO 顯示名稱的。要固定下來可以在「ADO 帳號」欄填完整名稱。">依名字</span>` : ""}${
             rs.length ? "" : aliases.length ? `<span class="tag ghost" title="已設定 ADO 帳號，但目前沒有未完成項目">無項目</span>` : `<span class="tag ghost" title="靠姓名比對不到 ADO 帳號，可在編輯員工填「ADO 帳號」">未對應</span>`
           }</th>
           <td class="num">${rs.length ? `<b>${rs.length}</b>` : `<span class="muted">0</span>`}</td>
@@ -535,7 +538,7 @@
     const names = [...pair.empOf.entries()].filter(([, id]) => id === empId).map(([n]) => n);
     el.innerHTML = `<section class="card detail">
       <header class="card-h"><h3>${esc(e.name)}</h3>
-        <span class="muted">${rs.length} 筆 ADO 未完成項目${names.length ? `・對應 ADO 帳號：${names.map(esc).join("、")}` : ""}</span><span class="grow"></span>
+        <span class="muted">${rs.length} 筆 ADO 未完成項目${names.length ? `・對應 ADO 帳號：${names.map((n) => esc(n) + (pair.firstName.has(n) ? "（依名字比對）" : "")).join("、")}` : ""}</span><span class="grow"></span>
         <button class="btn small" id="mFilter" type="button">在看板中只看他／她</button>
         <button class="btn small edit-only" id="mAlias" type="button">設定 ADO 帳號</button>
         <button class="icon" id="mClose" type="button" aria-label="關閉">✕</button></header>
