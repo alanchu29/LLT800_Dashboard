@@ -306,6 +306,10 @@
         } else {
           Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
         }
+        // An Apps Script older than the Employees `ado` column: Remote kept this browser's mapping,
+        // but the cloud copy cannot hold it until Code.gs is redeployed.
+        if (r.legacyAdo)
+          this.toast("雲端後端是舊版（Employees 少了 ado 欄），ADO 帳號對應只留在這台電腦。請重新部署 apps-script/Code.gs。", "error", [{ label: "怎麼做", run: () => this.go("#/settings/cloud") }]);
       } catch (err) {
         this.toast("讀取雲端失敗，先顯示這台電腦上次的資料（可能不是最新）：" + err.message, "error", [{ label: "重試", run: () => this.loadCloud({ force: true }) }]);
       } finally {

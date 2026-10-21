@@ -458,7 +458,8 @@
       </section>
 
       <section class="card"><header class="card-h"><h3>成員的 ADO 任務</h3>
-        <span class="muted">依 ADO 項目數排序・點一列展開明細${Store.editing ? "" : "・對應 ADO 帳號需要編輯模式"}</span></header>
+        <span class="muted">依 ADO 項目數排序・點一列展開明細${Store.editing ? "" : "・對應 ADO 帳號需要編輯模式"}</span>
+        ${pair.firstName.size ? `<span class="grow"></span><button class="btn small" id="mPin" type="button" title="把「依名字」比對到的 ADO 名稱寫進各人的「ADO 帳號」欄位，之後就不再依賴名字">固定目前比對（${pair.firstName.size}）</button>` : ""}</header>
         <div id="mTable"></div></section>
       <div id="mDetail"></div>
 
@@ -476,6 +477,7 @@
       }`;
 
     renderMemberTable($("#mTable"), emps, pair);
+    if ($("#mPin")) $("#mPin").onclick = () => pinMatches(pair);
     renderOutside($("#mOutside"), pair);
     $("#mOutsideFold").ontoggle = (ev) => Store.setUi({ adoOutsideOpen: ev.target.open });
     if (openEmp) renderMemberDetail($("#mDetail"), openEmp, pair);
@@ -502,8 +504,11 @@
           .map((n, i) => (n ? `<i class="ph-${A.PHASES[i].key}" style="width:${(n / maxN) * 100}%" title="${esc(A.PHASES[i].label)}：${n}"></i>` : ""))
           .join("");
         const aliases = A.aliasesOf(e);
+        // Matched only because the given name picked out one person on each side: worth saying, since
+        // 名冊 keeps first names and ADO shows "Dixon Chu WYHQ Wiwynn".
+        const guessed = rs.length && [...pair.empOf.entries()].every(([n, id]) => id !== e.id || pair.firstName.has(n));
         return `<tr data-emp="${e.id}" class="${e.active ? "" : "gone"}${openEmp === e.id ? " on" : ""}">
-          <th>${esc(e.name)}${e.active ? "" : `<span class="tag ghost">已離開</span>`}${
+          <th>${esc(e.name)}${e.active ? "" : `<span class="tag ghost">已離開</span>`}${guessed ? `<span class="tag ghost" title="名冊只有名字，是用名字對上 ADO 顯示名稱的。要固定下來可以在「ADO 帳號」欄填完整名稱。">依名字</span>` : ""}${
             rs.length ? "" : aliases.length ? `<span class="tag ghost" title="已設定 ADO 帳號，但目前沒有未完成項目">無項目</span>` : `<span class="tag ghost" title="靠姓名比對不到 ADO 帳號，可在編輯員工填「ADO 帳號」">未對應</span>`
           }</th>
           <td class="num">${rs.length ? `<b>${rs.length}</b>` : `<span class="muted">0</span>`}</td>
@@ -535,7 +540,7 @@
     const names = [...pair.empOf.entries()].filter(([, id]) => id === empId).map(([n]) => n);
     el.innerHTML = `<section class="card detail">
       <header class="card-h"><h3>${esc(e.name)}</h3>
-        <span class="muted">${rs.length} 筆 ADO 未完成項目${names.length ? `・對應 ADO 帳號：${names.map(esc).join("、")}` : ""}</span><span class="grow"></span>
+        <span class="muted">${rs.length} 筆 ADO 未完成項目${names.length ? `・對應 ADO 帳號：${names.map((n) => esc(n) + (pair.firstName.has(n) ? "（依名字比對）" : "")).join("、")}` : ""}</span><span class="grow"></span>
         <button class="btn small" id="mFilter" type="button">在看板中只看他／她</button>
         <button class="btn small edit-only" id="mAlias" type="button">設定 ADO 帳號</button>
         <button class="icon" id="mClose" type="button" aria-label="關閉">✕</button></header>
@@ -556,7 +561,9 @@
       el.innerHTML = `<p class="empty">每個 ADO 負責人都對應到名冊裡的人了。</p>`;
       return;
     }
-    el.innerHTML = `<div class="table-wrap"><table class="grid-table"><thead><tr><th>ADO 負責人</th><th>帳號</th><th class="num">項目</th><th class="num">停滯</th><th></th></tr></thead><tbody>
+    el.innerHTML = `<div class="row-end ado-bulk"><span class="muted grow">一個一個點太慢的話，用批次對應一次做完（每個人都會先填好最可能的人選，你只要確認）。</span>
+      <button class="btn primary" id="mBatch" type="button">批次對應…（${list.length}）</button></div>
+      <div class="table-wrap"><table class="grid-table"><thead><tr><th>ADO 負責人</th><th>帳號</th><th class="num">項目</th><th class="num">停滯</th><th></th></tr></thead><tbody>
       ${list
         .map(([name, rs]) => {
           const p = pair.people.find((x) => x.name === name) || {};
@@ -566,6 +573,7 @@
         })
         .join("")}</tbody></table></div>
       <p class="muted">「對應到員工」會把這個 ADO 名稱寫進該員工的 <b>ADO 帳號</b>欄位（屬於部門資料，會同步到雲端給大家共用）。不是部門同事的話就不用處理。</p>`;
+    $("#mBatch").onclick = () => batchMap([...pair.unmatched.keys()], pair);
     el.onclick = (ev) => {
       const see = ev.target.closest("[data-see]");
       if (see) {
@@ -579,6 +587,70 @@
   }
 
   /** Write an ADO display name into one employee's 帳號 list (an edit of department data). */
+  /** Append ADO display names to each employee's 帳號 list in one commit. pairs: [[empId, adoName]] */
+  function writeAliases(pairs) {
+    Store.commit((d) => {
+      for (const [empId, name] of pairs) {
+        const e = d.employees.find((x) => x.id === empId);
+        if (!e) continue;
+        const list = A.aliasesOf(e);
+        if (!list.some((a) => A.fold(a) === A.fold(name))) list.push(name);
+        e.ado = list.join(", ");
+      }
+    });
+  }
+
+  /**
+   * Everyone still unpaired, in one dialog: a dropdown per ADO person, pre-filled with the likeliest
+   * member, 略過 for the ones who are not colleagues. One confirmation instead of N.
+   */
+  async function batchMap(names, pair) {
+    if (!(await App.requireEdit())) return;
+    const emps = Store.data.employees.filter((e) => e.active);
+    if (!emps.length) return App.toast("名冊是空的，先到「設定 › 員工名冊」新增員工", "error");
+    const MAX = 25; // a dialog longer than this is unreadable; the rest come in the next round
+    const list = names.slice(0, MAX);
+    const options = [{ value: "", label: "— 略過（不是部門同事）—" }].concat(emps.map((e) => ({ value: e.id, label: e.name })));
+    // Members who already own ADO items, plus the ones this dialog has already suggested: a member is
+    // pre-filled at most once, so two "Chang"s never both default to the same person.
+    const taken = new Set(emps.filter((e) => (pair.byEmp.get(e.id) || []).length).map((e) => e.id));
+    const fields = list.map((name, i) => {
+      const who = pair.people.find((x) => x.name === name) || {};
+      const ranked = A.rankCandidates(name, who.email || "", emps);
+      // Someone who already owns ADO items is probably not this person as well - unless the match is strong.
+      const best = ranked.find((c) => !taken.has(c.empId));
+      if (best) taken.add(best.empId);
+      return {
+        key: "m" + i,
+        label: `${A.shortName(name)}（${(pair.unmatched.get(name) || []).length} 件）`,
+        type: "select",
+        options,
+        value: best ? best.empId : "",
+        wide: true,
+        hint: who.email || name,
+      };
+    });
+    const r = await App.form({
+      title: `批次對應 ${list.length} 位 ADO 負責人`,
+      saveLabel: "全部套用",
+      fields,
+    });
+    if (!r || r.action !== "save") return;
+    const picked = list.map((name, i) => [r.values["m" + i], name]).filter(([empId]) => empId);
+    if (!picked.length) return App.toast("沒有選到任何人，沒有變更");
+    writeAliases(picked);
+    App.toast(`已對應 ${picked.length} 位${names.length > MAX ? `，還有 ${names.length - MAX} 位可以再跑一次` : ""}`, "", [{ label: "復原", run: () => Store.undo() }]);
+  }
+
+  /** Turn the given-name guesses into real 帳號 entries, so the pairing no longer leans on the name. */
+  async function pinMatches(pair) {
+    if (!(await App.requireEdit())) return;
+    const pairs = [...pair.firstName].map((name) => [pair.empOf.get(name), name]).filter(([empId]) => empId);
+    if (!pairs.length) return;
+    writeAliases(pairs);
+    App.toast(`已把 ${pairs.length} 筆「依名字」的比對寫進員工的 ADO 帳號`, "", [{ label: "復原", run: () => Store.undo() }]);
+  }
+
   async function mapToEmployee(name) {
     if (!(await App.requireEdit())) return;
     const emps = Store.data.employees.filter((e) => e.active);
@@ -598,13 +670,7 @@
       F.assignee = [name];
       return App.go("#/ado");
     }
-    Store.commit((d) => {
-      const e = d.employees.find((x) => x.id === r.values.empId);
-      if (!e) return;
-      const list = A.aliasesOf(e);
-      if (!list.some((a) => A.fold(a) === A.fold(name))) list.push(name);
-      e.ado = list.join(", ");
-    });
+    writeAliases([[r.values.empId, name]]);
     App.toast(`已把「${name}」對應到 ${Store.empName(r.values.empId)}`, "", [{ label: "復原", run: () => Store.undo() }]);
   }
 

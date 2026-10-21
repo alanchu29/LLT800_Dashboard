@@ -394,6 +394,51 @@ ok("ado: a real ADO display name (name + site + company) still finds its person"
   assert.deepStrictEqual(AM.nameTokens("Wiwynn Lin"), ["wiwynn", "lin"], "but never below two tokens");
 });
 
+ok("ado: a roster kept on given names still matches, but never guesses between two Ryans", () => {
+  // 名冊 holds "Dixon"; ADO shows "Dixon Chu WYHQ Wiwynn" (回報 2026-10-20).
+  const rows = (names) =>
+    AM.normalise(
+      names.map((name, i) => ({ ID: String(401 + i), "Assigned To": name, State: "Doing", "Changed Date": "2026-10-19", Title: "given-name row", "Work Item Type": "Task" })),
+      { today: "2026-10-20" }
+    ).rows;
+
+  const one = AM.matchRoster(rows(["Dixon Chu WYHQ Wiwynn", "Rex CT Tsai WYHQ Wiwynn"]), [{ id: "e1", name: "Dixon", active: true }]);
+  assert.strictEqual((one.byEmp.get("e1") || []).length, 1);
+  assert.ok(one.firstName.has("Dixon Chu WYHQ Wiwynn"), "flagged as a given-name match, so the UI can say so");
+  assert.deepStrictEqual([...one.unmatched.keys()], ["Rex CT Tsai WYHQ Wiwynn"], "nobody on the roster is called Rex");
+
+  const twoAdo = AM.matchRoster(rows(["Ryan Chu WYHQ Wiwynn", "Ryan Lin WYHQ Wiwynn"]), [{ id: "e1", name: "Ryan", active: true }]);
+  assert.strictEqual(twoAdo.byEmp.size, 0, "two ADO Ryans: refuse to guess");
+  const twoEmps = AM.matchRoster(rows(["Ryan Chu WYHQ Wiwynn"]), [{ id: "e1", name: "Ryan", active: true }, { id: "e2", name: "Ryan Lin", active: true }]);
+  assert.strictEqual(twoEmps.byEmp.size, 0, "two roster Ryans: refuse to guess");
+
+  // An explicit 帳號 still decides, and the employee it belongs to is out of the given-name pass.
+  const explicit = AM.matchRoster(rows(["Ryan Chu WYHQ Wiwynn", "Ryan Lin WYHQ Wiwynn"]), [
+    { id: "e1", name: "Ryan", active: true, ado: "Ryan Lin WYHQ Wiwynn" },
+    { id: "e2", name: "Ryan Chu", active: true },
+  ]);
+  assert.strictEqual(explicit.empOf.get("Ryan Lin WYHQ Wiwynn"), "e1");
+  assert.strictEqual(explicit.empOf.get("Ryan Chu WYHQ Wiwynn"), "e2");
+  assert.strictEqual(explicit.firstName.size, 0, "both were decided by the full name / alias");
+});
+
+ok("ado: 批次對應 suggests the likeliest member, and nobody when there is none", () => {
+  const emps = [
+    { id: "e1", name: "Ryan", active: true },
+    { id: "e2", name: "Ryan Lin", active: true },
+    { id: "e3", name: "陳小明", active: true, ado: "Nick XR Chen" },
+  ];
+  const top = (name, email) => {
+    const r = AM.rankCandidates(name, email || "", emps);
+    return r.length ? r[0].empId : "";
+  };
+  assert.strictEqual(top("Ryan Chu WYHQ Wiwynn"), "e1", "given name alone still ranks");
+  assert.strictEqual(top("Ryan Lin WYHQ Wiwynn"), "e2", "given name + surname outranks given name alone");
+  assert.strictEqual(top("Nick XR Chen WYHQ Wiwynn"), "e3", "an alias is the strongest signal");
+  assert.strictEqual(top("Abimael Salamanca WYMX Wiwynn", "Abimael_Salamanca@wiwynn.com"), "", "a stranger gets no suggestion");
+  assert.strictEqual(top("N. Chen WYHQ Wiwynn", "Nick_XR_Chen@wiwynn.com"), "e3", "the mailbox carries the match when the name is short");
+});
+
 ok("ado: roster pairing by name, by a reversed name, by alias and by mail", () => {
   const emps = [
     { id: "e1", name: "Dixon Chu", active: true },

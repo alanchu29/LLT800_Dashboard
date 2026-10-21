@@ -175,6 +175,23 @@ assert.deepStrictEqual(strip(restored.data), strip(seed), "snapshot restores the
 r = get({ action: "bundle" });
 assert.strictEqual(r.by, "張三", "bundle reports the last editor");
 
+// 「ADO Task › 我的成員」的對應存在 employee.ado：舊版 Code.gs 的 Employees 只有 id/name/active，
+// 一次雲端往返就會把對應洗掉（2026-10-20 的回報），所以這裡把它釘住。
+{
+  const withAdo = JSON.parse(JSON.stringify(seed));
+  withAdo.employees = [
+    { id: "e1", name: "朱小明", active: true, ado: "Dixon Chu WYHQ Wiwynn, Dixon_Chu@wiwynn.com" },
+    { id: "e2", name: "林小華", active: true },
+  ];
+  // EDIT_KEY is set by the checks above, so this save has to carry it.
+  const saved = post({ action: "saveAll", data: withAdo, baseVersion: null, key: "secret", by: "張三" });
+  assert.ok(saved.ok, "the ado save went through");
+  const back = get({ action: "bundle" }).data.employees;
+  assert.strictEqual(back[0].ado, "Dixon Chu WYHQ Wiwynn, Dixon_Chu@wiwynn.com", "employee.ado survives the cloud round trip");
+  assert.strictEqual(back[1].ado, "", "an employee without it gets the key back empty, never missing");
+  assert.ok(back.every((e) => "ado" in e), "the key is always present, so the page can spot an old deployment");
+}
+
 // Only the newest SNAPSHOT_KEEP are kept (tiny dataset: this is about pruning, not round-tripping).
 const tiny = { projects: [], pfams: [], tasks: [], employees: [], trips: [], settings: {} };
 for (let i = 0; i < 35; i++) post({ action: "saveAll", data: tiny, baseVersion: null, key: "secret", by: "p" });
@@ -182,4 +199,4 @@ assert.strictEqual(liveSnapshots().length, ctx.SNAPSHOT_KEEP, `pruned to ${ctx.S
 const kept = liveSnapshots().map((f) => f.created);
 assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length), "kept ones are the newest");
 
-console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, key, date, ?since=, snapshot and prune checks pass`);
+console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, key, date, ?since=, employee.ado, snapshot and prune checks pass`);
