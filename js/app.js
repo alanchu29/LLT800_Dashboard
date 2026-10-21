@@ -122,6 +122,13 @@
             done({ action, values });
           } else done(action === "cancel" ? null : { action });
         };
+        // Enter in a field means 儲存. Left to the browser it presses the form's first submit button, the header ✕,
+        // which closes the dialog and drops the edit.
+        const onKey = (ev) => {
+          if (ev.key !== "Enter" || ev.isComposing || ev.target.tagName !== "INPUT") return;
+          ev.preventDefault();
+          form.requestSubmit($('#formFoot button[value="save"]'));
+        };
         const onClose = () => !d.open && done(null); // ignore a late close event from the form this one replaced
         let settled = false;
         function done(v) {
@@ -129,11 +136,13 @@
           settled = true;
           App._closeForm = null;
           form.removeEventListener("submit", onSubmit);
+          form.removeEventListener("keydown", onKey);
           d.removeEventListener("close", onClose);
           if (d.open) d.close();
           resolve(v);
         }
         form.addEventListener("submit", onSubmit);
+        form.addEventListener("keydown", onKey);
         d.addEventListener("close", onClose);
         App._closeForm = () => done(null);
         d.showModal();
@@ -238,6 +247,7 @@
       try {
         const r = await Remote.load(Store.meta.cloudVersion || null);
         if (r.unchanged || !r.data) return true;
+        if (Store.meta.dirty) return true; // edited while this read was out (the blocker can be skipped): keep the edits
         Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
         this.toast(`已先載入雲端最新版本（版本 ${r.version}${r.by ? `，最後由 ${r.by} 修改` : ""}）再開始編輯`);
         return true;
