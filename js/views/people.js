@@ -55,6 +55,7 @@
         <div class="kpi"><span class="kpi-l">專案分布</span>${distList(projKeys.map((k) => [projName(k), projColor(k), byProj.get(k)]))}</div>
         <div class="kpi"><span class="kpi-l">地點分布</span>${distList(locs.map((l) => [l, colors.get(l), byLoc.get(l)]))}</div>
       </section>
+      <section class="card"><header class="card-h"><h3>出差中與即將出差</h3><span class="muted">今天起還沒結束的出差・點一筆可編輯</span></header><div id="pUpcoming"></div></section>
       <section class="card"><header class="card-h"><h3>名冊</h3><span class="muted">出差統計與下次出差；每個人的任務明細在<a href="#/load">人力資源</a></span></header><div id="pRoster"></div></section>
       <section class="card"><header class="card-h"><h3>${year} 年度出差天數</h3><div class="ptabs" role="tablist" aria-label="分組" id="statTabs"><button type="button" role="tab" data-stat="project">依專案</button><button type="button" role="tab" data-stat="location">依地點</button></div></header><div id="pStats"></div><div class="legend" id="pStatsLegend"></div></section>
       <section class="card"><header class="card-h"><h3>${year} 出差行事曆</h3><span class="muted">顏色 = 地點${Store.editing ? "・點出差條可編輯" : ""}</span></header><div id="pCal"></div>
@@ -65,6 +66,7 @@
     $("#addEmp").onclick = () => Editors.employee(null);
     $("#addTrip").onclick = () => Editors.trip(null, { empId: person ? person.id : "" });
 
+    renderUpcoming($("#pUpcoming"), colors, today);
     renderRoster($("#pRoster"), emps, stats, today, person);
     const drawStats = () => {
       U.$$("#statTabs [data-stat]").forEach((b) => {
@@ -77,6 +79,30 @@
     drawStats();
     renderCalendar($("#pCal"), emps, year, colors, today);
     if (person) renderDetail($("#pDetail"), person, year, stats.get(person.id), colors, today);
+  }
+
+  // 出差中與即將出差: every trip not yet over (independent of the year picker); ongoing ones first.
+  function renderUpcoming(el, colors, today) {
+    const list = Store.data.trips.filter((r) => D(r.end) >= today).sort((a, b) => a.start.localeCompare(b.start) || Store.empName(a.empId).localeCompare(Store.empName(b.empId)));
+    if (!list.length) {
+      el.innerHTML = `<p class="empty">目前沒有出差中或已排定的出差。${Store.editing ? "按「＋ 出差紀錄」新增。" : ""}</p>`;
+      return;
+    }
+    el.innerHTML = `<ul class="trip-list">${list
+      .map((r) => {
+        const on = D(r.start) <= today;
+        const days = D(r.end) - D(r.start) + 1;
+        const wait = D(r.start) - today;
+        const p = r.projectId && Store.project(r.projectId);
+        const when = on ? `<b class="on-tag">出差中・第 ${today - D(r.start) + 1} / ${days} 天</b>` : `<small class="muted">${wait === 1 ? "明天出發" : `${wait} 天後出發`}</small>`;
+        return `<li data-trip="${r.id}" class="${on ? "on" : ""}" title="點一下編輯"><span class="loc" style="--c:${colors.get((r.location || "").trim()) || "#8a8f98"}">${esc(r.location)}</span><span class="t-main"><span><a href="#/people/${r.empId}">${esc(Store.empName(r.empId))}</a> <small class="muted">${days} 天</small></span><small>${esc(r.purpose || "")}${p ? `${r.purpose ? "・" : ""}${esc(p.name)}` : ""}${r.notes ? `・${esc(r.notes)}` : ""}</small></span><span class="t-side">${when}${U.range(r.start, r.end)}</span></li>`;
+      })
+      .join("")}</ul>`;
+    el.onclick = (ev) => {
+      if (ev.target.closest("a")) return;
+      const li = ev.target.closest("[data-trip]");
+      if (li) Editors.trip(li.dataset.trip);
+    };
   }
 
   function renderRoster(el, emps, stats, today, person) {
