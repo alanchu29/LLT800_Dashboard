@@ -27,7 +27,10 @@
     priority: ["priority"],
   };
 
-  /** Rows in these states are dropped on load, so a full-board export still reads as open items. */
+  /**
+   * Rows in these states are kept apart on load (normalise().done): the board shows them only with
+   * 含已完成 on, and the workload views (我的成員, 人力資源) never count them.
+   */
   const CLOSED_STATES = ["done", "closed", "removed", "resolved", "completed", "complete", "cancelled", "canceled", "abandoned", "rejected", "inactive"];
 
   /** Bookkeeping item types: real work, but noise in a workload view - the 排除 shortcut hides them. */
@@ -50,6 +53,8 @@
     { key: "review", label: "審查/驗證", match: ["review", "internal review", "qe review", "verifying", "verify", "testing"] },
     { key: "release", label: "待發布", match: ["release", "released", "verified", "ready"] },
   ];
+  /** Every closed state, whatever its name: not one of PHASES, since an open workload never has it. */
+  const DONE_PHASE = { key: "done", label: "已完成" };
 
   const AGE_BUCKETS = [
     { key: "0-30", label: "≤30 天", min: 0, max: 30, tone: "" },
@@ -136,7 +141,7 @@
   }
 
   /**
-   * Records (from the REST call or a CSV) -> rows with derived fields.
+   * Records (from the REST call or a CSV) -> { rows: open items, done: closed items }, both with derived fields.
    * opts.today: yyyy-mm-dd, the day stalling is measured against (once per load, not per render).
    */
   function normalise(records, opts) {
@@ -148,14 +153,9 @@
     const fm = buildFieldMap(header);
     const get = (rec, field) => (fm[field] ? String(rec[fm[field]] ?? "").trim() : "");
     const rows = [];
-    let dropped = 0;
 
     for (const rec of records) {
       const state = get(rec, "state");
-      if (CLOSED_STATES.includes(key(state))) {
-        dropped++;
-        continue;
-      }
       const id = get(rec, "id").replace(/\D/g, "");
       const title = get(rec, "title");
       if (!id && !title) continue;
@@ -178,6 +178,7 @@
         email,
         type: get(rec, "type"),
         state,
+        closed: CLOSED_STATES.includes(key(state)),
         changed,
         created: parseDay(get(rec, "created")),
         ageDays,
@@ -196,13 +197,13 @@
     for (const r of rows) {
       r.state = canonState(r.state) || "(無狀態)";
       r.type = canonType(r.type) || "(無類型)";
-      r.phase = phaseOf(r.state);
+      r.phase = r.closed ? DONE_PHASE.key : phaseOf(r.state);
       r.isNoise = NOISE_TYPES.includes(key(r.type));
       r.unassigned = r.assignee === UNASSIGNED;
-      r.stale = r.ageDays >= STALE_DAYS || r.ageDays < 0;
+      r.stale = !r.closed && (r.ageDays >= STALE_DAYS || r.ageDays < 0); // a finished item is not stalling
       r.search = [r.id, r.assignee, r.type, r.state, r.title, r.tags.join(" "), r.area, r.iteration].join(" ").toLowerCase();
     }
-    return { rows, dropped, fieldMap: fm, today };
+    return { rows: rows.filter((r) => !r.closed), done: rows.filter((r) => r.closed), fieldMap: fm, today };
   }
 
   // ------------------------------------------------------------------ filtering
@@ -213,8 +214,9 @@
   /**
    * One row against the filter. skipDim is left out so facet() can count "what this option would give"
    * with every other condition applied.
-   * f: { search, assignee[], type[], state[], tag[], age, from, to, quick: {stale, unassigned, noNoise, roster},
+   * f: { search, assignee[], type[], state[], tag[], age, from, to, quick: {stale, unassigned, noNoise, roster, done},
    *      extra(row) }
+   * A closed row only gets through with quick.done (含已完成).
    */
   function matches(row, f, skipDim) {
     if (f.search) for (const t of f.search.toLowerCase().split(/\s+/).filter(Boolean)) if (!row.search.includes(t)) return false;
@@ -231,6 +233,7 @@
     if (f.from && (!row.changed || row.changed < f.from)) return false;
     if (f.to && (!row.changed || row.changed > f.to)) return false;
     const quick = f.quick || {};
+    if (row.closed && !quick.done) return false;
     if (quick.stale && !row.stale) return false;
     if (quick.unassigned && !row.unassigned) return false;
     if (quick.noNoise && row.isNoise) return false;
@@ -458,6 +461,7 @@
     CLOSED_STATES,
     NOISE_TYPES,
     PHASES,
+    DONE_PHASE,
     AGE_BUCKETS,
     STALE_DAYS,
     UNASSIGNED,

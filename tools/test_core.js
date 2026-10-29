@@ -328,8 +328,10 @@ const adoRecords = [
 ];
 const ado = AM.normalise(adoRecords, { today: "2026-10-19" });
 
-ok("ado: closed items are dropped at load, open ones keep their derived fields", () => {
-  assert.strictEqual(ado.dropped, 1);
+ok("ado: closed items are kept apart at load, open ones keep their derived fields", () => {
+  assert.deepStrictEqual(ado.done.map((r) => r.id), ["105"]);
+  assert.strictEqual(ado.done[0].phase, "done");
+  assert.strictEqual(ado.done[0].stale, false, "a finished item is not stalling");
   assert.deepStrictEqual(ado.rows.map((r) => r.id), ["101", "102", "103", "104"]);
   const first = ado.rows[0];
   assert.strictEqual(first.ageDays, 4);
@@ -360,6 +362,24 @@ ok("ado: filters and facet counts", () => {
   assert.strictEqual(tags.get("Gen11"), 1);
   assert.strictEqual(tags.get("Gen12"), 1);
   assert.strictEqual(AM.facet(ado.rows, { tag: ["Gen11"] }, "assignee").get("Dixon Chu"), 1, "other dimensions do respect it");
+});
+
+ok("ado: finished items only show with 含已完成, and then follow the other filters", () => {
+  const both = ado.rows.concat(ado.done);
+  assert.strictEqual(AM.filter(both, {}).length, 4, "hidden by default");
+  assert.strictEqual(AM.filter(both, { quick: { done: true } }).length, 5);
+  assert.deepStrictEqual(AM.filter(both, { search: "finished", quick: { done: true } }).map((r) => r.id), ["105"]);
+  assert.deepStrictEqual(AM.filter(both, { state: ["Closed"], quick: { done: true } }).map((r) => r.id), ["105"]);
+  assert.strictEqual(AM.filter(both, { quick: { done: true, stale: true } }).length, 2, "never counted as stalled");
+});
+
+ok("ado: the WIQL brings finished items back only for the last doneDays days", () => {
+  global.window = global.window || {};
+  require("../js/ado.js");
+  const Ado = global.window.Ado;
+  assert.ok(/AND \[System\.State\] NOT IN \('Done'/.test(Ado.buildWiql("Monica", "", 0)), "0 = open items only");
+  assert.ok(/AND \(\[System\.State\] NOT IN \(.*\) OR \[System\.ChangedDate\] >= @Today - 180\)/.test(Ado.buildWiql("Monica", "", 180)));
+  assert.ok(/@Today - 30\) AND \(\[System\.AreaPath\] UNDER 'Monica'\)/.test(Ado.buildWiql("Monica", "[System.AreaPath] UNDER 'Monica'", "30")));
 });
 
 ok("ado: grouping keeps the stalling buckets in order and sorts the rest by size", () => {

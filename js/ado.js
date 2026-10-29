@@ -35,10 +35,12 @@
     "System.IterationPath",
   ];
 
-  /** States that mean "finished" - the WIQL asks ADO to leave these out. */
+  /** States that mean "finished" - the WIQL only asks for these when they changed in the last doneDays days. */
   const CLOSED = ["Done", "Closed", "Removed", "Resolved", "Completed", "Complete", "Cancelled", "Canceled", "Abandoned", "Rejected", "Inactive"];
 
-  const DEFAULTS = { org: "Manufacturing-Test-Engineering", project: "Monica", where: "", queryId: "" };
+  // doneDays: how far back finished items come along (看板 › 含已完成); 0 = open items only.
+  // Every closed item a project ever had would make the snapshot too big for localStorage.
+  const DEFAULTS = { org: "Manufacturing-Test-Engineering", project: "Monica", where: "", queryId: "", doneDays: 180 };
 
   const read = (store, key, fb) => {
     try {
@@ -108,8 +110,10 @@
 
   const q = (s) => String(s).replace(/'/g, "''");
 
-  function buildWiql(project, where) {
-    const parts = [`[System.TeamProject] = '${q(project)}'`, `[System.State] NOT IN (${CLOSED.map((s) => `'${q(s)}'`).join(", ")})`];
+  function buildWiql(project, where, doneDays) {
+    const open = `[System.State] NOT IN (${CLOSED.map((s) => `'${q(s)}'`).join(", ")})`;
+    const days = Math.max(0, Math.floor(Number(doneDays) || 0));
+    const parts = [`[System.TeamProject] = '${q(project)}'`, days ? `(${open} OR [System.ChangedDate] >= @Today - ${days})` : open];
     if (where) parts.push(`(${where})`);
     return `SELECT [System.Id] FROM WorkItems WHERE ${parts.join(" AND ")} ORDER BY [System.ChangedDate] ASC`;
   }
@@ -284,22 +288,22 @@
 
     // ------------------------------------------------------------ fetch
     /**
-     * Open work items of one project.
-     * opts: { org, project, pat, where, queryId, onProgress } -> { records }
+     * Open work items of one project, plus the ones finished in the last opts.doneDays days.
+     * opts: { org, project, pat, where, queryId, doneDays, onProgress } -> { records }
      * A saved query (queryId) replaces the generated WIQL, extra conditions and all.
      */
-    async fetchOpenItems(opts) {
+    async fetchItems(opts) {
       const say = opts.onProgress || (() => {});
       const base = `https://dev.azure.com/${encodeURIComponent(opts.org)}/${encodeURIComponent(opts.project)}`;
-      say("查詢未完成項目…");
+      say("查詢工作項目…");
       const res = opts.queryId
         ? await call(`${base}/_apis/wit/wiql/${encodeURIComponent(opts.queryId)}?api-version=${API}`, opts.pat)
-        : await call(`${base}/_apis/wit/wiql?api-version=${API}`, opts.pat, { query: buildWiql(opts.project, opts.where || "") });
+        : await call(`${base}/_apis/wit/wiql?api-version=${API}`, opts.pat, { query: buildWiql(opts.project, opts.where || "", opts.doneDays) });
 
       // A tree / one-hop query answers with relations instead of a flat list.
       const raw = res.workItemRelations ? res.workItemRelations.filter((r) => r.target).map((r) => r.target.id) : (res.workItems || []).map((w) => w.id);
       const ids = [...new Set(raw)];
-      if (!ids.length) throw adoError("查詢結果是空的 — 沒有符合條件的未完成項目。", "empty");
+      if (!ids.length) throw adoError("查詢結果是空的 — 沒有符合條件的工作項目。", "empty");
 
       const items = [];
       // Sequential on purpose: a big board must not open dozens of parallel requests.

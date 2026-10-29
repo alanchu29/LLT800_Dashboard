@@ -771,6 +771,7 @@ body { padding-bottom: 30px; }
 .ph-doing { --c: var(--s1); }
 .ph-review { --c: var(--s2); }
 .ph-release { --c: var(--s3); }
+.ph-done { --c: var(--good); }
 .lg i.ph-backlog, .lg i.ph-doing, .lg i.ph-review, .lg i.ph-release { background: var(--c); }
 .ado-age { display: inline-block; min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
 .ado-age.t-warn, .ado-age.t-serious, .ado-age.t-critical { padding: 0 6px; border-radius: 6px; font-weight: 650; }

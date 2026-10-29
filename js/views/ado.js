@@ -1,6 +1,7 @@
 /*
  * ADO Task: the department's open Azure DevOps work items, in two readings of the same snapshot.
- *   看板     - every open item, with facet filters, distribution bars and a sortable list
+ *   看板     - every open item (recently finished ones too, with 含已完成), with facet filters,
+ *              distribution bars and a sortable list
  *   我的成員 - the same items paired with the 員工名冊, so each member's ADO workload is visible
  *              and ADO accounts nobody on the roster owns stand out
  *
@@ -13,9 +14,9 @@
   const E = window.Engine;
   const { $, $$, esc } = U;
 
-  const PHASE = new Map(A.PHASES.map((p) => [p.key, p]));
+  const PHASE = new Map(A.PHASES.concat(A.DONE_PHASE).map((p) => [p.key, p]));
   const DIM_LABEL = { assignee: "負責人", type: "類型", state: "狀態", tag: "專案標籤", ageBucket: "停滯區間" };
-  const QUICK_LABEL = { stale: `停滯 > ${A.STALE_DAYS - 1} 天`, noNoise: "排除 Worklog / Release Note" };
+  const QUICK_LABEL = { stale: `停滯 > ${A.STALE_DAYS - 1} 天`, noNoise: "排除 Worklog / Release Note", done: "含已完成" };
   // Whose items: a roster name, any other name, or nobody - disjoint, so at most one is on.
   const SCOPES = [["", "全部"], ["roster", "名冊成員"], ["outside", "名冊外"], ["unassigned", "未指派"]];
   const FACET_LIMIT = 12; // chips a facet shows before 更多
@@ -30,15 +31,18 @@
 
   const redraw = () => App.render();
 
+  /** rows: open items (what every workload view counts), done: closed ones, all: both (看板 with 含已完成). */
+  function snapOf(records, at, source) {
+    const r = A.normalise(records, { today: E.fromDay(U.today()) });
+    return { at, day: r.today, source, rows: r.rows, done: r.done, all: r.rows.concat(r.done) };
+  }
+
   /** The cached snapshot, normalised once per fetch (ageDays is measured against the day it is read). */
   function rows() {
     const cache = Ado.readCache();
     // A snapshot too big for localStorage lives in this module for the rest of the visit.
     if (!cache) return snapshot && snapshot.memory ? snapshot : null;
-    if (!snapshot || snapshot.at !== cache.at || snapshot.day !== E.fromDay(U.today())) {
-      const r = A.normalise(cache.records, { today: E.fromDay(U.today()) });
-      snapshot = { at: cache.at, day: r.today, source: cache.source || "", rows: r.rows, dropped: r.dropped + (cache.dropped || 0) };
-    }
+    if (!snapshot || snapshot.at !== cache.at || snapshot.day !== E.fromDay(U.today())) snapshot = snapOf(cache.records, cache.at, cache.source || "");
     return snapshot;
   }
 
@@ -89,7 +93,7 @@
 
   function ageCell(r) {
     if (r.ageDays < 0) return `<span class="muted">—</span>`;
-    const tone = (A.bucket(r.ageBucket) || {}).tone || "";
+    const tone = r.closed ? "" : (A.bucket(r.ageBucket) || {}).tone || ""; // days since it was closed: nothing to warn about
     return `<span class="ado-age${tone ? " t-" + tone : ""}">${r.ageDays}</span>`;
   }
 
@@ -139,7 +143,7 @@
       <p class="ado-src muted">${
         snap
           ? `${esc(snap.source || `${cfg.org} / ${cfg.project}`)}・擷取於 <b>${esc(new Date(snap.at).toLocaleString("zh-TW", { hour12: false }))}</b>・${snap.rows.length} 筆未完成${
-              snap.dropped ? `（已濾掉 ${snap.dropped} 筆結案）` : ""
+              snap.done.length ? `、${snap.done.length} 筆已完成（勾「含已完成」才會顯示）` : ""
             }・停滯天數以 ${esc(snap.day)} 為基準`
           : `尚未擷取資料。資料只存在這台電腦，不會寫入部門資料或雲端。`
       }</p>
@@ -165,7 +169,9 @@
     const body = $("#adoBody");
     if (!snap) renderEmpty(body, cfg);
     else {
-      const pair = A.matchRoster(snap.rows, Store.data.employees);
+      // 我的成員 is a workload: open items only. The board pairs whatever it lists, so a finished item's
+      // owner is not marked 名冊外 just for having nothing open.
+      const pair = A.matchRoster(tab === "board" && F.quick.done ? snap.all : snap.rows, Store.data.employees);
       if (tab === "members") renderMembers(body, snap, pair);
       else renderBoard(body, snap, pair);
     }
@@ -210,7 +216,7 @@
 
   // ------------------------------------------------------------------ 看板
   function renderBoard(el, snap, pair) {
-    const all = snap.rows;
+    const all = F.quick.done ? snap.all : snap.rows;
     const f = effective(pair);
     const list = A.sort(A.filter(all, f), F.sort, F.dir);
     const rosterNames = new Set(pair.empOf.keys());
@@ -221,6 +227,8 @@
     const unassigned = without("unassigned").filter((r) => r.unassigned).length;
     const stalePool = without("stale");
     const stale = stalePool.filter((r) => r.stale).length;
+    // Like a facet chip: the finished items 含已完成 would add under every other filter.
+    const doneHits = A.filter(snap.done, effective(pair, { ...F.quick, done: true })).length;
     const scopeOn = (SCOPES.find(([s]) => s && F.quick[s]) || [""])[0];
 
     const kpi = (label, value, note, opts) =>
@@ -229,7 +237,7 @@
 
     el.innerHTML = `
       <section class="kpis small ado-kpis">
-        ${kpi("未完成項目", all.length, anyFilter() ? `篩選後 <b>${list.length}</b> 筆` : "點下方條件可篩選", { act: "clear", on: !anyFilter() })}
+        ${kpi("未完成項目", snap.rows.length, anyFilter() ? `篩選後 <b>${list.length}</b> 筆` : "點下方條件可篩選", { act: "clear", on: !anyFilter() })}
         ${kpi("名冊成員的項目", mine, `${pair.byEmp.size} 位成員・名冊 ${Store.data.employees.filter((e) => e.active).length} 人`, { act: "roster", on: !!F.quick.roster })}
         ${kpi("未指派", unassigned, "沒有 Assigned To", { act: "unassigned", on: !!F.quick.unassigned })}
         ${kpi(`停滯 > ${A.STALE_DAYS - 1} 天`, stale, `占 ${stalePool.length ? Math.round((stale / stalePool.length) * 100) : 0}%`, { act: "stale", on: !!F.quick.stale, tone: stale ? "bad" : "good" })}
@@ -249,7 +257,14 @@
           <div class="fv"><div class="seg small" role="group" aria-label="負責人範圍">${SCOPES.map(
             ([k, label]) => `<button type="button" data-scope="${k}" class="${scopeOn === k ? "on" : ""}" aria-pressed="${scopeOn === k}">${esc(label)}</button>`
           ).join("")}</div>
-            ${Object.keys(QUICK_LABEL).map((k) => `<button type="button" class="chip${F.quick[k] ? " on" : ""}" style="--c:var(--brand)" data-quick="${k}" aria-pressed="${!!F.quick[k]}">${F.quick[k] ? "✓ " : ""}${esc(QUICK_LABEL[k])}</button>`).join("")}</div>
+            ${Object.keys(QUICK_LABEL)
+              .map(
+                (k) =>
+                  `<button type="button" class="chip${F.quick[k] ? " on" : ""}${k === "done" && !doneHits ? " zero" : ""}" style="--c:var(--brand)" data-quick="${k}" aria-pressed="${!!F.quick[k]}"${
+                    k === "done" ? ` title="State 為 Done / Closed / Resolved… 的項目（擷取時只帶最近 ${esc(Ado.cfg().doneDays)} 天內有更新的）"` : ""
+                  }>${F.quick[k] ? "✓ " : ""}${esc(QUICK_LABEL[k])}${k === "done" ? ` <b>${doneHits}</b>` : ""}</button>`
+              )
+              .join("")}</div>
           ${A.DIMS.map((dim) => facetRow(dim, all, f)).join("")}
         </div>
         <div class="ado-result"><span>顯示 <b>${list.length}</b> / ${all.length} 筆</span>${anyFilter() ? `<button class="btn small" id="fClear" type="button">清除全部篩選</button>` : ""}</div>
@@ -356,7 +371,7 @@
       }
     };
 
-    renderTable($("#adoTable"), list, pair);
+    renderTable($("#adoTable"), list, pair, F.quick.done ? 0 : doneHits);
   }
 
   /**
@@ -394,9 +409,12 @@
     ["title", "標題", ""],
   ];
 
-  function renderTable(el, list, pair) {
+  /** doneHits: finished items the same filter would match - worth saying when the list is empty without them. */
+  function renderTable(el, list, pair, doneHits) {
     if (!list.length) {
-      el.innerHTML = `<p class="empty">沒有符合條件的項目。${anyFilter() ? "試著放寬或清除篩選。" : ""}</p>`;
+      el.innerHTML = `<p class="empty">沒有符合條件的未完成項目。${
+        doneHits ? `<button type="button" class="chip" style="--c:var(--brand)" data-quick="done">含已完成 <b>${doneHits}</b></button> 可以看已完成的。` : anyFilter() ? "試著放寬或清除篩選。" : ""
+      }</p>`;
       return;
     }
     const head = SORTS.map(
@@ -684,9 +702,9 @@
     $("#blockerSkip").onclick = () => App.blocker(false);
     App.blocker(true, opts.auto ? `正在向 ADO 擷取（PAT 來自 ${from === "file" ? Ado.patFile() : "這個瀏覽器"}）…` : "正在向 ADO 擷取…");
     try {
-      const r = await Ado.fetchOpenItems({ ...cfg, pat: Ado.pat(), onProgress: (m) => App.blocker(true, m) });
-      saveSnapshot(r.records, `${cfg.org} / ${cfg.project}`);
-      App.toast(`已擷取 ${r.records.length} 筆未完成項目`);
+      const r = await Ado.fetchItems({ ...cfg, pat: Ado.pat(), onProgress: (m) => App.blocker(true, m) });
+      const s = saveSnapshot(r.records, `${cfg.org} / ${cfg.project}`);
+      App.toast(`已擷取 ${s.rows.length} 筆未完成項目${s.done.length ? `、${s.done.length} 筆已完成` : ""}`);
       redraw();
     } catch (err) {
       const where = err.kind === "auth" && from === "file" ? `（PAT 來自 ${Ado.patFile()}，可能已過期，請更新那個檔案後重跑 tools\\ado_pat.ps1）` : "";
@@ -716,24 +734,24 @@
       const records = Ado.parseCsv(await U.readFile(file));
       if (!records.length) return App.toast("這個 CSV 裡沒有資料列", "error");
       const probe = A.normalise(records, { today: E.fromDay(U.today()) });
-      if (!probe.rows.length && !probe.dropped) return App.toast("認不出這個 CSV 的欄位（需要 ID / Title / State 等 ADO 匯出欄位）", "error");
+      if (!probe.rows.length && !probe.done.length) return App.toast("認不出這個 CSV 的欄位（需要 ID / Title / State 等 ADO 匯出欄位）", "error");
       saveSnapshot(records, file.name);
-      App.toast(`已載入 ${probe.rows.length} 筆未完成項目${probe.dropped ? `（濾掉 ${probe.dropped} 筆結案）` : ""}`);
+      App.toast(`已載入 ${probe.rows.length} 筆未完成項目${probe.done.length ? `、${probe.done.length} 筆已完成（勾「含已完成」才會顯示）` : ""}`);
       redraw();
     } catch (err) {
       App.toast("讀取 CSV 失敗：" + err.message, "error");
     }
   }
 
+  /** -> the snapshot as the page now reads it. */
   function saveSnapshot(records, source) {
     snapshot = null; // force a re-normalise on the next render
-    const ok = Ado.writeCache(records, { source, at: new Date().toISOString() });
-    if (!ok) {
-      // Too big (or no quota) for localStorage: keep it in memory for this page only.
-      const r = A.normalise(records, { today: E.fromDay(U.today()) });
-      snapshot = { at: new Date().toISOString(), day: r.today, source: source + "（未存入本機）", rows: r.rows, dropped: r.dropped, memory: true };
-      App.toast("資料量太大，這次的擷取結果只留在這個分頁，重新整理後需要再擷取一次。");
-    }
+    const at = new Date().toISOString();
+    if (Ado.writeCache(records, { source, at })) return rows();
+    // Too big (or no quota) for localStorage: keep it in memory for this page only.
+    snapshot = { ...snapOf(records, at, source + "（未存入本機）"), memory: true };
+    App.toast(`資料量太大，這次的擷取結果只留在這個分頁，重新整理後需要再擷取一次。${Ado.cfg().doneDays > 0 ? "可在「ADO 設定」把已完成項目的天數調小。" : ""}`);
+    return snapshot;
   }
 
   /** Connection settings and the PAT. The PAT never goes into the dataset, the URL or a log. */
@@ -758,6 +776,15 @@
             " 在 ADO 的 User settings → Personal access tokens 建立，scope 只要勾 Work Items (Read)；只會送到 dev.azure.com。",
         },
         { key: "remember", label: "PAT 保存方式", type: "check", text: "記住 PAT（存在這台電腦）", value: Ado.patRemembered(), hint: "不勾選只記在這個分頁，關掉就消失；共用電腦建議不要勾" },
+        {
+          key: "doneDays",
+          label: "已完成項目（天）",
+          type: "number",
+          min: 0,
+          value: cfg.doneDays,
+          more: true,
+          hint: "一併擷取最近幾天內有更新的已完成項目（Done / Closed…），看板勾「含已完成」才會顯示；0 = 只擷取未完成。天數越大資料越多。",
+        },
         { key: "where", label: "額外條件（WIQL）", value: cfg.where, more: true, wide: true, placeholder: "[System.AreaPath] UNDER 'Monica\\Gen11'" },
         { key: "queryId", label: "已存查詢 GUID", value: cfg.queryId, more: true, wide: true, hint: "填了就改用 ADO 上存好的查詢，忽略上面的額外條件" },
       ],
@@ -770,6 +797,7 @@
     }
     if (r.action !== "save") return;
     const { pat, remember, ...rest } = r.values;
+    rest.doneDays = Math.max(0, Math.floor(Number(rest.doneDays) || 0));
     Ado.setCfg(rest);
     Ado.setPat(pat, remember);
     fetchNow();
