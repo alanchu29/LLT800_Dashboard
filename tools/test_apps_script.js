@@ -99,10 +99,17 @@ vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(root, "apps-script/Code.gs"), "utf8"), ctx);
 
 const get = (q) => JSON.parse(ctx.doGet({ parameter: q }).text);
-const post = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text);
+// Every write carries the edit password unless a test passes its own `key`.
+const post = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify({ key: "secret", ...body }) } }).text);
 
 // ---------------------------------------------------------------- tests
-let r = get({ action: "ping" });
+// No EDIT_KEY set: the backend fails closed, nobody can write or unlock edit mode.
+let r = post({ action: "saveAll", data: seed, baseVersion: 0 });
+assert.ok(!r.ok && r.authFailed && /EDIT_KEY/.test(r.error), "no EDIT_KEY -> every write refused");
+assert.ok(post({ action: "auth" }).authFailed, "no EDIT_KEY -> auth refused");
+props.EDIT_KEY = "secret";
+
+r = get({ action: "ping" });
 assert.ok(r.ok && r.service === "LLT800_Dashboard");
 const jsonp = ctx.doGet({ parameter: { action: "ping", callback: "cb_1" } }).text;
 assert.ok(jsonp.startsWith("cb_1(") && jsonp.endsWith(")"), "JSONP wrapper");
@@ -135,11 +142,21 @@ assert.ok(r.conflict && r.version === 1, "stale base version -> conflict");
 r = post({ action: "saveAll", data: seed, baseVersion: null });
 assert.ok(r.ok && r.version === 2, "forced save");
 
-props.EDIT_KEY = "secret";
-r = post({ action: "saveAll", data: seed, baseVersion: 2 });
-assert.ok(!r.ok && /金鑰/.test(r.error), "wrong key rejected");
-r = post({ action: "saveAll", data: seed, baseVersion: 2, key: "secret" });
-assert.ok(r.ok && r.version === 3, "right key accepted");
+for (const key of [undefined, "", "Secret", "wrong"]) {
+  r = post({ action: "saveAll", data: seed, baseVersion: 2, key });
+  assert.ok(!r.ok && r.authFailed && /密碼不正確/.test(r.error), `wrong password rejected (${key})`);
+}
+assert.strictEqual(get({ action: "bundle" }).version, 2, "a rejected write changes nothing");
+r = post({ action: "auth", key: "wrong" });
+assert.ok(!r.ok && r.authFailed, "auth: wrong password");
+assert.ok(post({ action: "auth" }).ok, "auth: right password");
+// The old in-page password hash is never stored, published or snapshotted.
+const withHash = JSON.parse(JSON.stringify(seed));
+withHash.settings.editHash = "abc123";
+r = post({ action: "saveAll", data: withHash, baseVersion: 2 });
+assert.ok(r.ok && r.version === 3, "right password accepted");
+assert.ok(!("editHash" in get({ action: "bundle" }).data.settings), "editHash stripped from the bundle");
+assert.ok(!/editHash/.test(liveSnapshots().slice(-1)[0].content), "editHash stripped from the snapshot");
 
 // A date typed by hand in the sheet (a Date object) is read back as yyyy-MM-dd.
 const tasks = sheets.Tasks;
@@ -199,4 +216,4 @@ assert.strictEqual(liveSnapshots().length, ctx.SNAPSHOT_KEEP, `pruned to ${ctx.S
 const kept = liveSnapshots().map((f) => f.created);
 assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length), "kept ones are the newest");
 
-console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, key, date, ?since=, employee.ado, snapshot and prune checks pass`);
+console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, password, date, ?since=, employee.ado, snapshot and prune checks pass`);

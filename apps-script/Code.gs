@@ -5,8 +5,10 @@
  * then Deploy > New deployment > Web app (Execute as: Me, Who has access: Anyone).
  * Sheets (Projects / PFAMs / Tasks / Employees / Trips / Ignored / Meta) are created on first save.
  *
- * Optional write protection: Project Settings > Script properties > EDIT_KEY = <secret>,
- * and type the same key in the dashboard's 設定 > 雲端同步 > 寫入金鑰.
+ * Write protection (required): Project Settings > Script properties > EDIT_KEY = <the edit password>.
+ * Everyone can read; only a POST carrying that password can write, and with no EDIT_KEY set every write
+ * is refused. The dashboard asks for it when someone turns on 編輯模式 (checked with action "auth").
+ * Only the owner of this script can change it, so changing the password = editing that property.
  *
  * Every saved version is also kept as a JSON file in Drive (see SNAPSHOT_FOLDER), so a version someone
  * overwrote can be restored with the dashboard's 設定 > 還原 JSON 備份.
@@ -15,7 +17,8 @@
  *                                               since = the version the caller already has; when that is
  *                                               still the current one the reply is {unchanged:true} and no
  *                                               sheet is read
- * POST {action:"saveAll", data, baseVersion, by}  replace everything; optimistic lock on Meta.version
+ * POST {action:"auth", key}                      check the edit password -> {ok:true} or {ok:false, authFailed:true}
+ * POST {action:"saveAll", data, baseVersion, by, key}  replace everything; optimistic lock on Meta.version
  *                                               (baseVersion null = overwrite whatever is there)
  */
 
@@ -53,11 +56,16 @@ function doPost(e) {
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     checkKey_(body.key);
-    lock.waitLock(30000);
-    if (body.action === 'saveAll') out = saveAll_(body.data, body.baseVersion, body.by);
-    else out = { ok: false, error: 'Unknown action: ' + body.action };
+    if (body.action === 'auth') {
+      out = { ok: true };
+    } else {
+      lock.waitLock(30000);
+      if (body.action === 'saveAll') out = saveAll_(body.data, body.baseVersion, body.by);
+      else out = { ok: false, error: 'Unknown action: ' + body.action };
+    }
   } catch (err) {
     out = { ok: false, error: String(err && err.message || err) };
+    if (err && err.authFailed) out.authFailed = true;
   } finally {
     try { lock.releaseLock(); } catch (ignore) {}
   }
@@ -72,9 +80,22 @@ function respond_(obj, callback) {
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
 }
 
+/** Fails closed: no EDIT_KEY means nobody can write, so a forgotten setup never leaves the data open. */
 function checkKey_(key) {
   var want = PropertiesService.getScriptProperties().getProperty('EDIT_KEY');
-  if (want && key !== want) throw new Error('寫入金鑰不正確（設定 > 雲端同步 > 寫入金鑰）');
+  var err;
+  if (!want) err = new Error('雲端尚未設定編輯密碼（Apps Script 指令碼屬性 EDIT_KEY），目前不接受任何修改');
+  else if (typeof key !== 'string' || key !== want) err = new Error('編輯密碼不正確');
+  if (!err) return;
+  err.authFailed = true;
+  throw err;
+}
+
+/** The old in-page password hash (settings.editHash) is no longer used; never store or publish it. */
+function publicSettings_(settings) {
+  var s = {};
+  Object.keys(settings || {}).forEach(function (k) { if (k !== 'editHash') s[k] = settings[k]; });
+  return s;
 }
 
 // ---------------------------------------------------------------- read
@@ -114,7 +135,7 @@ function bundle_(since) {
   });
   var data = {
     schema: 1,
-    settings: parse_(meta.settings, {}),
+    settings: publicSettings_(parse_(meta.settings, {})),
     source: parse_(meta.source, null),
     projects: projects, pfams: pfams, tasks: tasks, employees: employees, trips: trips,
     importIgnored: ignored
@@ -165,6 +186,7 @@ function readRows_(name) {
 
 function saveAll_(data, baseVersion, by) {
   if (!data || !data.projects) throw new Error('資料格式錯誤');
+  data.settings = publicSettings_(data.settings); // also keeps it out of the Drive snapshot
   var meta = readMeta_();
   var current = Number(meta.version || 0);
   if (baseVersion !== null && baseVersion !== undefined && Number(baseVersion) !== current) {
@@ -203,7 +225,7 @@ function saveAll_(data, baseVersion, by) {
     ['version', version],
     ['savedAt', savedAt],
     ['lastBy', by || ''],
-    ['settings', JSON.stringify(data.settings || {})],
+    ['settings', JSON.stringify(data.settings)],
     ['source', JSON.stringify(data.source || null)]
   ]);
   snapshot_(data, version, savedAt, by);

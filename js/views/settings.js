@@ -105,10 +105,13 @@
           </details>
         </section>
 
-        <section class="card"><header class="card-h"><h3>編輯密碼</h3></header>
-          <p class="muted small">設定後，切換「編輯模式」需要輸入密碼。這只用來防止誤改，資料本身仍是公開可讀的。</p>
-          <p>目前：<b>${s.editHash ? "已設定" : "未設定"}</b></p>
-          <div class="row-end"><button class="btn edit-only" id="setPw" type="button">${s.editHash ? "變更密碼" : "設定密碼"}</button>${s.editHash ? `<button class="btn edit-only" id="clearPw" type="button">移除密碼</button>` : ""}</div>
+        <section class="card" id="set-pw"><header class="card-h"><h3>編輯密碼</h3></header>
+          ${Remote.active
+            ? `<p class="muted small">雲端資料所有人都能看，但只有知道編輯密碼的人能修改：切換「編輯模式」時要輸入，由 Google Apps Script 伺服器檢查，沒有密碼的人送出的修改一律被拒絕。</p>
+              <p class="muted small">密碼設在 Apps Script 的<b>指令碼屬性 <code>EDIT_KEY</code></b>，只有試算表擁有者能變更（步驟見 README）。變更後，各電腦記住的舊密碼會在下次編輯時要求重新輸入。</p>
+              <p>這台電腦：<b>${Remote.hasKey ? "已記住編輯密碼" : "未輸入（只能觀看）"}</b></p>
+              ${Remote.hasKey ? `<div class="row-end"><button class="btn" id="forgetPw" type="button">忘記這台電腦的密碼</button></div>` : ""}`
+            : `<p class="muted small">本機模式的資料只存在這個瀏覽器，不需要密碼。啟用雲端同步後，只有知道編輯密碼（Apps Script 的 <code>EDIT_KEY</code>）的人能修改共用資料。</p>`}
         </section>
 
         <section class="card" id="set-ado"><header class="card-h"><h3>ADO Task</h3><span class="muted">選用</span></header>
@@ -153,7 +156,6 @@
           <p class="muted small">把 <code>apps-script/Code.gs</code> 部署成 Web App 後貼上網址（結尾 /exec），全部門共用同一份資料。步驟見 README。這個設定只存在這台電腦的瀏覽器。</p>
           <div class="form-grid">
             <div class="field wide"><label for="cUrl">Apps Script 網址</label><input id="cUrl" type="url" value="${esc(Remote.config.url)}" placeholder="https://script.google.com/macros/s/…/exec"></div>
-            <div class="field"><label for="cKey">寫入金鑰（選填）</label><input id="cKey" value="${esc(Remote.config.key)}" placeholder="與 EDIT_KEY 相同"></div>
             <div class="field"><label>&nbsp;</label><label class="check"><input type="checkbox" id="cOn"${Remote.config.enabled ? " checked" : ""}> 啟用雲端模式</label></div>
           </div>
           <p class="small">${Remote.active ? `雲端版本 ${Store.meta.cloudVersion || "—"}${Store.meta.cloudAt ? `・最後同步 ${esc(Store.meta.cloudAt.slice(0, 16).replace("T", " "))}` : ""}${Store.meta.dirty ? "・<b>有未同步修改</b>" : ""}` : "目前是本機模式：資料只存在這個瀏覽器。"}</p>
@@ -161,7 +163,7 @@
             <button class="btn" id="cTest" type="button">測試連線</button>
             <button class="btn primary" id="cSave" type="button">儲存設定</button>
             <button class="btn" id="cPull" type="button"${Remote.active ? "" : " disabled"}>從雲端重新載入</button>
-            <button class="btn" id="cPush" type="button"${Remote.active ? "" : " disabled"}>上傳本機資料到雲端</button>
+            <button class="btn edit-only" id="cPush" type="button"${Remote.active ? "" : " disabled"}>上傳本機資料到雲端</button>
           </div>
         </section>
 
@@ -360,14 +362,14 @@
         })
     );
 
-    $("#setPw").onclick = () => {
-      const a = prompt("輸入新的編輯密碼");
-      if (!a) return;
-      if (prompt("再輸入一次確認") !== a) return App.toast("兩次輸入不一致", "error");
-      Store.commit((d) => (d.settings.editHash = U.hash(a)));
-      App.toast("已設定編輯密碼");
-    };
-    if ($("#clearPw")) $("#clearPw").onclick = () => confirm("移除編輯密碼？") && Store.commit((d) => (d.settings.editHash = ""));
+    if ($("#forgetPw"))
+      $("#forgetPw").onclick = () => {
+        if (!confirm("讓這台電腦忘記編輯密碼？之後要修改需要重新輸入。")) return;
+        Remote.forgetKey();
+        if (Store.editing) Store.setEditing(false);
+        App.toast("已忘記編輯密碼，這台電腦目前只能觀看");
+        App.render();
+      };
 
     const bdCount = () => {
       const c = $("#bdDate").value;
@@ -398,7 +400,7 @@
       Store.setUi({ demoHidden: false, projectId: "" });
     };
     $("#clearDemo").onclick = () => {
-      if (!confirm("清空所有 Project、PFAM、task、員工與出差紀錄？\n設定（Phase、廠區、密碼）會保留。可按 ↶ 復原。")) return;
+      if (!confirm("清空所有 Project、PFAM、task、員工與出差紀錄？\n設定（Phase、廠區、假日）會保留。可按 ↶ 復原。")) return;
       const next = Convert.emptyData();
       next.settings = JSON.parse(JSON.stringify(Store.data.settings));
       Store.replace(next, { keepUndo: true, dirty: true });
@@ -406,7 +408,7 @@
       App.toast("已清空，可以開始建立正式資料");
     };
 
-    const cfg = () => ({ url: $("#cUrl").value.trim(), key: $("#cKey").value.trim(), enabled: $("#cOn").checked });
+    const cfg = () => ({ url: $("#cUrl").value.trim(), enabled: $("#cOn").checked });
     $("#cTest").onclick = async () => {
       const c = cfg();
       if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(c.url)) return App.toast("網址應以 https://script.google.com/ 開頭", "error");
@@ -433,6 +435,7 @@
     };
     $("#cPush").onclick = async () => {
       if (!confirm("用這台電腦的資料覆寫雲端？")) return;
+      if (!(await App.unlockEdit())) return;
       App.blocker(true, "正在上傳…");
       try {
         const r = await Remote.save(Store.data, null, true);

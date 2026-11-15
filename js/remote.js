@@ -82,8 +82,9 @@
       });
     },
 
+    /** A rejected password throws an Error with .authFailed set, so callers can ask for it again. */
     async post(payload) {
-      const res = await fetch(this.config.url, { method: "POST", body: JSON.stringify({ ...payload, key: this.config.key || "" }), redirect: "follow" });
+      const res = await fetch(this.config.url, { method: "POST", body: JSON.stringify({ key: this.config.key || "", ...payload }), redirect: "follow" });
       const text = await res.text();
       let json;
       try {
@@ -91,8 +92,30 @@
       } catch {
         throw new Error("Apps Script 回傳格式錯誤：" + text.slice(0, 120));
       }
-      if (!json.ok && !json.conflict) throw new Error(json.error || "Apps Script 回報錯誤");
+      if (!json.ok && !json.conflict) {
+        const err = new Error(json.error || "Apps Script 回報錯誤");
+        if (json.authFailed) err.authFailed = true;
+        throw err;
+      }
       return json;
+    },
+
+    /**
+     * Check an edit password with the backend (which alone decides who may write) and remember it on
+     * this computer when it is right. Throws (err.authFailed when the password is wrong).
+     */
+    async auth(key) {
+      await this.post({ action: "auth", key });
+      this.saveConfig({ key });
+    },
+
+    /** Forget the edit password this computer remembers: back to read-only. */
+    forgetKey() {
+      this.saveConfig({ key: "" });
+    },
+
+    get hasKey() {
+      return !!this.config.key;
     },
 
     async ping(url) {

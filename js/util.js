@@ -47,16 +47,6 @@
     return E.toDay(iso);
   }
 
-  /** Simple non-cryptographic hash: the edit password only guards against accidental edits. */
-  function hash(s) {
-    let h = 2166136261;
-    for (const c of String(s)) {
-      h ^= c.codePointAt(0);
-      h = Math.imul(h, 16777619);
-    }
-    return (h >>> 0).toString(36);
-  }
-
   function download(name, text, type) {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([text], { type: type || "application/json" }));
@@ -112,5 +102,5 @@
     },
   };
 
-  window.U = { fmt, range, esc, $, $$, debounce, today, hash, download, readFile, inkOn, tip, WD };
+  window.U = { fmt, range, esc, $, $$, debounce, today, download, readFile, inkOn, tip, WD };
 })();

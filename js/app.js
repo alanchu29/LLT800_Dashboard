@@ -222,15 +222,50 @@
 
     async toggleEdit() {
       if (Store.editing) return Store.setEditing(false);
-      const h = Store.data.settings.editHash;
-      if (h) {
-        const pw = prompt("輸入編輯密碼");
-        if (pw == null) return;
-        if (U.hash(pw) !== h) return this.toast("密碼不正確", "error");
-      }
+      if (!(await this.unlockEdit())) return;
       if (!(await this.freshenBeforeEdit())) return;
       Store.setEditing(true);
       this.toast("已進入編輯模式：點任何專案、task、員工或出差紀錄即可修改");
+    },
+
+    /**
+     * Cloud mode: only people with the edit password may change the shared data, and the Apps Script
+     * backend is what checks it (EDIT_KEY), so a page tweak cannot get around it. A password this
+     * computer remembers is re-checked first; when it no longer works (the owner changed EDIT_KEY) it
+     * is forgotten and asked for again. Local mode has nothing shared to protect. True = allowed.
+     */
+    async unlockEdit() {
+      if (!Remote.active) return true;
+      let pw = Remote.config.key;
+      let ask = "輸入編輯密碼（沒有密碼的人只能觀看）";
+      for (;;) {
+        if (!pw) {
+          pw = prompt(ask);
+          if (pw == null) return false;
+          if (!pw) continue;
+        }
+        $("#blockerSkip").onclick = () => this.blocker(false);
+        this.blocker(true, "正在確認編輯密碼…");
+        try {
+          await Remote.auth(pw);
+          return true;
+        } catch (err) {
+          if (!err.authFailed) {
+            this.toast("無法確認編輯密碼：" + err.message, "error");
+            return false;
+          }
+          const remembered = pw === Remote.config.key;
+          Remote.forgetKey();
+          if (!remembered) {
+            this.toast(err.message, "error");
+            return false;
+          }
+          pw = "";
+          ask = "這台電腦記住的編輯密碼已失效，請重新輸入";
+        } finally {
+          this.blocker(false);
+        }
+      }
     },
 
     /**
@@ -331,6 +366,7 @@
 
     async syncCloud() {
       if (!Remote.active) return;
+      if (!Remote.hasKey && !(await this.unlockEdit())) return;
       this.blocker(true, "正在同步到雲端…");
       try {
         let r = await Remote.save(Store.data, Store.meta.cloudVersion);
@@ -346,7 +382,12 @@
         Store.save();
         this.toast("已同步到雲端");
       } catch (err) {
-        this.toast("同步失敗：" + err.message, "error");
+        if (err.authFailed) {
+          // The owner changed EDIT_KEY (or removed it): this computer may no longer write.
+          Remote.forgetKey();
+          Store.setEditing(false);
+          this.toast("同步失敗：" + err.message + "。修改仍保留在這台電腦。", "error", [{ label: "輸入密碼後同步", run: () => this.syncCloud() }]);
+        } else this.toast("同步失敗：" + err.message, "error");
       } finally {
         this.blocker(false);
         this.refreshHeader();
@@ -436,6 +477,8 @@
     // ------------------------------------------------------------ boot
     init() {
       Store.init();
+      // 編輯模式 survives a reload in the same tab, but in cloud mode only with a password on this computer.
+      if (Store.editing && Remote.active && !Remote.hasKey) Store.setEditing(false);
       Store.on((what) => {
         if (what === "edit") {
           this.refreshHeader();

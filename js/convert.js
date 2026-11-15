@@ -105,7 +105,6 @@
         alertMode: "full", // "full": busy + unassigned PFAMs >= headcount; "pct": busy / headcount >= alertPct
         alertPct: 90,
         notCounted: "Dixon", // names left out of manpower counts (busy / headcount, 人力熱度, PFAM limit)
-        editHash: "",
         gen12Roles: "STE, TE",
         holidays: DEFAULT_HOLIDAYS.map((h) => ({ ...h })), // [{ date: "yyyy-mm-dd", name }]: days off besides weekends; data without the field gets the company calendar
         links: [], // 常用連結: [{ id, group, title, url, note }]; DEFAULT_LINKS are added by normalize
@@ -124,6 +123,7 @@
   function normalize(d) {
     const base = emptyData();
     const out = { ...base, ...d, settings: { ...base.settings, ...(d && d.settings) } };
+    delete out.settings.editHash; // the old in-page password; edits are now guarded by the cloud backend's EDIT_KEY
     for (const k of ["projects", "pfams", "tasks", "employees", "trips"]) out[k] = Array.isArray(out[k]) ? out[k] : [];
     out.importIgnored = { gen12: [], monica: [], ...(d && d.importIgnored) };
     for (const t of out.tasks) {
