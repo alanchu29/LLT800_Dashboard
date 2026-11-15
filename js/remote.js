@@ -138,6 +138,28 @@
       return r;
     },
 
+    /**
+     * MTE PFAM sync rows. `since` = the rev we hold -> { rev, rows } or { rev, unchanged: true }.
+     * A deployment from before the tab answers a plain ping (no rev): reported as err.oldBackend.
+     */
+    async collabLoad(since) {
+      const params = { action: "collab" };
+      if (since) params.since = since;
+      const r = await this.jsonp(params);
+      if (!r || !r.ok) throw new Error((r && r.error) || "讀取失敗 Load failed");
+      if (!("rev" in r)) {
+        const err = new Error("雲端後端尚未更新（請重新部署 apps-script/Code.gs）Backend not updated yet");
+        err.oldBackend = true;
+        throw err;
+      }
+      return r;
+    },
+
+    /** Open to everyone: never sends the edit password. -> { ok, row, rev } or { conflict, row, rev } */
+    collabPost(payload) {
+      return this.post({ ...payload, key: undefined });
+    },
+
     /** Whole-dataset save with an optimistic lock: -> { ok, version } or { conflict, version } */
     save(data, baseVersion, force) {
       return this.post({ action: "saveAll", data, baseVersion: force ? null : baseVersion, by: this.config.who || "" });

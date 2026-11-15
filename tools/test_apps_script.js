@@ -44,6 +44,9 @@ function makeSheet() {
       };
     },
     setFrozenRows() {},
+    appendRow(row) {
+      cells.push(row.map(String));
+    },
     _cells: () => cells,
   };
 }
@@ -83,6 +86,7 @@ const ctx = {
   ContentService: { MimeType: { JSON: "json", JAVASCRIPT: "js" }, createTextOutput: (t) => ({ text: t, setMimeType() { return this; } }) },
   Session: { getScriptTimeZone: () => "Asia/Taipei" },
   Utilities: {
+    getUuid: () => require("crypto").randomUUID(),
     formatDate: (d, tz, fmt) => {
       const p = (n) => String(n).padStart(2, "0");
       return String(fmt)
@@ -216,4 +220,60 @@ assert.strictEqual(liveSnapshots().length, ctx.SNAPSHOT_KEEP, `pruned to ${ctx.S
 const kept = liveSnapshots().map((f) => f.created);
 assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length), "kept ones are the newest");
 
-console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, password, date, ?since=, employee.ado, snapshot and prune checks pass`);
+// ---------------------------------------------------------------- MTE PFAM sync (no password)
+{
+  const open = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text); // no key at all
+  r = get({ action: "collab" });
+  assert.deepStrictEqual([r.ok, r.rev, r.rows], [true, 0, []], "collab starts empty");
+  const dataVersion = get({ action: "bundle" }).version;
+
+  const row = { project: "Gen11 › Gen11.1 MM34 FTB", pn: "PN-1", site: "MX", pod: "Pod 3", start: "2026-11-01", end: "2026-11-20", owner: "local", status: "doing", note: "need 2 people" };
+  r = open({ action: "collabSave", row });
+  assert.ok(r.ok && r.row.id && r.row.rev === 1 && r.rev === 1, "anyone can add a row, without the edit password");
+  const id = r.row.id;
+  assert.strictEqual(get({ action: "bundle" }).version, dataVersion, "collab writes never touch the department data");
+  assert.ok(get({ action: "collab", since: "1" }).unchanged, "?since= current rev -> unchanged");
+
+  r = get({ action: "collab" });
+  assert.strictEqual(r.rows.length, 1);
+  const back = r.rows[0];
+  for (const k of Object.keys(row)) assert.strictEqual(back[k], row[k], `collab round trip: ${k}`);
+  assert.strictEqual(back.deleted, false);
+
+  r = open({ action: "collabSave", row: { ...back, note: "mine" }, baseRev: 1 });
+  assert.ok(r.ok && r.row.rev === 2 && r.row.note === "mine", "edit with the current row rev");
+  r = open({ action: "collabSave", row: { ...back, note: "stale" }, baseRev: 1 });
+  assert.ok(!r.ok && r.conflict && r.row.note === "mine" && r.row.rev === 2, "stale row rev -> conflict, with the newer row");
+
+  // Checked and capped on the server.
+  assert.ok(/required/.test(open({ action: "collabSave", row: { ...row, project: "  " } }).error), "project required");
+  assert.ok(/Site/.test(open({ action: "collabSave", row: { ...row, site: "" } }).error), "site required");
+  assert.ok(/before/.test(open({ action: "collabSave", row: { ...row, start: "2026-11-20", end: "2026-11-01" } }).error), "end before start");
+  r = open({ action: "collabSave", row: { ...row, project: "=HYPERLINK(\"x\")", owner: "boss", status: "?", start: "soon", note: "x".repeat(5000) } });
+  assert.ok(r.ok, "odd values are cleaned, not fatal");
+  const odd = get({ action: "collab" }).rows.find((x) => x.id === r.row.id);
+  assert.deepStrictEqual([odd.owner, odd.status, odd.start, odd.note.length], ["hq", "todo", "", 2000], "unknown values fall back, long text is capped");
+  assert.strictEqual(odd.project, "=HYPERLINK(\"x\")", "a formula-looking value reads back as typed");
+  assert.ok(sheets.Collab._cells().every((c) => !String(c[1]).startsWith("=")), "but is never stored as a formula");
+
+  // Delete only flags the row; anyone can restore it.
+  r = open({ action: "collabDelete", id });
+  assert.ok(r.ok && r.row.deleted, "delete flags");
+  assert.ok(get({ action: "collab" }).rows.find((x) => x.id === id).deleted, "deleted row is still there");
+  r = open({ action: "collabRestore", id });
+  assert.ok(r.ok && !r.row.deleted, "restore");
+  assert.ok(/not found/.test(open({ action: "collabDelete", id: "nope" }).error), "unknown id");
+
+  const log = sheets.CollabLog._cells();
+  assert.strictEqual(JSON.stringify(log[0]), JSON.stringify(["at", "action", "id", "row"]), "log header");
+  assert.strictEqual(log.length - 1, 5, "every successful change is logged");
+  assert.ok(log.slice(1).map((l) => l[1]).join() === "collabSave,collabSave,collabSave,collabDelete,collabRestore");
+
+  // The open door is only for collab actions: saveAll still needs the password.
+  assert.ok(open({ action: "saveAll", data: seed, baseVersion: null }).authFailed, "saveAll without the password is still refused");
+  // A whole-dataset save leaves the collab rows alone.
+  post({ action: "saveAll", data: seed, baseVersion: null });
+  assert.strictEqual(get({ action: "collab" }).rows.length, 2, "saveAll does not wipe Collab");
+}
+
+console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, password, date, ?since=, employee.ado, snapshot, prune and MTE PFAM sync checks pass`);

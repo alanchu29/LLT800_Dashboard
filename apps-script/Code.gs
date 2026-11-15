@@ -17,6 +17,9 @@
  *                                               since = the version the caller already has; when that is
  *                                               still the current one the reply is {unchanged:true} and no
  *                                               sheet is read
+ * GET  ?action=collab[&since=rev]               MTE PFAM sync rows -> {rev, rows} or {rev, unchanged:true}
+ * POST {action:"collabSave", row, baseRev}       add (no row.id) or change one row; no password (see COLLAB below)
+ * POST {action:"collabDelete"|"collabRestore", id}
  * POST {action:"auth", key}                      check the edit password -> {ok:true} or {ok:false, authFailed:true}
  * POST {action:"saveAll", data, baseVersion, by, key}  replace everything; optimistic lock on Meta.version
  *                                               (baseVersion null = overwrite whatever is there)
@@ -30,7 +33,9 @@ var SCHEMA = {
   Employees: ['id', 'name', 'active', 'ado'],
   Trips: ['id', 'empId', 'empName', 'start', 'end', 'location', 'purpose', 'projectId', 'notes'],
   Ignored: ['kind', 'key'],
-  Meta: ['key', 'value']
+  Meta: ['key', 'value'],
+  Collab: ['id', 'project', 'pn', 'site', 'pod', 'start', 'end', 'owner', 'status', 'note', 'pfamId', 'deleted', 'updatedAt', 'rev'],
+  CollabLog: ['at', 'action', 'id', 'row']
 };
 // Columns written for people reading the sheet; ignored when loading.
 var DISPLAY_ONLY = { projectName: 1, pfamName: 1, assigneeNames: 1, empName: 1 };
@@ -43,6 +48,7 @@ function doGet(e) {
   var out;
   try {
     if (p.action === 'bundle') out = bundle_(p.since);
+    else if (p.action === 'collab') out = collabGet_(p.since);
     else out = { ok: true, service: 'LLT800_Dashboard', time: new Date().toISOString() };
   } catch (err) {
     out = { ok: false, error: String(err && err.message || err) };
@@ -55,6 +61,12 @@ function doPost(e) {
   var lock = LockService.getScriptLock();
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (COLLAB_ACTIONS[body.action]) {
+      // Open to everyone by design: these can only touch the Collab sheet, never the department data.
+      lock.waitLock(30000);
+      out = collabPost_(body);
+      return respond_(out);
+    }
     checkKey_(body.key);
     if (body.action === 'auth') {
       out = { ok: true };
@@ -300,4 +312,125 @@ function pruneSnapshots_(folder) {
   if (files.length <= SNAPSHOT_KEEP) return;
   files.sort(function (a, b) { return a.getDateCreated() - b.getDateCreated(); });
   files.slice(0, files.length - SNAPSHOT_KEEP).forEach(function (f) { f.setTrashed(true); });
+}
+
+// ---------------------------------------------------------------- MTE PFAM sync (open to everyone)
+
+/*
+ * The MTE PFAM sync tab is shared with local MTEs, so it is writable WITHOUT the edit password. That is
+ * safe only because it is walled off: its rows live in their own sheet (Collab), every write is one row,
+ * every field is checked and capped here, a delete only flags the row (anyone can restore it), and every
+ * change is appended to CollabLog. COLLAB_REV (a script property) moves on each write, so a reader that
+ * is already current gets {unchanged:true} without the sheet being read.
+ */
+var COLLAB_ACTIONS = { collabSave: 1, collabDelete: 1, collabRestore: 1 };
+var COLLAB_FIELDS = ['project', 'pn', 'site', 'pod', 'start', 'end', 'owner', 'status', 'note', 'pfamId'];
+var COLLAB_OWNERS = { hq: 1, local: 1 };
+var COLLAB_STATUS = { todo: 1, doing: 1, done: 1 };
+var COLLAB_MAX = { text: 200, note: 2000, live: 500, total: 3000 };
+// A leading = + - @ would make Sheets read the cell as a formula; a zero-width space keeps it text.
+var COLLAB_GUARD = '\u200B';
+
+function collabRev_() {
+  return Number(PropertiesService.getScriptProperties().getProperty('COLLAB_REV') || 0);
+}
+
+function collabGet_(since) {
+  var rev = collabRev_();
+  if (since !== null && since !== undefined && since !== '' && Number(since) === rev) return { ok: true, rev: rev, unchanged: true };
+  return { ok: true, rev: rev, rows: readCollab_() };
+}
+
+function readCollab_() {
+  return readRows_('Collab').map(function (r) {
+    var o = { id: String(r.id) };
+    COLLAB_FIELDS.forEach(function (f) {
+      var v = r[f] === undefined || r[f] === null ? '' : String(r[f]);
+      o[f] = v.charAt(0) === COLLAB_GUARD ? v.slice(1) : v;
+    });
+    o.deleted = String(r.deleted).toUpperCase() === 'TRUE';
+    o.updatedAt = String(r.updatedAt || '');
+    o.rev = Number(r.rev) || 0;
+    return o;
+  });
+}
+
+function writeCollab_(rows) {
+  var g = function (v) { return /^[=+\-@]/.test(v) ? COLLAB_GUARD + v : v; };
+  writeRows_('Collab', rows.map(function (r) {
+    return [r.id].concat(COLLAB_FIELDS.map(function (f) { return g(r[f] || ''); }), [!!r.deleted, r.updatedAt || '', r.rev || 0]);
+  }));
+}
+
+/** The fields of a row as sent, checked and capped. Throws (in both languages: local MTEs read these). */
+function cleanCollab_(r) {
+  r = r || {};
+  var s = function (v, max) {
+    return String(v === undefined || v === null ? '' : v).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B]/g, '').trim().slice(0, max);
+  };
+  var day = function (v) {
+    v = s(v, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
+  };
+  var out = {
+    project: s(r.project, COLLAB_MAX.text), pn: s(r.pn, COLLAB_MAX.text), site: s(r.site, 40), pod: s(r.pod, COLLAB_MAX.text),
+    start: day(r.start), end: day(r.end),
+    owner: COLLAB_OWNERS[r.owner] ? r.owner : 'hq', status: COLLAB_STATUS[r.status] ? r.status : 'todo',
+    note: s(r.note, COLLAB_MAX.note), pfamId: s(r.pfamId, 40)
+  };
+  if (!out.project) throw new Error('Project / Model 必填 (required)');
+  if (!out.site) throw new Error('廠區必填 Site is required');
+  if (out.start && out.end && out.end < out.start) throw new Error('結束日早於開始日 End date is before the start date');
+  return out;
+}
+
+function collabPost_(body) {
+  var rows = readCollab_();
+  var live = rows.filter(function (r) { return !r.deleted; }).length;
+  var find = function (id) {
+    for (var i = 0; i < rows.length; i++) if (rows[i].id === String(id || '')) return rows[i];
+    throw new Error('找不到這一列（可能已被移除）Row not found');
+  };
+  var row;
+  if (body.action === 'collabSave') {
+    var clean = cleanCollab_(body.row);
+    if (body.row && body.row.id) {
+      row = find(body.row.id);
+      // Someone saved this row since the caller read it: hand back theirs and let the caller decide.
+      if (Number(body.baseRev) !== row.rev) return { ok: false, conflict: true, row: row, rev: collabRev_() };
+      COLLAB_FIELDS.forEach(function (f) { row[f] = clean[f]; });
+    } else {
+      if (live >= COLLAB_MAX.live) throw new Error('已達 ' + COLLAB_MAX.live + ' 列上限 Row limit reached');
+      if (rows.length >= COLLAB_MAX.total) throw new Error('已刪除的列太多，請聯絡 HQ 清理 Too many deleted rows, ask HQ to clean up');
+      row = clean;
+      row.id = 'c' + Utilities.getUuid().replace(/-/g, '').slice(0, 12);
+      row.deleted = false;
+      row.rev = 0;
+      rows.push(row);
+    }
+  } else {
+    row = find(body.id);
+    var del = body.action === 'collabDelete';
+    if (!del && row.deleted && live >= COLLAB_MAX.live) throw new Error('已達 ' + COLLAB_MAX.live + ' 列上限 Row limit reached');
+    row.deleted = del;
+  }
+  row.rev += 1;
+  row.updatedAt = new Date().toISOString();
+  writeCollab_(rows);
+  collabLog_(body.action, row);
+  var rev = collabRev_() + 1;
+  PropertiesService.getScriptProperties().setProperty('COLLAB_REV', String(rev));
+  return { ok: true, row: row, rev: rev };
+}
+
+/** One line per change, never rewritten: who broke what can always be looked up and put back. */
+function collabLog_(action, row) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName('CollabLog');
+  if (!sh) {
+    sh = ss.insertSheet('CollabLog');
+    sh.appendRow(SCHEMA.CollabLog);
+    sh.setFrozenRows(1);
+  }
+  sh.appendRow([row.updatedAt, action, row.id, JSON.stringify(row)]);
 }

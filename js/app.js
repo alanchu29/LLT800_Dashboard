@@ -13,7 +13,7 @@
     return out;
   }
 
-  const VIEWS = { overview: window.OverviewView, projects: window.ProjectsView, ado: window.AdoView, load: window.LoadView, people: window.PeopleView, links: window.LinksView, settings: window.SettingsView };
+  const VIEWS = { overview: window.OverviewView, projects: window.ProjectsView, collab: window.CollabView, ado: window.AdoView, load: window.LoadView, people: window.PeopleView, links: window.LinksView, settings: window.SettingsView };
 
   const App = {
     route: { name: "overview", arg: "" },
@@ -52,8 +52,10 @@
      * fields: [{ key, label, type: text|date|number|select|textarea|color|people|check|swatch, options, value,
      *            required, more, hint, placeholder, list }]
      * Resolves { action: "save", values } | { action: "delete" } | { action: <extra button value> } | null
+     * labels: optional { del, cancel } button texts (the MTE PFAM sync tab is bilingual).
      */
-    form({ title, fields, del, extra, saveLabel }) {
+    form({ title, fields, del, extra, saveLabel, labels }) {
+      labels = labels || {};
       if (this._closeForm) this._closeForm(); // a form still open is cancelled, never left half-bound
       const d = $("#dlgForm");
       $("#formTitle").textContent = title;
@@ -88,9 +90,9 @@
       $("#formBody").innerHTML = `<div class="form-grid">${main.map(field).join("")}</div>${
         more.length ? `<details class="more"><summary>更多欄位</summary><div class="form-grid">${more.map(field).join("")}</div></details>` : ""
       }<p class="form-err" id="formErr" hidden></p>`;
-      $("#formFoot").innerHTML = `${del ? `<button class="btn danger" value="delete" formnovalidate>刪除</button>` : ""}${(extra || [])
+      $("#formFoot").innerHTML = `${del ? `<button class="btn danger" value="delete" formnovalidate>${esc(labels.del || "刪除")}</button>` : ""}${(extra || [])
         .map((x) => `<button class="btn" value="${esc(x.value)}" formnovalidate>${esc(x.label)}</button>`)
-        .join("")}<span class="grow"></span><button class="btn" value="cancel" formnovalidate>取消</button><button class="btn primary" value="save">${esc(saveLabel || "儲存")}</button>`;
+        .join("")}<span class="grow"></span><button class="btn" value="cancel" formnovalidate>${esc(labels.cancel || "取消")}</button><button class="btn primary" value="save">${esc(saveLabel || "儲存")}</button>`;
       // A custom color clears the swatch radio.
       $$(".swatches", d).forEach((w) => {
         const c = w.querySelector('input[type="color"]');
