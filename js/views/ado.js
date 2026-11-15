@@ -15,10 +15,40 @@
   const { $, $$, esc } = U;
 
   const PHASE = new Map(A.PHASES.concat(A.DONE_PHASE).map((p) => [p.key, p]));
-  const DIM_LABEL = { assignee: "負責人", type: "類型", state: "狀態", tag: "專案標籤", ageBucket: "停滯區間" };
-  const QUICK_LABEL = { stale: `停滯 > ${A.STALE_DAYS - 1} 天`, noNoise: "排除 Worklog / Release Note", done: "含已完成" };
+  // Labels are getters / functions: the language can change without a reload.
+  const DIM_LABEL = {
+    get assignee() {
+      return L("負責人", "Owner");
+    },
+    get type() {
+      return L("類型", "Type");
+    },
+    get state() {
+      return L("狀態", "State");
+    },
+    get tag() {
+      return L("專案標籤", "Project tag");
+    },
+    get ageBucket() {
+      return L("停滯區間", "Stalled for");
+    },
+  };
+  const QUICK_LABEL = {
+    get stale() {
+      return L(`停滯 > ${A.STALE_DAYS - 1} 天`, `Stalled > ${A.STALE_DAYS - 1} days`);
+    },
+    get noNoise() {
+      return L("排除 Worklog / Release Note", "Hide Worklog / Release Note");
+    },
+    get done() {
+      return L("含已完成", "Include done");
+    },
+  };
   // Whose items: a roster name, any other name, or nobody - disjoint, so at most one is on.
-  const SCOPES = [["", "全部"], ["roster", "名冊成員"], ["outside", "名冊外"], ["unassigned", "未指派"]];
+  const SCOPES = () => [["", L("全部", "All")], ["roster", L("名冊成員", "Roster")], ["outside", L("名冊外", "Not on roster")], ["unassigned", L("未指派", "Unassigned")]];
+  /** The model's placeholder values stay the filter keys (they match data); only how they read changes. */
+  const shownVal = (k) =>
+    ({ [A.UNASSIGNED]: L("(未指派)", "(Unassigned)"), "(無狀態)": L("(無狀態)", "(No state)"), "(無類型)": L("(無類型)", "(No type)"), "(無標籤)": L("(無標籤)", "(No tag)") })[k] ?? k;
   const FACET_LIMIT = 12; // chips a facet shows before 更多
 
   // Filters, sort and the open person live in this module: they are a way of looking at the page,
@@ -28,7 +58,14 @@
   // be undone by a trip to the board (nor leak into it, except through 在看板中查看).
   const M = { search: "", type: [], state: [], tag: [], age: "", quick: {} };
   const M_DIMS = ["type", "state", "tag"];
-  const M_QUICK = { stale: QUICK_LABEL.stale, noNoise: QUICK_LABEL.noNoise };
+  const M_QUICK = {
+    get stale() {
+      return QUICK_LABEL.stale;
+    },
+    get noNoise() {
+      return QUICK_LABEL.noNoise;
+    },
+  };
   const moreOpen = new Set(); // facets showing every value ("m:" + dim for 我的成員)
   let openEmp = "";
   let autoTried = false; // the one automatic fetch per visit (see maybeAutoFetch)
@@ -64,7 +101,7 @@
   /** A quick toggle or a scope ("" = every scope off). */
   function toggleQuick(k) {
     const on = !!k && !F.quick[k];
-    if (!k || SCOPES.some(([s]) => s === k)) for (const [s] of SCOPES) if (s) F.quick[s] = false;
+    if (!k || SCOPES().some(([s]) => s === k)) for (const [s] of SCOPES()) if (s) F.quick[s] = false;
     if (k) F.quick[k] = on;
   }
 
@@ -100,9 +137,9 @@
 
   // ------------------------------------------------------------------ small pieces of markup
   /** ADO display name -> how it is shown ("Dixon Chu WYHQ Wiwynn" -> "Dixon Chu"); the full name stays the filter value. */
-  const shortOf = (k) => A.shortName(k);
+  const shortOf = (k) => shownVal(A.shortName(k));
 
-  const stateTag = (r) => `<span class="ado-state ph-${r.phase}" title="${esc(PHASE.get(r.phase).label)}">${esc(r.state)}</span>`;
+  const stateTag = (r) => `<span class="ado-state ph-${r.phase}" title="${esc(PHASE.get(r.phase).label)}">${esc(shownVal(r.state))}</span>`;
 
   function ageCell(r) {
     if (r.ageDays < 0) return `<span class="muted">—</span>`;
@@ -116,23 +153,23 @@
 
   /** Horizontal bars (the 出差天數 pattern): [{ key, value }] with click-to-filter. */
   function bars(pairs, opts) {
-    if (!pairs.length) return `<p class="muted">沒有資料</p>`;
+    if (!pairs.length) return `<p class="muted">${L("沒有資料", "No data")}</p>`;
     const list = opts.limit ? pairs.slice(0, opts.limit) : pairs;
     const max = Math.max(1, ...list.map((p) => p.value));
     const sel = opts.selected || [];
     return `<div class="hbars">${list
       .map(
-        (p) => `<button type="button" class="hbar${sel.includes(p.key) ? " on" : ""}" data-pick="${esc(opts.dim)}" data-val="${esc(p.key)}" title="${esc(opts.label ? opts.label(p.key) : p.key)}">
-          <span class="hb-name">${esc(opts.label ? opts.label(p.key) : p.key)}</span>
+        (p) => `<button type="button" class="hbar${sel.includes(p.key) ? " on" : ""}" data-pick="${esc(opts.dim)}" data-val="${esc(p.key)}" title="${esc(opts.label ? opts.label(p.key) : shownVal(p.key))}">
+          <span class="hb-name">${esc(opts.label ? opts.label(p.key) : shownVal(p.key))}</span>
           <span class="hb-track"><i style="width:${(p.value / max) * 100}%;background:${opts.color || "var(--s1)"}"></i></span>
           <span class="hb-v">${p.value}</span></button>`
       )
-      .join("")}${opts.limit && pairs.length > opts.limit ? `<p class="muted ado-more">其餘 ${pairs.length - opts.limit} 項未顯示</p>` : ""}</div>`;
+      .join("")}${opts.limit && pairs.length > opts.limit ? `<p class="muted ado-more">${L(`其餘 ${pairs.length - opts.limit} 項未顯示`, `${pairs.length - opts.limit} more not shown`)}</p>` : ""}</div>`;
   }
 
   /** One item as a list row: used in the member detail and in 名冊外的負責人. */
   function itemLine(r) {
-    return `<li><span class="a-main"><span class="ado-line">${idLink(r)} ${esc(r.title)}</span><small>${esc(r.type)}${r.area ? " · " + esc(r.area) : ""}</small></span>
+    return `<li><span class="a-main"><span class="ado-line">${idLink(r)} ${esc(r.title)}</span><small>${esc(shownVal(r.type))}${r.area ? " · " + esc(r.area) : ""}</small></span>
       <span class="a-side">${stateTag(r)}${ageCell(r)}<small class="muted">${r.changed ? U.fmt(r.changed, "short") : "—"}</small></span></li>`;
   }
 
@@ -161,21 +198,21 @@
 
     root.innerHTML = `
       <div class="page-head"><h2>ADO Task</h2>
-        <div class="seg" role="group" aria-label="檢視">
-          <button type="button" data-tab="board" class="${tab === "board" ? "on" : ""}">看板</button>
-          <button type="button" data-tab="members" class="${tab === "members" ? "on" : ""}">我的成員</button>
+        <div class="seg" role="group" aria-label="${L("檢視", "View")}">
+          <button type="button" data-tab="board" class="${tab === "board" ? "on" : ""}">${L("看板", "Board")}</button>
+          <button type="button" data-tab="members" class="${tab === "members" ? "on" : ""}">${L("我的成員", "My members")}</button>
         </div>
         <span class="grow"></span>
-        <button class="btn primary" id="adoFetch" type="button">${snap ? "⟳ 重新擷取" : "⟳ 從 ADO 擷取"}</button>
-        <button class="btn" id="adoCsv" type="button">載入 CSV…</button>
-        <button class="btn" id="adoCfg" type="button">ADO 設定</button>
+        <button class="btn primary" id="adoFetch" type="button">${snap ? L("⟳ 重新擷取", "⟳ Fetch again") : L("⟳ 從 ADO 擷取", "⟳ Fetch from ADO")}</button>
+        <button class="btn" id="adoCsv" type="button">${L("載入 CSV…", "Load CSV…")}</button>
+        <button class="btn" id="adoCfg" type="button">${L("ADO 設定", "ADO settings")}</button>
       </div>
       <p class="ado-src muted">${
         snap
-          ? `${esc(snap.source || `${cfg.org} / ${cfg.project}`)}・擷取於 <b>${esc(new Date(snap.at).toLocaleString("zh-TW", { hour12: false }))}</b>・${snap.rows.length} 筆未完成${
-              snap.done.length ? `、${snap.done.length} 筆已完成（勾「含已完成」才會顯示）` : ""
-            }・停滯天數以 ${esc(snap.day)} 為基準`
-          : `尚未擷取資料。資料只存在這台電腦，不會寫入部門資料或雲端。`
+          ? `${esc(snap.source || `${cfg.org} / ${cfg.project}`)}・${L("擷取於", "fetched")} <b>${esc(new Date(snap.at).toLocaleString(I18N.locale(), { hour12: false }))}</b>・${L(`${snap.rows.length} 筆未完成`, `${snap.rows.length} open`)}${
+              snap.done.length ? L(`、${snap.done.length} 筆已完成（勾「含已完成」才會顯示）`, `, ${snap.done.length} done (shown with "Include done")`) : ""
+            }・${L(`停滯天數以 ${esc(snap.day)} 為基準`, `days stalled counted to ${esc(snap.day)}`)}`
+          : L(`尚未擷取資料。資料只存在這台電腦，不會寫入部門資料或雲端。`, `Nothing fetched yet. The data stays on this computer; it is never written to the department data or the Cloud.`)
       }</p>
       <div id="adoBody"></div>
       <input type="file" id="adoFile" accept=".csv,text/csv" hidden>
@@ -219,9 +256,9 @@
     autoTried = true;
     if (!Ado.pat()) {
       if (!snap)
-        App.toast(`找不到 PAT（${Ado.patFile()}）：請手動輸入，或選 .ado_pat 檔`, "", [
-          { label: "輸入 PAT", run: () => openConfig() },
-          { label: "載入 PAT 檔…", run: () => $("#adoPatFile").click() },
+        App.toast(L(`找不到 PAT（${Ado.patFile()}）：請手動輸入，或選 .ado_pat 檔`, `No PAT found (${Ado.patFile()}): type one in, or pick the .ado_pat file`), "", [
+          { label: L("輸入 PAT", "Enter PAT"), run: () => openConfig() },
+          { label: L("載入 PAT 檔…", "Load PAT file…"), run: () => $("#adoPatFile").click() },
         ]);
       return;
     }
@@ -230,15 +267,28 @@
   }
 
   function renderEmpty(el, cfg) {
-    el.innerHTML = `<section class="card"><header class="card-h"><h3>先把 ADO 的工作項目拉進來</h3></header>
+    const tokens = `<a href="https://dev.azure.com/${esc(cfg.org)}/_usersSettings/tokens" target="_blank" rel="noopener">Personal Access Tokens</a>`;
+    const where = `<b>${esc(cfg.org)} / ${esc(cfg.project)}</b>`;
+    const file = `<code>${esc(Ado.patFile())}</code>`;
+    const ps = `<code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code>`;
+    el.innerHTML = `<section class="card"><header class="card-h"><h3>${L("先把 ADO 的工作項目拉進來", "First, bring in the ADO work items")}</h3></header>
       <ol class="h-steps ado-steps">
-        <li>到 <a href="https://dev.azure.com/${esc(cfg.org)}/_usersSettings/tokens" target="_blank" rel="noopener">Personal Access Tokens</a> 建一組 PAT，scope 只要勾 <b>Work Items (Read)</b>。</li>
-        <li>按右上角 <b>⟳ 從 ADO 擷取</b>，貼上 PAT 即可。預設查 <b>${esc(cfg.org)} / ${esc(cfg.project)}</b> 的未完成項目（可在「ADO 設定」改）。</li>
-        <li>不想每次貼：把 PAT 存成單獨一行放在 <code>${esc(Ado.patFile())}</code>，跑一次 <code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code>，之後每次開這一頁都會自動擷取。也可以直接按下面的 <b>載入 PAT 檔…</b> 選那個檔案。</li>
-        <li>沒有 PAT 也可以用 <b>載入 CSV…</b> 丟 ADO Queries 匯出的檔案。</li>
+        <li>${L(`到 ${tokens} 建一組 PAT，scope 只要勾 <b>Work Items (Read)</b>。`, `Create a PAT under ${tokens}; the only scope it needs is <b>Work Items (Read)</b>.`)}</li>
+        <li>${L(
+          `按右上角 <b>⟳ 從 ADO 擷取</b>，貼上 PAT 即可。預設查 ${where} 的未完成項目（可在「ADO 設定」改）。`,
+          `Press <b>⟳ Fetch from ADO</b> (top right) and paste the PAT. By default it reads the open items of ${where} (change it in "ADO settings").`
+        )}</li>
+        <li>${L(
+          `不想每次貼：把 PAT 存成單獨一行放在 ${file}，跑一次 ${ps}，之後每次開這一頁都會自動擷取。也可以直接按下面的 <b>載入 PAT 檔…</b> 選那個檔案。`,
+          `To stop pasting it: save the PAT as a single line in ${file} and run ${ps} once; from then on this page fetches by itself whenever it opens. Or press <b>Load PAT file…</b> below and pick that file.`
+        )}</li>
+        <li>${L(`沒有 PAT 也可以用 <b>載入 CSV…</b> 丟 ADO Queries 匯出的檔案。`, `No PAT? Use <b>Load CSV…</b> with a file exported from ADO Queries.`)}</li>
       </ol>
-      <p class="muted">PAT 預設只記在這個分頁（勾「記住」才會存在這台電腦），而且只會送到 dev.azure.com。擷取回來的項目同樣只存在這台電腦。</p>
-      <div class="row-end"><button class="btn" id="adoPat2" type="button">載入 PAT 檔…</button><button class="btn" id="adoCsv2" type="button">載入 CSV…</button><button class="btn primary" id="adoFetch2" type="button">⟳ 從 ADO 擷取</button></div></section>`;
+      <p class="muted">${L(
+        "PAT 預設只記在這個分頁（勾「記住」才會存在這台電腦），而且只會送到 dev.azure.com。擷取回來的項目同樣只存在這台電腦。",
+        'By default the PAT is kept in this tab only (tick "Remember" to store it on this computer), and it is only ever sent to dev.azure.com. Fetched items also stay on this computer.'
+      )}</p>
+      <div class="row-end"><button class="btn" id="adoPat2" type="button">${L("載入 PAT 檔…", "Load PAT file…")}</button><button class="btn" id="adoCsv2" type="button">${L("載入 CSV…", "Load CSV…")}</button><button class="btn primary" id="adoFetch2" type="button">${L("⟳ 從 ADO 擷取", "⟳ Fetch from ADO")}</button></div></section>`;
     $("#adoFetch2").onclick = () => fetchNow();
     $("#adoCsv2").onclick = () => $("#adoFile").click();
     $("#adoPat2").onclick = () => $("#adoPatFile").click();
@@ -259,7 +309,7 @@
     const stale = stalePool.filter((r) => r.stale).length;
     // Like a facet chip: the finished items 含已完成 would add under every other filter.
     const doneHits = A.filter(snap.done, effective(pair, { ...F.quick, done: true })).length;
-    const scopeOn = (SCOPES.find(([s]) => s && F.quick[s]) || [""])[0];
+    const scopeOn = (SCOPES().find(([s]) => s && F.quick[s]) || [""])[0];
 
     const kpi = (label, value, note, opts) =>
       `<${opts.act ? "button" : "div"} class="kpi${opts.tone ? " " + opts.tone : ""}${opts.on ? " on" : ""}"${opts.act ? ` type="button" data-kpi="${opts.act}"` : ""}>
@@ -267,46 +317,56 @@
 
     el.innerHTML = `
       <section class="kpis small ado-kpis">
-        ${kpi("未完成項目", snap.rows.length, anyFilter() ? `篩選後 <b>${list.length}</b> 筆` : "點下方條件可篩選", { act: "clear", on: !anyFilter() })}
-        ${kpi("名冊成員的項目", mine, `${pair.byEmp.size} 位成員・名冊 ${Store.data.employees.filter((e) => e.active).length} 人`, { act: "roster", on: !!F.quick.roster })}
-        ${kpi("未指派", unassigned, "沒有 Assigned To", { act: "unassigned", on: !!F.quick.unassigned })}
-        ${kpi(`停滯 > ${A.STALE_DAYS - 1} 天`, stale, `占 ${stalePool.length ? Math.round((stale / stalePool.length) * 100) : 0}%`, { act: "stale", on: !!F.quick.stale, tone: stale ? "bad" : "good" })}
+        ${kpi(L("未完成項目", "Open items"), snap.rows.length, anyFilter() ? L(`篩選後 <b>${list.length}</b> 筆`, `<b>${list.length}</b> after filters`) : L("點下方條件可篩選", "Click a condition below to filter"), { act: "clear", on: !anyFilter() })}
+        ${kpi(
+          L("名冊成員的項目", "Roster members' items"),
+          mine,
+          L(`${pair.byEmp.size} 位成員・名冊 ${Store.data.employees.filter((e) => e.active).length} 人`, `${pair.byEmp.size} members · roster ${Store.data.employees.filter((e) => e.active).length} people`),
+          { act: "roster", on: !!F.quick.roster }
+        )}
+        ${kpi(L("未指派", "Unassigned"), unassigned, L("沒有 Assigned To", "No Assigned To"), { act: "unassigned", on: !!F.quick.unassigned })}
+        ${kpi(QUICK_LABEL.stale, stale, L(`占 ${stalePool.length ? Math.round((stale / stalePool.length) * 100) : 0}%`, `${stalePool.length ? Math.round((stale / stalePool.length) * 100) : 0}% of items`), { act: "stale", on: !!F.quick.stale, tone: stale ? "bad" : "good" })}
       </section>
 
       <section class="card ado-filters">
         <div class="toolbar wrap">
-          <label class="field-inline grow"><span>搜尋</span><input type="search" id="fSearch" value="${esc(F.search)}" placeholder="標題、ID、負責人、料號…（多個字詞是 AND）" autocomplete="off"></label>
-          <label class="field-inline"><span>停滯</span><select id="fAge">
-            <option value="">全部</option>
+          <label class="field-inline grow"><span>${L("搜尋", "Search")}</span><input type="search" id="fSearch" value="${esc(F.search)}" placeholder="${L("標題、ID、負責人、料號…（多個字詞是 AND）", "Title, ID, owner, part no.… (several words = AND)")}" autocomplete="off"></label>
+          <label class="field-inline"><span>${L("停滯", "Stalled")}</span><select id="fAge">
+            <option value="">${L("全部", "All")}</option>
             ${A.AGE_BUCKETS.map((b) => `<option value="${b.key}"${F.age === b.key ? " selected" : ""}>${esc(b.label)}</option>`).join("")}
           </select></label>
-          <label class="field-inline"><span>更新日期</span><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="最後更新起"> – <input type="date" id="fTo" value="${esc(F.to)}" aria-label="最後更新迄"></label>
+          <label class="field-inline"><span>${L("更新日期", "Updated")}</span><input type="date" id="fFrom" value="${esc(F.from)}" aria-label="${L("最後更新起", "Last updated from")}"> – <input type="date" id="fTo" value="${esc(F.to)}" aria-label="${L("最後更新迄", "Last updated to")}"></label>
         </div>
         <div class="ado-fgrid">
-          <span class="fl">負責人範圍</span>
-          <div class="fv"><div class="seg small" role="group" aria-label="負責人範圍">${SCOPES.map(
+          <span class="fl">${L("負責人範圍", "Whose items")}</span>
+          <div class="fv"><div class="seg small" role="group" aria-label="${L("負責人範圍", "Whose items")}">${SCOPES().map(
             ([k, label]) => `<button type="button" data-scope="${k}" class="${scopeOn === k ? "on" : ""}" aria-pressed="${scopeOn === k}">${esc(label)}</button>`
           ).join("")}</div>
             ${Object.keys(QUICK_LABEL)
               .map(
                 (k) =>
                   `<button type="button" class="chip${F.quick[k] ? " on" : ""}${k === "done" && !doneHits ? " zero" : ""}" style="--c:var(--brand)" data-quick="${k}" aria-pressed="${!!F.quick[k]}"${
-                    k === "done" ? ` title="State 為 Done / Closed / Resolved… 的項目（擷取時只帶最近 ${esc(Ado.cfg().doneDays)} 天內有更新的）"` : ""
+                    k === "done"
+                      ? ` title="${L(
+                          `State 為 Done / Closed / Resolved… 的項目（擷取時只帶最近 ${esc(Ado.cfg().doneDays)} 天內有更新的）`,
+                          `Items whose State is Done / Closed / Resolved… (a fetch only brings those updated in the last ${esc(Ado.cfg().doneDays)} days)`
+                        )}"`
+                      : ""
                   }>${F.quick[k] ? "✓ " : ""}${esc(QUICK_LABEL[k])}${k === "done" ? ` <b>${doneHits}</b>` : ""}</button>`
               )
               .join("")}</div>
           ${A.DIMS.map((dim) => facetRow(dim, all, f)).join("")}
         </div>
-        <div class="ado-result"><span>顯示 <b>${list.length}</b> / ${all.length} 筆</span>${anyFilter() ? `<button class="btn small" id="fClear" type="button">清除全部篩選</button>` : ""}</div>
+        <div class="ado-result"><span>${L(`顯示 <b>${list.length}</b> / ${all.length} 筆`, `Showing <b>${list.length}</b> / ${all.length}`)}</span>${anyFilter() ? `<button class="btn small" id="fClear" type="button">${L("清除全部篩選", "Clear all filters")}</button>` : ""}</div>
       </section>
 
       <details class="card fold-card" id="adoCharts" ${Store.ui.adoChartsOpen === false ? "" : "open"}>
-        <summary class="card-h"><h3>分布概況</h3><span class="muted">點長條即可套用篩選</span></summary>
+        <summary class="card-h"><h3>${L("分布概況", "Breakdown")}</h3><span class="muted">${L("點長條即可套用篩選", "Click a bar to filter")}</span></summary>
         <div class="ado-charts">
-          <div><h4>各負責人（${A.tally(list, "assignee").size} 人）</h4>${bars(A.toSortedPairs(A.tally(list, "assignee")), { dim: "assignee", selected: F.assignee, limit: 14, label: shortOf })}</div>
-          <div><h4>狀態</h4>${bars(A.toSortedPairs(A.tally(list, "state")), { dim: "state", selected: F.state, color: "var(--s7)" })}</div>
-          <div><h4>類型</h4>${bars(A.toSortedPairs(A.tally(list, "type")), { dim: "type", selected: F.type, color: "var(--s3)", limit: 10 })}</div>
-          <div><h4>停滯天數</h4>${bars(
+          <div><h4>${L(`各負責人（${A.tally(list, "assignee").size} 人）`, `By owner (${A.tally(list, "assignee").size} people)`)}</h4>${bars(A.toSortedPairs(A.tally(list, "assignee")), { dim: "assignee", selected: F.assignee, limit: 14, label: shortOf })}</div>
+          <div><h4>${L("狀態", "State")}</h4>${bars(A.toSortedPairs(A.tally(list, "state")), { dim: "state", selected: F.state, color: "var(--s7)" })}</div>
+          <div><h4>${L("類型", "Type")}</h4>${bars(A.toSortedPairs(A.tally(list, "type")), { dim: "type", selected: F.type, color: "var(--s3)", limit: 10 })}</div>
+          <div><h4>${L("停滯天數", "Days stalled")}</h4>${bars(
             A.AGE_BUCKETS.map((b) => ({ key: b.key, value: list.filter((r) => r.ageBucket === b.key).length })).filter((p) => p.value),
             { dim: "age", color: "var(--s2)", label: (k) => (A.bucket(k) || {}).label || k, selected: F.age ? [F.age] : [] }
           )}</div>
@@ -314,13 +374,13 @@
       </details>
 
       <section class="card">
-        <header class="card-h"><h3>項目清單</h3><span class="muted">${list.length} 筆${anyFilter() ? `（共 ${all.length}）` : ""}</span><span class="grow"></span>
-          <label class="field-inline"><span>分組</span><select id="fGroup">
-            <option value="">不分組</option>
-            ${["assignee", "type", "state", "tag", "ageBucket"].map((d) => `<option value="${d}"${F.group === d ? " selected" : ""}>依${esc(DIM_LABEL[d])}</option>`).join("")}
+        <header class="card-h"><h3>${L("項目清單", "Item list")}</h3><span class="muted">${L(`${list.length} 筆`, `${list.length}`)}${anyFilter() ? L(`（共 ${all.length}）`, ` (of ${all.length})`) : ""}</span><span class="grow"></span>
+          <label class="field-inline"><span>${L("分組", "Group")}</span><select id="fGroup">
+            <option value="">${L("不分組", "No grouping")}</option>
+            ${["assignee", "type", "state", "tag", "ageBucket"].map((d) => `<option value="${d}"${F.group === d ? " selected" : ""}>${L(`依${esc(DIM_LABEL[d])}`, `By ${esc(DIM_LABEL[d])}`)}</option>`).join("")}
           </select></label>
-          <button class="btn small" id="adoExport" type="button">匯出 CSV</button>
-          <button class="btn small" id="adoMd" type="button">複製 Markdown</button></header>
+          <button class="btn small" id="adoExport" type="button">${L("匯出 CSV", "Export CSV")}</button>
+          <button class="btn small" id="adoMd" type="button">${L("複製 Markdown", "Copy Markdown")}</button></header>
         <div id="adoTable"></div>
       </section>`;
 
@@ -377,14 +437,14 @@
       U.download(`ado_${snap.day}.csv`, "﻿" + Ado.toCsv(header, recs), "text/csv;charset=utf-8");
     };
     $("#adoMd").onclick = async () => {
-      const md = ["| ID | 負責人 | 狀態 | 停滯 | 標題 |", "|---|---|---|---|---|"]
+      const md = [L("| ID | 負責人 | 狀態 | 停滯 | 標題 |", "| ID | Owner | State | Stalled | Title |"), "|---|---|---|---|---|"]
         .concat(list.map((r) => `| ${r.id} | ${r.assignee} | ${r.state} | ${r.ageDays < 0 ? "—" : r.ageDays + "d"} | ${String(r.title).replace(/\|/g, "\\|")} |`))
         .join("\n");
       try {
         await navigator.clipboard.writeText(md);
-        App.toast(`已複製 ${list.length} 筆（Markdown 表格）`);
+        App.toast(L(`已複製 ${list.length} 筆（Markdown 表格）`, `Copied ${list.length} items (Markdown table)`));
       } catch {
-        App.toast("瀏覽器不允許複製，請改用「匯出 CSV」", "error");
+        App.toast(L("瀏覽器不允許複製，請改用「匯出 CSV」", 'The browser does not allow copying; use "Export CSV" instead'), "error");
       }
     };
 
@@ -408,35 +468,44 @@
     const hidden = pairs.length - shown.length;
     const chip = (p) => {
       const on = sel.includes(p.key);
-      return `<button type="button" class="chip${on ? " on" : ""}${p.value ? "" : " zero"}" style="--c:var(--brand)" data-pick="${dim}" data-val="${esc(p.key)}" title="${esc(p.key)}" aria-pressed="${on}">${on ? "✓ " : ""}${esc(
-        dim === "assignee" ? shortOf(p.key) : p.key
+      return `<button type="button" class="chip${on ? " on" : ""}${p.value ? "" : " zero"}" style="--c:var(--brand)" data-pick="${dim}" data-val="${esc(p.key)}" title="${esc(shownVal(p.key))}" aria-pressed="${on}">${on ? "✓ " : ""}${esc(
+        dim === "assignee" ? shortOf(p.key) : shownVal(p.key)
       )} <b>${p.value}</b></button>`;
     };
     return `<span class="fl">${esc(DIM_LABEL[dim])}${sel.length ? ` <span class="count">${sel.length}</span>` : ""}</span>
       <div class="fv chips">${shown.map(chip).join("")}${
-        hidden ? `<button type="button" class="chip more" data-more="${moreKey}">+${hidden} 更多</button>` : moreOpen.has(moreKey) && pairs.length > FACET_LIMIT + 2 ? `<button type="button" class="chip more" data-more="${moreKey}">收合</button>` : ""
+        hidden
+          ? `<button type="button" class="chip more" data-more="${moreKey}">${L(`+${hidden} 更多`, `+${hidden} more`)}</button>`
+          : moreOpen.has(moreKey) && pairs.length > FACET_LIMIT + 2
+            ? `<button type="button" class="chip more" data-more="${moreKey}">${L("收合", "Less")}</button>`
+            : ""
       }</div>`;
   }
 
-  const SORTS = [
+  const SORTS = () => [
     ["id", "ID", "col-id"],
-    ["assignee", "負責人", ""],
-    ["type", "類型", ""],
-    ["state", "狀態", ""],
-    ["changed", "最後更新", ""],
-    ["ageDays", "停滯", "num"],
-    ["title", "標題", ""],
+    ["assignee", L("負責人", "Owner"), ""],
+    ["type", L("類型", "Type"), ""],
+    ["state", L("狀態", "State"), ""],
+    ["changed", L("最後更新", "Updated"), ""],
+    ["ageDays", L("停滯", "Stalled"), "num"],
+    ["title", L("標題", "Title"), ""],
   ];
 
   /** doneHits: finished items the same filter would match - worth saying when the list is empty without them. */
   function renderTable(el, list, pair, doneHits) {
     if (!list.length) {
-      el.innerHTML = `<p class="empty">沒有符合條件的未完成項目。${
-        doneHits ? `<button type="button" class="chip" style="--c:var(--brand)" data-quick="done">含已完成 <b>${doneHits}</b></button> 可以看已完成的。` : anyFilter() ? "試著放寬或清除篩選。" : ""
+      const doneChip = `<button type="button" class="chip" style="--c:var(--brand)" data-quick="done">${QUICK_LABEL.done} <b>${doneHits}</b></button>`;
+      el.innerHTML = `<p class="empty">${L("沒有符合條件的未完成項目。", "No open items match.")}${
+        doneHits
+          ? L(`${doneChip} 可以看已完成的。`, ` ${doneChip} shows the done ones.`)
+          : anyFilter()
+            ? L("試著放寬或清除篩選。", " Try loosening or clearing the filters.")
+            : ""
       }</p>`;
       return;
     }
-    const head = SORTS.map(
+    const head = SORTS().map(
       ([k, label, cls]) =>
         `<th class="${cls} sortable${F.sort === k ? " sorted" : ""}" data-sort="${k}" aria-sort="${F.sort === k ? (F.dir === "asc" ? "ascending" : "descending") : "none"}">${esc(label)}${
           F.sort === k ? `<span class="caret">${F.dir === "asc" ? "▲" : "▼"}</span>` : ""
@@ -446,10 +515,12 @@
       const empId = pair.empOf.get(r.assignee);
       return `<tr>
         <td class="col-id">${idLink(r)}</td>
-        <td class="col-who" title="${esc(r.assignee)}">${r.unassigned ? `<span class="muted">${esc(r.who)}</span>` : esc(r.who)}${
-          empId || r.unassigned ? "" : `<a class="tag ghost" href="#/ado/members" title="名冊裡找不到這個 ADO 帳號：到「我的成員」對應">名冊外</a>`
+        <td class="col-who" title="${esc(shownVal(r.assignee))}">${r.unassigned ? `<span class="muted">${esc(shownVal(r.who))}</span>` : esc(r.who)}${
+          empId || r.unassigned
+            ? ""
+            : `<a class="tag ghost" href="#/ado/members" title="${L("名冊裡找不到這個 ADO 帳號：到「我的成員」對應", 'This ADO account is not on the roster: pair it under "My members"')}">${L("名冊外", "Not on roster")}</a>`
         }</td>
-        <td>${esc(r.type)}</td>
+        <td>${esc(shownVal(r.type))}</td>
         <td>${stateTag(r)}</td>
         <td class="num">${r.changed ? esc(U.fmt(r.changed, "yy")) : "—"}</td>
         <td class="num">${ageCell(r)}</td>
@@ -457,7 +528,7 @@
       </tr>`;
     };
     const groups = A.group(list, F.group);
-    const label = (k) => (F.group === "ageBucket" ? (A.bucket(k) || {}).label || k : F.group === "assignee" ? shortOf(k) : k);
+    const label = (k) => (F.group === "ageBucket" ? (A.bucket(k) || {}).label || k : F.group === "assignee" ? shortOf(k) : shownVal(k));
     const bodies = groups
       .map((g) =>
         F.group
@@ -499,52 +570,70 @@
 
     el.innerHTML = `
       <section class="kpis small ado-kpis">
-        <div class="kpi"><span class="kpi-l">名冊成員的 ADO 項目</span><span class="kpi-v">${matched}</span><span class="kpi-s">${withWork} / ${emps.filter((e) => e.active).length} 位在職成員手上有項目</span></div>
-        <div class="kpi"><span class="kpi-l">未指派</span><span class="kpi-v">${unassigned.length}</span><span class="kpi-s">沒有 Assigned To（不含 Worklog / Release Note）</span></div>
-        <button type="button" class="kpi ${stale ? "bad" : "good"}${M.quick.stale ? " on" : ""}" data-mquick="stale"><span class="kpi-l">停滯 > ${A.STALE_DAYS - 1} 天</span><span class="kpi-v">${stale}</span><span class="kpi-s">成員手上最久沒更新的項目・點一下篩選</span></button>
+        <div class="kpi"><span class="kpi-l">${L("名冊成員的 ADO 項目", "Roster members' ADO items")}</span><span class="kpi-v">${matched}</span><span class="kpi-s">${L(
+          `${withWork} / ${emps.filter((e) => e.active).length} 位在職成員手上有項目`,
+          `${withWork} / ${emps.filter((e) => e.active).length} active members have items`
+        )}</span></div>
+        <div class="kpi"><span class="kpi-l">${L("未指派", "Unassigned")}</span><span class="kpi-v">${unassigned.length}</span><span class="kpi-s">${L("沒有 Assigned To（不含 Worklog / Release Note）", "No Assigned To (Worklog / Release Note not counted)")}</span></div>
+        <button type="button" class="kpi ${stale ? "bad" : "good"}${M.quick.stale ? " on" : ""}" data-mquick="stale"><span class="kpi-l">${esc(QUICK_LABEL.stale)}</span><span class="kpi-v">${stale}</span><span class="kpi-s">${L(
+          "成員手上最久沒更新的項目・點一下篩選",
+          "Members' items untouched the longest · click to filter"
+        )}</span></button>
       </section>
 
       <section class="card ado-filters">
         <div class="toolbar wrap">
-          <label class="field-inline grow"><span>搜尋</span><input type="search" id="mSearch" value="${esc(M.search)}" placeholder="在成員的項目裡找：標題、ID、料號…（多個字詞是 AND）" autocomplete="off"></label>
-          <label class="field-inline"><span>停滯</span><select id="mAge">
-            <option value="">全部</option>
+          <label class="field-inline grow"><span>${L("搜尋", "Search")}</span><input type="search" id="mSearch" value="${esc(M.search)}" placeholder="${L("在成員的項目裡找：標題、ID、料號…（多個字詞是 AND）", "Search members' items: title, ID, part no.… (several words = AND)")}" autocomplete="off"></label>
+          <label class="field-inline"><span>${L("停滯", "Stalled")}</span><select id="mAge">
+            <option value="">${L("全部", "All")}</option>
             ${A.AGE_BUCKETS.map((b) => `<option value="${b.key}"${M.age === b.key ? " selected" : ""}>${esc(b.label)}</option>`).join("")}
           </select></label>
         </div>
         <div class="ado-fgrid">
-          <span class="fl">快捷</span>
+          <span class="fl">${L("快捷", "Quick")}</span>
           <div class="fv">${Object.keys(M_QUICK)
             .map((k) => `<button type="button" class="chip${M.quick[k] ? " on" : ""}" style="--c:var(--brand)" data-mquick="${k}" aria-pressed="${!!M.quick[k]}">${M.quick[k] ? "✓ " : ""}${esc(M_QUICK[k])}</button>`)
             .join("")}</div>
           ${M_DIMS.map((dim) => facetRow(dim, pool, mf, M, "m:" + dim)).join("")}
         </div>
         <div class="ado-result"><span>${
-          filtering ? `符合 <b>${hits}</b> / ${pool.length} 筆，分屬 <b>${hitMembers}</b> 位成員` : `成員手上共 <b>${pool.length}</b> 筆；選類型 / 狀態 / 專案標籤，就能找出是哪些成員的`
+          filtering
+            ? L(`符合 <b>${hits}</b> / ${pool.length} 筆，分屬 <b>${hitMembers}</b> 位成員`, `<b>${hits}</b> / ${pool.length} match, across <b>${hitMembers}</b> members`)
+            : L(
+                `成員手上共 <b>${pool.length}</b> 筆；選類型 / 狀態 / 專案標籤，就能找出是哪些成員的`,
+                `<b>${pool.length}</b> items in members' hands; pick a type / state / project tag to see whose they are`
+              )
         }</span>${
           filtering
-            ? `<span class="grow"></span><button class="btn small" id="mToBoard" type="button" title="用同樣的條件、只看名冊成員">在看板中查看</button><button class="btn small" id="mClear" type="button">清除篩選</button>`
+            ? `<span class="grow"></span><button class="btn small" id="mToBoard" type="button" title="${L("用同樣的條件、只看名冊成員", "Same conditions, roster members only")}">${L("在看板中查看", "View on board")}</button><button class="btn small" id="mClear" type="button">${L("清除篩選", "Clear filters")}</button>`
             : ""
         }</div>
       </section>
 
-      <section class="card"><header class="card-h"><h3>成員的 ADO 任務</h3>
-        <span class="muted">${filtering ? "只列有符合項目的成員・" : ""}依 ADO 項目數排序・點一列展開明細${Store.editing ? "" : "・對應 ADO 帳號需要編輯模式"}</span>
-        ${pair.firstName.size ? `<span class="grow"></span><button class="btn small" id="mPin" type="button" title="把「依名字」比對到的 ADO 名稱寫進各人的「ADO 帳號」欄位，之後就不再依賴名字">固定目前比對（${pair.firstName.size}）</button>` : ""}</header>
+      <section class="card"><header class="card-h"><h3>${L("成員的 ADO 任務", "Members' ADO tasks")}</h3>
+        <span class="muted">${filtering ? L("只列有符合項目的成員・", "Only members with matching items · ") : ""}${L("依 ADO 項目數排序・點一列展開明細", "Sorted by ADO item count · click a row for details")}${Store.editing ? "" : L("・對應 ADO 帳號需要編輯模式", " · pairing ADO accounts needs Edit mode")}</span>
+        ${
+          pair.firstName.size
+            ? `<span class="grow"></span><button class="btn small" id="mPin" type="button" title="${L(
+                "把「依名字」比對到的 ADO 名稱寫進各人的「ADO 帳號」欄位，之後就不再依賴名字",
+                'Write the ADO names matched "by first name" into each person\'s "ADO account" field, so the pairing no longer relies on the name'
+              )}">${L(`固定目前比對（${pair.firstName.size}）`, `Keep current matches (${pair.firstName.size})`)}</button>`
+            : ""
+        }</header>
         <div id="mTable"></div></section>
       <div id="mDetail"></div>
-      ${filtering ? `<section class="card"><header class="card-h"><h3>符合的項目</h3><span class="muted">${hits} 筆・依成員分組</span></header><div id="mHits"></div></section>` : ""}
+      ${filtering ? `<section class="card"><header class="card-h"><h3>${L("符合的項目", "Matching items")}</h3><span class="muted">${L(`${hits} 筆・依成員分組`, `${hits} · grouped by member`)}</span></header><div id="mHits"></div></section>` : ""}
 
       <details class="card fold-card" id="mOutsideFold" ${Store.ui.adoOutsideOpen ? "open" : ""}>
-        <summary class="card-h"><h3>名冊外的負責人（${pair.unmatched.size}）</h3><span class="muted">ADO 上有項目，但名冊裡找不到對應的人</span></summary>
+        <summary class="card-h"><h3>${L(`名冊外的負責人（${pair.unmatched.size}）`, `Owners not on the roster (${pair.unmatched.size})`)}</h3><span class="muted">${L("ADO 上有項目，但名冊裡找不到對應的人", "They have items on ADO but nobody on the roster matches")}</span></summary>
         <div id="mOutside"></div></details>
 
       ${
         unassigned.length
-          ? `<section class="card"><header class="card-h"><h3>未指派的項目（${unassigned.length}）</h3><span class="muted">ADO 上沒有 Assigned To，誰都不會收到</span>
-              <span class="grow"></span><button class="btn small" id="mGoUn" type="button">在看板中查看</button></header>
+          ? `<section class="card"><header class="card-h"><h3>${L(`未指派的項目（${unassigned.length}）`, `Unassigned items (${unassigned.length})`)}</h3><span class="muted">${L("ADO 上沒有 Assigned To，誰都不會收到", "No Assigned To on ADO, so nobody gets them")}</span>
+              <span class="grow"></span><button class="btn small" id="mGoUn" type="button">${L("在看板中查看", "View on board")}</button></header>
               <ul class="tlist ado-items">${A.sort(unassigned, "ageDays", "desc").slice(0, 12).map(itemLine).join("")}</ul>
-              ${unassigned.length > 12 ? `<p class="muted">其餘 ${unassigned.length - 12} 筆請到看板查看</p>` : ""}</section>`
+              ${unassigned.length > 12 ? `<p class="muted">${L(`其餘 ${unassigned.length - 12} 筆請到看板查看`, `${unassigned.length - 12} more on the board`)}</p>` : ""}</section>`
           : ""
       }`;
 
@@ -595,7 +684,9 @@
       .filter((x) => (filtering ? x.rs.length : x.e.active || x.rs.length))
       .sort((a, b) => b.rs.length - a.rs.length);
     if (!list.length) {
-      el.innerHTML = `<p class="empty">${filtering ? "沒有成員手上有符合條件的項目，試著放寬或清除篩選。" : "名冊裡沒有在職成員。"}</p>`;
+      el.innerHTML = `<p class="empty">${
+        filtering ? L("沒有成員手上有符合條件的項目，試著放寬或清除篩選。", "No member has matching items; try loosening or clearing the filters.") : L("名冊裡沒有在職成員。", "No active members on the roster.")
+      }</p>`;
       el.onclick = null;
       return;
     }
@@ -605,15 +696,26 @@
         const stale = rs.filter((r) => r.stale).length;
         const last = rs.map((r) => r.changed).filter(Boolean).sort().pop();
         const segs = A.PHASES.map((p) => rs.filter((r) => r.phase === p.key).length)
-          .map((n, i) => (n ? `<i class="ph-${A.PHASES[i].key}" style="width:${(n / maxN) * 100}%" title="${esc(A.PHASES[i].label)}：${n}"></i>` : ""))
+          .map((n, i) => (n ? `<i class="ph-${A.PHASES[i].key}" style="width:${(n / maxN) * 100}%" title="${L(`${esc(A.PHASES[i].label)}：${n}`, `${esc(A.PHASES[i].label)}: ${n}`)}"></i>` : ""))
           .join("");
         const aliases = A.aliasesOf(e);
         // Matched only because the given name picked out one person on each side: worth saying, since
         // 名冊 keeps first names and ADO shows "Dixon Chu WYHQ Wiwynn".
         const guessed = rs.length && [...pair.empOf.entries()].every(([n, id]) => id !== e.id || pair.firstName.has(n));
         return `<tr data-emp="${e.id}" class="${e.active ? "" : "gone"}${openEmp === e.id ? " on" : ""}">
-          <th>${esc(e.name)}${e.active ? "" : `<span class="tag ghost">已離開</span>`}${guessed ? `<span class="tag ghost" title="名冊只有名字，是用名字對上 ADO 顯示名稱的。要固定下來可以在「ADO 帳號」欄填完整名稱。">依名字</span>` : ""}${
-            rs.length ? "" : aliases.length ? `<span class="tag ghost" title="已設定 ADO 帳號，但目前沒有未完成項目">無項目</span>` : `<span class="tag ghost" title="靠姓名比對不到 ADO 帳號，可在編輯員工填「ADO 帳號」">未對應</span>`
+          <th>${esc(e.name)}${e.active ? "" : `<span class="tag ghost">${L("已離開", "Left")}</span>`}${
+            guessed
+              ? `<span class="tag ghost" title="${L(
+                  "名冊只有名字，是用名字對上 ADO 顯示名稱的。要固定下來可以在「ADO 帳號」欄填完整名稱。",
+                  'The roster has only a first name, so it was matched to the ADO display name by that. To make it stick, enter the full name in the "ADO account" field.'
+                )}">${L("依名字", "By first name")}</span>`
+              : ""
+          }${
+            rs.length
+              ? ""
+              : aliases.length
+                ? `<span class="tag ghost" title="${L("已設定 ADO 帳號，但目前沒有未完成項目", "ADO account set, but no open items right now")}">${L("無項目", "No items")}</span>`
+                : `<span class="tag ghost" title="${L("靠姓名比對不到 ADO 帳號，可在編輯員工填「ADO 帳號」", 'No ADO account matches the name; fill in "ADO account" when editing the person')}">${L("未對應", "Not paired")}</span>`
           }</th>
           <td class="num">${rs.length ? `<b>${rs.length}</b>` : `<span class="muted">0</span>`}${filtering && total !== rs.length ? `<small class="muted"> / ${total}</small>` : ""}</td>
           <td class="ado-mini"><span class="hb-track">${segs}</span></td>
@@ -623,7 +725,7 @@
       })
       .join("");
     el.innerHTML = `<div class="table-wrap"><table class="grid-table roster ado-members">
-      <thead><tr><th>姓名</th><th class="num">ADO 項目</th><th>狀態分布</th><th class="num">停滯 > ${A.STALE_DAYS - 1} 天</th><th class="num">最後更新</th></tr></thead>
+      <thead><tr><th>${L("姓名", "Name")}</th><th class="num">${L("ADO 項目", "ADO items")}</th><th>${L("狀態分布", "By state")}</th><th class="num">${esc(QUICK_LABEL.stale)}</th><th class="num">${L("最後更新", "Updated")}</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
       <div class="legend">${A.PHASES.map((p) => `<span class="lg"><i class="ph-${p.key}"></i>${esc(p.label)}</span>`).join("")}</div>`;
     el.onclick = (ev) => {
@@ -645,16 +747,20 @@
     const names = [...pair.empOf.entries()].filter(([, id]) => id === empId).map(([n]) => n);
     el.innerHTML = `<section class="card detail">
       <header class="card-h"><h3>${esc(e.name)}</h3>
-        <span class="muted">${filtering ? `符合篩選 ${rs.length} / ${total} 筆` : `${rs.length} 筆 ADO 未完成項目`}${names.length ? `・對應 ADO 帳號：${names.map((n) => esc(n) + (pair.firstName.has(n) ? "（依名字比對）" : "")).join("、")}` : ""}</span><span class="grow"></span>
-        <button class="btn small" id="mFilter" type="button">在看板中只看他／她</button>
-        <button class="btn small edit-only" id="mAlias" type="button">設定 ADO 帳號</button>
-        <button class="icon" id="mClose" type="button" aria-label="關閉">✕</button></header>
+        <span class="muted">${filtering ? L(`符合篩選 ${rs.length} / ${total} 筆`, `${rs.length} / ${total} match the filters`) : L(`${rs.length} 筆 ADO 未完成項目`, `${rs.length} open ADO items`)}${
+          names.length
+            ? L("・對應 ADO 帳號：", " · ADO accounts: ") + names.map((n) => esc(n) + (pair.firstName.has(n) ? L("（依名字比對）", " (matched by first name)") : "")).join(L("、", ", "))
+            : ""
+        }</span><span class="grow"></span>
+        <button class="btn small" id="mFilter" type="button">${L("在看板中只看他／她", "Show only them on the board")}</button>
+        <button class="btn small edit-only" id="mAlias" type="button">${L("設定 ADO 帳號", "Set ADO account")}</button>
+        <button class="icon" id="mClose" type="button" aria-label="${L("關閉", "Close")}">✕</button></header>
       ${
         rs.length
           ? `<ul class="tlist ado-items">${rs.map(itemLine).join("")}</ul>`
           : filtering && total
-            ? `<p class="muted">他／她的 ${total} 筆項目都不符合目前的篩選。</p>`
-            : `<p class="muted">目前沒有未完成的 ADO 項目。${A.aliasesOf(e).length ? "" : "若實際上有，請設定他／她的 ADO 帳號。"}</p>`
+            ? `<p class="muted">${L(`他／她的 ${total} 筆項目都不符合目前的篩選。`, `None of their ${total} items match the current filters.`)}</p>`
+            : `<p class="muted">${L("目前沒有未完成的 ADO 項目。", "No open ADO items right now.")}${A.aliasesOf(e).length ? "" : L("若實際上有，請設定他／她的 ADO 帳號。", " If they do have some, set their ADO account.")}</p>`
       }
       </section>`;
     $("#mClose").onclick = () => ((openEmp = ""), redraw());
@@ -673,12 +779,12 @@
       .filter((g) => g.rs.length)
       .sort((a, b) => b.rs.length - a.rs.length);
     if (!groups.length) {
-      el.innerHTML = `<p class="empty">沒有符合條件的項目。</p>`;
+      el.innerHTML = `<p class="empty">${L("沒有符合條件的項目。", "No items match.")}</p>`;
       return;
     }
     const row = (r) => `<tr>
         <td class="col-id">${idLink(r)}</td>
-        <td>${esc(r.type)}</td>
+        <td>${esc(shownVal(r.type))}</td>
         <td>${stateTag(r)}</td>
         <td class="num">${r.changed ? esc(U.fmt(r.changed, "yy")) : "—"}</td>
         <td class="num">${ageCell(r)}</td>
@@ -687,31 +793,37 @@
     const bodies = groups
       .map(
         (g) =>
-          `<tbody class="ado-grp"><tr class="grp"><th colspan="6">${esc(g.e.name)}${g.e.active ? "" : `<span class="tag ghost">已離開</span>`} <span class="count">${g.rs.length}</span></th></tr>${g.rs.map(row).join("")}</tbody>`
+          `<tbody class="ado-grp"><tr class="grp"><th colspan="6">${esc(g.e.name)}${g.e.active ? "" : `<span class="tag ghost">${L("已離開", "Left")}</span>`} <span class="count">${g.rs.length}</span></th></tr>${g.rs.map(row).join("")}</tbody>`
       )
       .join("");
     el.innerHTML = `<div class="table-wrap"><table class="grid-table ado-table">
-      <thead><tr><th class="col-id">ID</th><th>類型</th><th>狀態</th><th class="num">最後更新</th><th class="num">停滯</th><th>標題</th></tr></thead>${bodies}</table></div>`;
+      <thead><tr><th class="col-id">ID</th><th>${L("類型", "Type")}</th><th>${L("狀態", "State")}</th><th class="num">${L("最後更新", "Updated")}</th><th class="num">${L("停滯", "Stalled")}</th><th>${L("標題", "Title")}</th></tr></thead>${bodies}</table></div>`;
   }
 
   function renderOutside(el, pair) {
     const list = [...pair.unmatched.entries()].sort((a, b) => b[1].length - a[1].length);
     if (!list.length) {
-      el.innerHTML = `<p class="empty">每個 ADO 負責人都對應到名冊裡的人了。</p>`;
+      el.innerHTML = `<p class="empty">${L("每個 ADO 負責人都對應到名冊裡的人了。", "Every ADO owner is paired with someone on the roster.")}</p>`;
       return;
     }
-    el.innerHTML = `<div class="row-end ado-bulk"><span class="muted grow">一個一個點太慢的話，用批次對應一次做完（每個人都會先填好最可能的人選，你只要確認）。</span>
-      <button class="btn primary" id="mBatch" type="button">批次對應…（${list.length}）</button></div>
-      <div class="table-wrap"><table class="grid-table"><thead><tr><th>ADO 負責人</th><th>帳號</th><th class="num">項目</th><th class="num">停滯</th><th></th></tr></thead><tbody>
+    el.innerHTML = `<div class="row-end ado-bulk"><span class="muted grow">${L(
+      "一個一個點太慢的話，用批次對應一次做完（每個人都會先填好最可能的人選，你只要確認）。",
+      "Too slow one by one? Pair them all at once (each one comes pre-filled with the likeliest person; you only confirm)."
+    )}</span>
+      <button class="btn primary" id="mBatch" type="button">${L(`批次對應…（${list.length}）`, `Pair all… (${list.length})`)}</button></div>
+      <div class="table-wrap"><table class="grid-table"><thead><tr><th>${L("ADO 負責人", "ADO owner")}</th><th>${L("帳號", "Account")}</th><th class="num">${L("項目", "Items")}</th><th class="num">${L("停滯", "Stalled")}</th><th></th></tr></thead><tbody>
       ${list
         .map(([name, rs]) => {
           const p = pair.people.find((x) => x.name === name) || {};
           return `<tr><th>${esc(A.shortName(name))}${A.shortName(name) === name ? "" : `<small class="muted"> ${esc(name)}</small>`}</th><td class="muted">${esc(p.email || "—")}</td><td class="num"><b>${rs.length}</b></td>
             <td class="num">${rs.filter((r) => r.stale).length || `<span class="muted">—</span>`}</td>
-            <td class="ado-acts"><button class="btn small" data-see="${esc(name)}" type="button">查看</button><button class="btn small primary" data-map="${esc(name)}" type="button">對應到員工</button></td></tr>`;
+            <td class="ado-acts"><button class="btn small" data-see="${esc(name)}" type="button">${L("查看", "View")}</button><button class="btn small primary" data-map="${esc(name)}" type="button">${L("對應到員工", "Pair with person")}</button></td></tr>`;
         })
         .join("")}</tbody></table></div>
-      <p class="muted">「對應到員工」會把這個 ADO 名稱寫進該員工的 <b>ADO 帳號</b>欄位（屬於部門資料，會同步到雲端給大家共用）。不是部門同事的話就不用處理。</p>`;
+      <p class="muted">${L(
+        "「對應到員工」會把這個 ADO 名稱寫進該員工的 <b>ADO 帳號</b>欄位（屬於部門資料，會同步到雲端給大家共用）。不是部門同事的話就不用處理。",
+        '"Pair with person" writes this ADO name into that person\'s <b>ADO account</b> field (department data: it syncs to the Cloud for everyone). Skip anyone who is not a colleague.'
+      )}</p>`;
     $("#mBatch").onclick = () => batchMap([...pair.unmatched.keys()], pair);
     el.onclick = (ev) => {
       const see = ev.target.closest("[data-see]");
@@ -746,10 +858,10 @@
   async function batchMap(names, pair) {
     if (!(await App.requireEdit())) return;
     const emps = Store.data.employees.filter((e) => e.active);
-    if (!emps.length) return App.toast("名冊是空的，先到「設定 › 員工名冊」新增員工", "error");
+    if (!emps.length) return App.toast(L("名冊是空的，先到「設定 › 員工名冊」新增員工", 'The roster is empty; add people under "Settings › Roster" first'), "error");
     const MAX = 25; // a dialog longer than this is unreadable; the rest come in the next round
     const list = names.slice(0, MAX);
-    const options = [{ value: "", label: "— 略過（不是部門同事）—" }].concat(emps.map((e) => ({ value: e.id, label: e.name })));
+    const options = [{ value: "", label: L("— 略過（不是部門同事）—", "— Skip (not a colleague) —") }].concat(emps.map((e) => ({ value: e.id, label: e.name })));
     // Members who already own ADO items, plus the ones this dialog has already suggested: a member is
     // pre-filled at most once, so two "Chang"s never both default to the same person.
     const taken = new Set(emps.filter((e) => (pair.byEmp.get(e.id) || []).length).map((e) => e.id));
@@ -761,7 +873,7 @@
       if (best) taken.add(best.empId);
       return {
         key: "m" + i,
-        label: `${A.shortName(name)}（${(pair.unmatched.get(name) || []).length} 件）`,
+        label: L(`${A.shortName(name)}（${(pair.unmatched.get(name) || []).length} 件）`, `${A.shortName(name)} (${(pair.unmatched.get(name) || []).length} items)`),
         type: "select",
         options,
         value: best ? best.empId : "",
@@ -770,15 +882,19 @@
       };
     });
     const r = await App.form({
-      title: `批次對應 ${list.length} 位 ADO 負責人`,
-      saveLabel: "全部套用",
+      title: L(`批次對應 ${list.length} 位 ADO 負責人`, `Pair ${list.length} ADO owners`),
+      saveLabel: L("全部套用", "Apply all"),
       fields,
     });
     if (!r || r.action !== "save") return;
     const picked = list.map((name, i) => [r.values["m" + i], name]).filter(([empId]) => empId);
-    if (!picked.length) return App.toast("沒有選到任何人，沒有變更");
+    if (!picked.length) return App.toast(L("沒有選到任何人，沒有變更", "Nobody picked; nothing changed"));
     writeAliases(picked);
-    App.toast(`已對應 ${picked.length} 位${names.length > MAX ? `，還有 ${names.length - MAX} 位可以再跑一次` : ""}`, "", [{ label: "復原", run: () => Store.undo() }]);
+    App.toast(
+      L(`已對應 ${picked.length} 位${names.length > MAX ? `，還有 ${names.length - MAX} 位可以再跑一次` : ""}`, `Paired ${picked.length}${names.length > MAX ? `; ${names.length - MAX} more left for another round` : ""}`),
+      "",
+      [{ label: L("復原", "Undo"), run: () => Store.undo() }]
+    );
   }
 
   /** Turn the given-name guesses into real 帳號 entries, so the pairing no longer leans on the name. */
@@ -787,20 +903,30 @@
     const pairs = [...pair.firstName].map((name) => [pair.empOf.get(name), name]).filter(([empId]) => empId);
     if (!pairs.length) return;
     writeAliases(pairs);
-    App.toast(`已把 ${pairs.length} 筆「依名字」的比對寫進員工的 ADO 帳號`, "", [{ label: "復原", run: () => Store.undo() }]);
+    App.toast(L(`已把 ${pairs.length} 筆「依名字」的比對寫進員工的 ADO 帳號`, `Wrote ${pairs.length} "by first name" matches into the people's ADO accounts`), "", [
+      { label: L("復原", "Undo"), run: () => Store.undo() },
+    ]);
   }
 
   async function mapToEmployee(name) {
     if (!(await App.requireEdit())) return;
     const emps = Store.data.employees.filter((e) => e.active);
-    if (!emps.length) return App.toast("名冊是空的，先到「設定 › 員工名冊」新增員工", "error");
+    if (!emps.length) return App.toast(L("名冊是空的，先到「設定 › 員工名冊」新增員工", 'The roster is empty; add people under "Settings › Roster" first'), "error");
     const r = await App.form({
-      title: `把「${name}」對應到員工`,
+      title: L(`把「${name}」對應到員工`, `Pair "${name}" with a person`),
       fields: [
-        { key: "empId", label: "員工", type: "select", options: emps.map((e) => ({ value: e.id, label: e.name })), wide: true },
-        { key: "note", label: "記住對應", type: "check", text: "寫入該員工的「ADO 帳號」欄位", value: true, wide: true, hint: "不勾選就只是這次用這個名稱篩選看板，不會改到部門資料" },
+        { key: "empId", label: L("員工", "Person"), type: "select", options: emps.map((e) => ({ value: e.id, label: e.name })), wide: true },
+        {
+          key: "note",
+          label: L("記住對應", "Remember pairing"),
+          type: "check",
+          text: L("寫入該員工的「ADO 帳號」欄位", 'Write it into the person\'s "ADO account" field'),
+          value: true,
+          wide: true,
+          hint: L("不勾選就只是這次用這個名稱篩選看板，不會改到部門資料", "Unticked, it only filters the board by this name this time; department data is not changed"),
+        },
       ],
-      saveLabel: "對應",
+      saveLabel: L("對應", "Pair"),
     });
     if (!r || r.action !== "save") return;
     if (!r.values.note) {
@@ -810,7 +936,7 @@
       return App.go("#/ado");
     }
     writeAliases([[r.values.empId, name]]);
-    App.toast(`已把「${name}」對應到 ${Store.empName(r.values.empId)}`, "", [{ label: "復原", run: () => Store.undo() }]);
+    App.toast(L(`已把「${name}」對應到 ${Store.empName(r.values.empId)}`, `Paired "${name}" with ${Store.empName(r.values.empId)}`), "", [{ label: L("復原", "Undo"), run: () => Store.undo() }]);
   }
 
   // ------------------------------------------------------------------ fetching
@@ -821,16 +947,27 @@
     const from = Ado.patSource();
     if (!Ado.pat()) return opts.auto ? undefined : openConfig();
     $("#blockerSkip").onclick = () => App.blocker(false);
-    App.blocker(true, opts.auto ? `正在向 ADO 擷取（PAT 來自 ${from === "file" ? Ado.patFile() : "這個瀏覽器"}）…` : "正在向 ADO 擷取…");
+    App.blocker(
+      true,
+      opts.auto
+        ? L(`正在向 ADO 擷取（PAT 來自 ${from === "file" ? Ado.patFile() : "這個瀏覽器"}）…`, `Fetching from ADO (PAT from ${from === "file" ? Ado.patFile() : "this browser"})…`)
+        : L("正在向 ADO 擷取…", "Fetching from ADO…")
+    );
     try {
       const r = await Ado.fetchItems({ ...cfg, pat: Ado.pat(), onProgress: (m) => App.blocker(true, m) });
       const s = saveSnapshot(r.records, `${cfg.org} / ${cfg.project}`);
-      App.toast(`已擷取 ${s.rows.length} 筆未完成項目${s.done.length ? `、${s.done.length} 筆已完成` : ""}`);
+      App.toast(L(`已擷取 ${s.rows.length} 筆未完成項目${s.done.length ? `、${s.done.length} 筆已完成` : ""}`, `Fetched ${s.rows.length} open items${s.done.length ? `, ${s.done.length} done` : ""}`));
       redraw();
     } catch (err) {
-      const where = err.kind === "auth" && from === "file" ? `（PAT 來自 ${Ado.patFile()}，可能已過期，請更新那個檔案後重跑 tools\\ado_pat.ps1）` : "";
-      App.toast("擷取失敗：" + err.message + where, "error", [
-        err.kind === "auth" ? { label: "重新輸入 PAT", run: () => openConfig() } : { label: "重試", run: () => fetchNow() },
+      const where =
+        err.kind === "auth" && from === "file"
+          ? L(
+              `（PAT 來自 ${Ado.patFile()}，可能已過期，請更新那個檔案後重跑 tools\\ado_pat.ps1）`,
+              ` (the PAT comes from ${Ado.patFile()} and may have expired: update that file, then run tools\\ado_pat.ps1 again)`
+            )
+          : "";
+      App.toast(L("擷取失敗：", "Fetch failed: ") + err.message + where, "error", [
+        err.kind === "auth" ? { label: L("重新輸入 PAT", "Re-enter PAT"), run: () => openConfig() } : { label: L("重試", "Retry"), run: () => fetchNow() },
       ]);
     } finally {
       App.blocker(false);
@@ -841,26 +978,33 @@
   async function readPatFile(file) {
     try {
       const pat = Ado.cleanPat(await U.readFile(file));
-      if (!/^[A-Za-z0-9._-]{20,}$/.test(pat)) return App.toast(`${file.name} 裡看不到像 PAT 的內容（應該是單獨一行英數字）`, "error");
+      if (!/^[A-Za-z0-9._-]{20,}$/.test(pat))
+        return App.toast(L(`${file.name} 裡看不到像 PAT 的內容（應該是單獨一行英數字）`, `${file.name} holds nothing that looks like a PAT (it should be one line of letters and digits)`), "error");
       Ado.setPat(pat, false); // only this tab: the file itself is the place it is kept
-      App.toast(`已讀取 ${file.name} 的 PAT（只記在這個分頁）`);
+      App.toast(L(`已讀取 ${file.name} 的 PAT（只記在這個分頁）`, `Read the PAT from ${file.name} (kept in this tab only)`));
       fetchNow();
     } catch (err) {
-      App.toast("讀取 PAT 檔失敗：" + err.message, "error");
+      App.toast(L("讀取 PAT 檔失敗：", "Could not read the PAT file: ") + err.message, "error");
     }
   }
 
   async function loadCsv(file) {
     try {
       const records = Ado.parseCsv(await U.readFile(file));
-      if (!records.length) return App.toast("這個 CSV 裡沒有資料列", "error");
+      if (!records.length) return App.toast(L("這個 CSV 裡沒有資料列", "This CSV has no data rows"), "error");
       const probe = A.normalise(records, { today: E.fromDay(U.today()) });
-      if (!probe.rows.length && !probe.done.length) return App.toast("認不出這個 CSV 的欄位（需要 ID / Title / State 等 ADO 匯出欄位）", "error");
+      if (!probe.rows.length && !probe.done.length)
+        return App.toast(L("認不出這個 CSV 的欄位（需要 ID / Title / State 等 ADO 匯出欄位）", "Cannot recognise this CSV's columns (it needs ADO export columns such as ID / Title / State)"), "error");
       saveSnapshot(records, file.name);
-      App.toast(`已載入 ${probe.rows.length} 筆未完成項目${probe.done.length ? `、${probe.done.length} 筆已完成（勾「含已完成」才會顯示）` : ""}`);
+      App.toast(
+        L(
+          `已載入 ${probe.rows.length} 筆未完成項目${probe.done.length ? `、${probe.done.length} 筆已完成（勾「含已完成」才會顯示）` : ""}`,
+          `Loaded ${probe.rows.length} open items${probe.done.length ? `, ${probe.done.length} done (shown with "Include done")` : ""}`
+        )
+      );
       redraw();
     } catch (err) {
-      App.toast("讀取 CSV 失敗：" + err.message, "error");
+      App.toast(L("讀取 CSV 失敗：", "Could not read the CSV: ") + err.message, "error");
     }
   }
 
@@ -870,8 +1014,11 @@
     const at = new Date().toISOString();
     if (Ado.writeCache(records, { source, at })) return rows();
     // Too big (or no quota) for localStorage: keep it in memory for this page only.
-    snapshot = { ...snapOf(records, at, source + "（未存入本機）"), memory: true };
-    App.toast(`資料量太大，這次的擷取結果只留在這個分頁，重新整理後需要再擷取一次。${Ado.cfg().doneDays > 0 ? "可在「ADO 設定」把已完成項目的天數調小。" : ""}`);
+    snapshot = { ...snapOf(records, at, source + L("（未存入本機）", " (not saved locally)")), memory: true };
+    App.toast(
+      L("資料量太大，這次的擷取結果只留在這個分頁，重新整理後需要再擷取一次。", "Too much data: this fetch stays in this tab only, so after a reload you need to fetch again.") +
+        (Ado.cfg().doneDays > 0 ? L("可在「ADO 設定」把已完成項目的天數調小。", ' Lower the done-item days in "ADO settings".') : "")
+    );
     return snapshot;
   }
 
@@ -879,12 +1026,12 @@
   async function openConfig() {
     const cfg = Ado.cfg();
     const r = await App.form({
-      title: "ADO 連線設定",
-      saveLabel: "儲存並擷取",
-      extra: [{ value: "file", label: "從 .ado_pat 檔載入" }].concat(Ado.patRemembered() || Ado.pat() ? [{ value: "forget", label: "清除已存的 PAT" }] : []),
+      title: L("ADO 連線設定", "ADO connection"),
+      saveLabel: L("儲存並擷取", "Save and fetch"),
+      extra: [{ value: "file", label: L("從 .ado_pat 檔載入", "Load from .ado_pat file") }].concat(Ado.patRemembered() || Ado.pat() ? [{ value: "forget", label: L("清除已存的 PAT", "Clear saved PAT") }] : []),
       fields: [
-        { key: "org", label: "組織", value: cfg.org, required: true },
-        { key: "project", label: "專案", value: cfg.project, required: true },
+        { key: "org", label: L("組織", "Organization"), value: cfg.org, required: true },
+        { key: "project", label: L("專案", "Project"), value: cfg.project, required: true },
         {
           key: "pat",
           label: "PAT",
@@ -893,28 +1040,57 @@
           wide: true,
           required: true,
           hint:
-            { file: `目前的 PAT 來自 ${Ado.patFile()}（tools/ado_pat.ps1 產生），開這一頁就會自動擷取。`, remembered: "目前的 PAT 存在這台電腦。", session: "目前的 PAT 只記在這個分頁。", none: `還沒有 PAT。可貼上，或按「從 .ado_pat 檔載入」選 ${Ado.patFile()}。` }[Ado.patSource()] +
-            " 在 ADO 的 User settings → Personal access tokens 建立，scope 只要勾 Work Items (Read)；只會送到 dev.azure.com。",
+            {
+              file: L(`目前的 PAT 來自 ${Ado.patFile()}（tools/ado_pat.ps1 產生），開這一頁就會自動擷取。`, `The current PAT comes from ${Ado.patFile()} (made by tools/ado_pat.ps1); this page fetches by itself when it opens.`),
+              remembered: L("目前的 PAT 存在這台電腦。", "The current PAT is stored on this computer."),
+              session: L("目前的 PAT 只記在這個分頁。", "The current PAT is kept in this tab only."),
+              none: L(`還沒有 PAT。可貼上，或按「從 .ado_pat 檔載入」選 ${Ado.patFile()}。`, `No PAT yet. Paste one, or press "Load from .ado_pat file" and pick ${Ado.patFile()}.`),
+            }[Ado.patSource()] +
+            L(
+              " 在 ADO 的 User settings → Personal access tokens 建立，scope 只要勾 Work Items (Read)；只會送到 dev.azure.com。",
+              " Create it in ADO under User settings → Personal access tokens with only the Work Items (Read) scope; it is only sent to dev.azure.com."
+            ),
         },
-        { key: "remember", label: "PAT 保存方式", type: "check", text: "記住 PAT（存在這台電腦）", value: Ado.patRemembered(), hint: "不勾選只記在這個分頁，關掉就消失；共用電腦建議不要勾" },
+        {
+          key: "remember",
+          label: L("PAT 保存方式", "Keep PAT"),
+          type: "check",
+          text: L("記住 PAT（存在這台電腦）", "Remember PAT (store on this computer)"),
+          value: Ado.patRemembered(),
+          hint: L("不勾選只記在這個分頁，關掉就消失；共用電腦建議不要勾", "Unticked, it lives in this tab only and is gone when it closes; leave it unticked on a shared computer"),
+        },
         {
           key: "doneDays",
-          label: "已完成項目（天）",
+          label: L("已完成項目（天）", "Done items (days)"),
           type: "number",
           min: 0,
           value: cfg.doneDays,
           more: true,
-          hint: "一併擷取最近幾天內有更新的已完成項目（Done / Closed…），看板勾「含已完成」才會顯示；0 = 只擷取未完成。天數越大資料越多。",
+          hint: L(
+            "一併擷取最近幾天內有更新的已完成項目（Done / Closed…），看板勾「含已完成」才會顯示；0 = 只擷取未完成。天數越大資料越多。",
+            'Also fetch done items (Done / Closed…) updated within this many days; the board shows them with "Include done". 0 = open items only. More days, more data.'
+          ),
         },
-        { key: "where", label: "額外條件（WIQL）", value: cfg.where, more: true, wide: true, placeholder: "[System.AreaPath] UNDER 'Monica\\Gen11'" },
-        { key: "queryId", label: "已存查詢 GUID", value: cfg.queryId, more: true, wide: true, hint: "填了就改用 ADO 上存好的查詢，忽略上面的額外條件" },
+        { key: "where", label: L("額外條件（WIQL）", "Extra condition (WIQL)"), value: cfg.where, more: true, wide: true, placeholder: "[System.AreaPath] UNDER 'Monica\\Gen11'" },
+        {
+          key: "queryId",
+          label: L("已存查詢 GUID", "Saved query GUID"),
+          value: cfg.queryId,
+          more: true,
+          wide: true,
+          hint: L("填了就改用 ADO 上存好的查詢，忽略上面的額外條件", "When filled, the saved ADO query is used instead and the extra condition above is ignored"),
+        },
       ],
     });
     if (!r) return;
     if (r.action === "file") return $("#adoPatFile").click();
     if (r.action === "forget") {
       Ado.forgetPat();
-      return App.toast(Ado.pat() ? `已清除瀏覽器裡的 PAT；${Ado.patFile()} 提供的那一組仍然有效（要停用請刪掉 data/ado_pat.js）` : "已清除這台電腦上儲存的 PAT");
+      return App.toast(
+        Ado.pat()
+          ? L(`已清除瀏覽器裡的 PAT；${Ado.patFile()} 提供的那一組仍然有效（要停用請刪掉 data/ado_pat.js）`, `Cleared the PAT in the browser; the one from ${Ado.patFile()} still works (delete data/ado_pat.js to stop it)`)
+          : L("已清除這台電腦上儲存的 PAT", "Cleared the PAT stored on this computer")
+      );
     }
     if (r.action !== "save") return;
     const { pat, remember, ...rest } = r.values;

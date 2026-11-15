@@ -3,14 +3,34 @@
   const { $, $$, esc } = U;
 
   // [id, nav label, html]. Kept short: what each page answers, then how to use it.
-  const page = (hash, label) => `<button class="link h-go" type="button" data-go="${hash}">前往${esc(label)} ›</button>`;
+  // Label and html are functions so they follow the language at the moment the dialog opens.
+  const page = (hash, label) => `<button class="link h-go" type="button" data-go="${hash}">${L(`前往${esc(label)} ›`, `Go to ${esc(label)} ›`)}</button>`;
   const k = (s) => `<span class="h-key">${s}</span>`;
 
   const SECTIONS = [
     [
       "intro",
-      "系統簡介",
-      () => `
+      () => L("系統簡介", "Introduction"),
+      () => (
+        I18N.en
+          ? `
+      <p class="h-lead"><b>${esc(Store.data.settings.title || "LLT800 Dashboard")}</b> is the department's work overview: one place to see the projects the department handles, each PFAM's schedule, who is busy with what, and who is on a trip.</p>
+      <div class="h-pages">
+        <a href="#/overview"><b>Overview</b><span>What needs attention today, and the work and workforce for the next month</span></a>
+        <a href="#/projects"><b>Project Gantt</b><span>Schedule and assignments of Project → PFAM → task</span></a>
+        <a href="#/ado"><b>ADO Task</b><span>Open Azure DevOps items and each member's ADO tasks</span></a>
+        <a href="#/load"><b>Workload</b><span>How many people are busy each day, and what each person is working on</span></a>
+        <a href="#/people"><b>Trips</b><span>Who is on a trip, and trip days per year</span></a>
+        <a href="#/collab"><b>MTE PFAM sync</b><span>The list of running PFAMs shared with local MTE (anyone can edit)</span></a>
+        <a href="#/settings"><b>Settings</b><span>Roster, Phases, holidays, import / export, cloud sync</span></a>
+      </div>
+      <h4>Three levels of data</h4>
+      <ul>
+        <li><b>Project</b> (e.g. Gen12 AMD) → <b>PFAM</b> (a model / configuration under the project) → <b>task</b> (work with start and end dates, assignees and a Phase).</li>
+        <li>The period of a Project or PFAM is worked out from the earliest start and latest end of its tasks; you never enter it yourself.</li>
+        <li>Every Project has a built-in <b>Others</b> PFAM for work that belongs to no PFAM.</li>
+      </ul>`
+          : `
       <p class="h-lead"><b>${esc(Store.data.settings.title || "LLT800 Dashboard")}</b> 是部門的工作總覽：一頁看完部門承接的專案、各 PFAM 的時程、誰在忙什麼，以及誰在出差。</p>
       <div class="h-pages">
         <a href="#/overview"><b>總覽</b><span>今天要注意什麼、接下來一個月的工作與人力</span></a>
@@ -26,12 +46,28 @@
         <li><b>Project</b>（專案，例如 Gen12 AMD）→ <b>PFAM</b>（專案底下的機種 / 組態）→ <b>task</b>（有起訖日、指派人、Phase 的工作）。</li>
         <li>Project 與 PFAM 的期間由底下 task 的最早開始日與最晚結束日自動算出，不需要另外填。</li>
         <li>每個 Project 都有一個內建的 <b>Others</b> PFAM，放不屬於任何 PFAM 的工作。</li>
-      </ul>`,
+      </ul>`),
     ],
     [
       "start",
-      "快速上手",
-      () => `
+      () => L("快速上手", "Getting started"),
+      () => (
+        I18N.en
+          ? `
+      <ol class="h-steps">
+        <li><b>Just looking:</b> switch the tabs at the top; no setup needed. The page first shows the data this computer had last time while the cloud updates in the background (the top right shows "Cloud · updating…").</li>
+        <li><b>Adding or changing things:</b> click ${k("✎ Edit mode")} at the top right (in cloud mode you need the edit password; without it you can only view). A yellow line appears under the banner. Then click a task, PFAM, person or trip to edit it.<br>Entering Edit mode first checks that you have the latest cloud version (important when the tab has been open all day); if not, it loads the latest version before you start.</li>
+        <li><b>Made a mistake:</b> ${k("↶")} / ${k("↷")} or ${k("Ctrl+Z")} / ${k("Ctrl+Y")} to Undo / Redo.</li>
+        <li><b>Sharing with the department:</b> in cloud mode, ${k("⇪ Sync to cloud")} appears at the top right after you change something. Your edits reach the cloud only when you click it; others see them after reloading.</li>
+      </ol>
+      <h4>Buttons at the top right</h4>
+      <dl class="h-defs">
+        <dt>${k("Local mode")} / ${k("Cloud · synced")}</dt><dd>Where the data lives. A yellow dot means edits not yet synced; a blinking blue dot means the cloud is being read in the background. Click it for the cloud sync settings.</dd>
+        <dt>${k("◐")}</dt><dd>Switches dark / light; your choice is remembered.</dd>
+        <dt>${k("EN")} / ${k("中文")}</dt><dd>Switches between English and Chinese; your choice is remembered.</dd>
+        <dt>${k("？ Help")}</dt><dd>Opens this guide; you can also press ${k("?")} on any page.</dd>
+      </dl>`
+          : `
       <ol class="h-steps">
         <li><b>只是查看：</b>直接切換上方分頁即可，不需要任何設定。畫面會先顯示這台電腦上次的資料，雲端在背景更新（右上角顯示「雲端 · 更新中…」）。</li>
         <li><b>要新增或修改：</b>按右上角 ${k("✎ 編輯模式")}（雲端模式需要輸入編輯密碼；沒有密碼的人只能觀看），橫幅底部會出現黃線。之後點 task、PFAM、員工或出差紀錄即可編輯。<br>進入編輯模式時會自動確認你手上是雲端最新版（分頁開一整天後尤其重要），不是的話會先載入最新版再讓你開始改。</li>
@@ -42,13 +78,27 @@
       <dl class="h-defs">
         <dt>${k("本機模式")} / ${k("雲端 · 已同步")}</dt><dd>資料存放位置；黃點表示有尚未同步的修改，藍點閃動表示正在背景讀取雲端。點一下前往雲端同步設定。</dd>
         <dt>${k("◐")}</dt><dd>切換深色 / 淺色，會記住你的選擇。</dd>
+        <dt>${k("EN")} / ${k("中文")}</dt><dd>切換英文 / 中文介面（給 local MTE 看），會記住你的選擇。只翻譯介面，專案名稱、備註等資料維持原本輸入的文字。</dd>
         <dt>${k("？ 使用說明")}</dt><dd>開啟這份說明，也可以在任何頁面按 ${k("?")} 鍵。</dd>
-      </dl>`,
+      </dl>`),
     ],
     [
       "overview",
-      "總覽",
-      () => `
+      () => L("總覽", "Overview"),
+      () => (
+        I18N.en
+          ? `
+      <p>The home page. It answers "what needs attention today, and how busy is the next month?"</p>
+      <ul>
+        <li><b>KPI cards:</b> active projects, tasks running this week, Overdue tasks, people Busy today, trips in 30 days (people on a trip or leaving within 30 days from today). Click a card to open the matching page.</li>
+        <li><b>Needs attention:</b> tasks that are Overdue, Unassigned, or assigned to someone who has Left. Click a task to jump to the Project Gantt with it highlighted. Once everything is handled, this block hides itself.</li>
+        <li><b>Projects:</b> unfinished PFAMs and tasks from 7 days ago to 30 days ahead, grouped by Project; click a heading to expand / collapse it.</li>
+        <li><b>Concurrent PFAMs:</b> the bar chart above the projects, showing how many PFAMs run at the same time on each workday. Days above the department headcount are red; click a bar to see only that day's tasks.</li>
+        <li><b>Heat map:</b> how many PFAMs each person has on each day of the next month (or switch to the Task tab for the task count); the darker, the busier. The top row is the department's Busy count.</li>
+        <li><b>Upcoming trips:</b> trips in progress and those in the next 60 days.</li>
+      </ul>
+      ${page("#/overview", "Overview")}`
+          : `
       <p>首頁，回答「今天有什麼要注意、接下來一個月忙不忙」。</p>
       <ul>
         <li><b>KPI 卡片：</b>進行中專案、本週進行中 task、逾期 task、今日忙碌人數、30 天內出差（今天起 30 天內出差中或要出發的人數）。點卡片會到對應的頁面。</li>
@@ -58,12 +108,33 @@
         <li><b>人力熱度：</b>未來一個月每人每天手上的 PFAM 數（或切到 Task 分頁看 task 數），顏色越深越忙；最上面一列是部門忙碌人數。</li>
         <li><b>近期出差：</b>正在出差與未來 60 天內的出差。</li>
       </ul>
-      ${page("#/overview", "總覽")}`,
+      ${page("#/overview", "總覽")}`),
     ],
     [
       "projects",
-      "專案甘特",
-      () => `
+      () => L("專案甘特", "Project Gantt"),
+      () => (
+        I18N.en
+          ? `
+      <p>The schedule of every project and who owns what. Pick "<b>All projects</b>" (the default) or a single Project in the cards at the top.</p>
+      <h4>Reading the chart</h4>
+      <ul>
+        <li>Click the arrow or name of a Project / PFAM to expand / collapse it; "Open ›" goes into a single project.</li>
+        <li>Task bars are colored by <b>Phase</b> (gray = no Phase); the red vertical line is today. Tasks whose dates changed on a re-import show <span class="late">▲ Delayed</span> / <span class="early">▼ Early</span> (compared with the baseline).</li>
+        <li><b>Period:</b> "2 weeks back + 3 months ahead" (default), "Next 6 months", "This year", or any dates in "From / To"; the time scale switches between day / week / month.</li>
+        <li><b>Filters:</b> Site, Owner, hide Done; you can also switch to the <b>table</b> view.</li>
+        <li><b>PFAM load:</b> the bar chart above the Gantt, showing how many PFAMs run at once each day; days over the limit get a red column. Click a bar to mark that day and the Gantt shows only the work running then.</li>
+        <li><b>Assignments:</b> one timeline per person below the Gantt, with the task names written on the bars; it scrolls left / right together with the Gantt.</li>
+      </ul>
+      <h4>Editing (needs Edit mode)</h4>
+      <ul>
+        <li>"＋ Add Project" at the top right; inside a single project there are "Edit Project", "＋ PFAM" and "＋ task".</li>
+        <li>Hovering a PFAM row shows ${k("✎")} (edit the PFAM) and ${k("＋")} (add a task to this PFAM).</li>
+        <li>Click a task bar, or a task row in the table, to change its dates, assignees (several allowed) or Phase, or to tick <b>Done</b>.</li>
+        <li>A Project can have a "PFAM load alert limit" and "External system links" (e.g. the Gen12 AMD scheduling site).</li>
+      </ul>
+      ${page("#/projects", "Project Gantt")}`
+          : `
       <p>看所有案子的時程與誰負責。上方卡片選「<b>全部專案</b>」（預設）或單一 Project。</p>
       <h4>看圖</h4>
       <ul>
@@ -81,12 +152,46 @@
         <li>點 task 條或表格中的 task 列即可修改日期、指派人（可多選）、Phase，或勾選<b>已完成</b>。</li>
         <li>Project 可設定「PFAM 負載警戒上限」與「外部系統連結」（例如 Gen12 AMD 的排程網站）。</li>
       </ul>
-      ${page("#/projects", "專案甘特")}`,
+      ${page("#/projects", "專案甘特")}`),
     ],
     [
       "ado",
-      "ADO Task",
-      () => `
+      () => "ADO Task",
+      () => (
+        I18N.en
+          ? `
+      <p>Brings in the Azure DevOps work items that are <b>not finished yet</b> and matches them to the department roster. The data is a live snapshot of ADO kept <b>only on your computer</b>: it is not written into the department data or the cloud, and you cannot change ADO from here.</p>
+      <h4>Fetch the data first</h4>
+      <ul>
+        <li><b>Automatic (recommended):</b> save your PAT as a single line in <code>C:\\Users\\&lt;your login&gt;\\.ado_pat</code> and run <code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code> once (add <code>-Open</code> to open the page). From then on, whenever you open this page and this computer has no snapshot from "today", it fetches one by itself; no more pasting the PAT.<br>The script only writes the PAT to <code>data/ado_pat.js</code> for the page to read (a browser cannot read local files on its own). That file contains the PAT and is in .gitignore; run it with <code>-Clear</code> to delete it when you no longer need it.</li>
+        <li><b>Manual:</b> without that file, the page tells you "PAT not found". Click ${k("⟳ Fetch from ADO")} and paste it, or click "Load from .ado_pat file" in the settings dialog to pick the file (kept for this tab only). Create the PAT in ADO under <b>User settings → Personal access tokens</b>; the only scope needed is <b>Work Items (Read)</b>.</li>
+        <li>A pasted PAT is kept for this tab only unless you tick "Remember", which stores it on this computer; either way it is sent only to dev.azure.com. In "ADO settings" you can clear it, change the organization / project, or enter WIQL conditions and a saved query GUID.</li>
+        <li>Without a PAT, use ${k("Load CSV…")} with a file exported from ADO Queries. Columns are matched by alias, so a different column order still works.</li>
+      </ul>
+      <h4>Board</h4>
+      <ul>
+        <li>The 4 cards at the top: open items, items of roster members, Unassigned, stale for more than 30 days. Click one to filter by it.</li>
+        <li><b>Filters:</b> search (several words = AND), stale range, updated date; below, each row is one kind of condition: owner scope (all / roster members / not on roster / Unassigned) and shortcuts, then owner / type / state / project tag. <b>Include done</b> is off by default: tick it to list finished items (Done / Closed…) as well, and combine it with search or state to find a particular finished item. A fetch only brings finished items updated in the last 180 days (change the days in "ADO settings"; 0 = none). Finished items never count as stale, nor in "My members" or Workload. The number on a chip is the count "with the other conditions applied"; click again to clear it. When there are many values only the first 12 are listed; click "More" for all.</li>
+        <li>Click a bar in the <b>Breakdown</b> to apply that condition. The list can be sorted by any column, and grouped by owner / type / state / tag / stale range from the list header. Only owners the roster cannot match are marked "not on roster".</li>
+        <li>You can <b>export the filtered result as CSV</b> or <b>copy it as a Markdown table</b> to paste into Teams, mail or a wiki.</li>
+      </ul>
+      <h4>My members</h4>
+      <ul>
+        <li>For each roster member: how many ADO items they hold, how many are stale for more than 30 days, the state breakdown and the last update. Click a row for the details; click an ID to open it in ADO.</li>
+        <li><b>Filters:</b> search only within the members' items: search, stale range, shortcuts (stale for more than 30 days, exclude Worklog / Release Note), and type / state / project tag chips (the number is the count with the other conditions applied). When filtered, the member table keeps only people with matching items ("1 / 4" = 1 matching out of 4), the details list only the matches, and an extra "<b>Matching items</b>" table below lists them grouped by member. "View on board" opens the Board with the same conditions, roster members only. These filters are separate from the Board's.</li>
+        <li><b>Owners not on the roster</b> = people who have items in ADO but whom the roster cannot match (collapsed by default; click the heading to expand). With many people, click "<b>Pair all…</b>": one dialog lists everyone, each row pre-filled with the most likely person (left at "Skip" when unsure), and one confirmation writes them all. You can also click "Match to person" on a single row. One person is never pre-filled for two ADO names at once; pick those yourself.</li>
+        <li><b>Keep current matches</b> (top right of the members card, shown only when there are "by first name" matches): writes the matches guessed from first names into each person's "ADO account" field once, so they no longer depend on the name. If a guess is wrong, change that field ("Set ADO account" in the member details, or Settings › Roster); every step can be undone with ↶.<br>All of the above writes to the person's <b>ADO account</b> field (department data: needs Edit mode and syncs to everyone).</li>
+        <li>Matching order: the person's "ADO account" (several display names or e-mails, separated by commas) → name. Reversed names (Chu, Dixon), middle initials (Timothy PH Lee) and the site and company after an ADO display name (Dixon Chu WYHQ Wiwynn) are all recognized. Last, it tries the first name: a roster entry of just <code>Dixon</code> still matches <code>Dixon Chu WYHQ Wiwynn</code>, but only when that first name is unique on both the roster and ADO (two Ryans are not guessed and are left for manual matching). Such matches are marked "by first name".</li>
+        <li><b>Matches sync to the whole department</b> (they are stored in the person's data). In cloud mode, make sure Apps Script is updated to a version after 2026-10-20 and redeployed: an older backend drops this field when syncing, so the matches vanish as if "the settings undid themselves". When the page detects an old backend it keeps the matches on this computer and warns you.</li>
+      </ul>
+      <h4>Terms</h4>
+      <dl class="h-defs">
+        <dt>Open</dt><dd>State is not in the closed list (Done / Closed / Removed / Resolved / Completed / Cancelled / Abandoned / Rejected…). Items in the closed list are <b>Done</b>.</dd>
+        <dt>Stale days</dt><dd>Fetch date − Changed Date (last update). 31–90 days yellow, 91–180 days orange, over 180 days red; "stale" means not updated for more than 30 days (or no update date).</dd>
+        <dt>Project tag</dt><dd>Taken automatically from the brackets at the start of the title (<code>[Gen8/Gen8.3]</code> → Gen8, Gen8.3), any GenX and site code (WYMX, WCZ…) in the title, and the ADO Tags field.</dd>
+      </dl>
+      ${page("#/ado", "ADO Task")}`
+          : `
       <p>把 Azure DevOps 上<b>尚未完成</b>的工作項目拉進來看，並對應到部門名冊。資料是 ADO 的即時快照，<b>只存在你這台電腦</b>，不會寫進部門資料或雲端，也不能從這裡改 ADO。</p>
       <h4>先擷取資料</h4>
       <ul>
@@ -117,24 +222,46 @@
         <dt>停滯天數</dt><dd>擷取當天 − Changed Date（最後更新日）。31–90 天黃、91–180 天橘、超過 180 天紅；「停滯」指超過 30 天沒更新（或沒有更新日期）。</dd>
         <dt>專案標籤</dt><dd>自動取自標題開頭的中括號（<code>[Gen8/Gen8.3]</code> → Gen8、Gen8.3）、標題中的 GenX 與站點代碼（WYMX、WCZ…），以及 ADO 的 Tags 欄位。</dd>
       </dl>
-      ${page("#/ado", "ADO Task")}`,
+      ${page("#/ado", "ADO Task")}`),
     ],
     [
       "load",
-      "人力資源",
-      () => `
+      () => L("人力資源", "Workload"),
+      () => (
+        I18N.en
+          ? `
+      <p>Answers "does the department have enough people, and what is everyone doing?"</p>
+      <ul>
+        <li>At the top, pick the period and the projects to count; the cards show the workdays over capacity in the period, the average number of Busy people and the busiest day.</li>
+        <li><b>Work per person:</b> each person's current task (days left, or Overdue) and next task; click a task to jump to the Project Gantt. If ADO has been fetched, the last column is the number of items still open for them in ADO (and how many are stale). Click a name or the ADO number to expand their open ADO items and running department tasks below.</li>
+        <li><b>Timeline per person:</b> a Gantt chart of all of each person's tasks.</li>
+      </ul>
+      ${page("#/load", "Workload")}`
+          : `
       <p>回答「部門人力夠不夠、每個人在做什麼」。</p>
       <ul>
         <li>上方可選期間與要計入的專案；卡片是期間內超出人力的工作天、平均忙碌人數與最忙的一天。</li>
         <li><b>每人工作：</b>每個人目前的 task（剩幾天或已逾期）與下一個 task，點 task 跳到專案甘特。擷取過 ADO 的話，最後一欄是他在 ADO 上還開著的項目數（與停滯數）。點人名或 ADO 數字，會在下方展開他的 ADO 未完成項目與進行中的部門 task。</li>
         <li><b>每人時間軸：</b>每個人所有 task 的甘特圖。</li>
       </ul>
-      ${page("#/load", "人力資源")}`,
+      ${page("#/load", "人力資源")}`),
     ],
     [
       "trips",
-      "出差紀錄",
-      () => `
+      () => L("出差紀錄", "Trips"),
+      () => (
+        I18N.en
+          ? `
+      <ul>
+        <li><b>On a trip and upcoming:</b> every trip that has not ended (not affected by the year switch), with person, Location, dates, days, Purpose and project; trips in progress show which day it is, upcoming ones how many days until departure. Click one to edit it (needs Edit mode; you are asked to enter it first).</li>
+        <li><b>Roster:</b> for each person, whether they are on a trip, running tasks, trip days this year and the next trip; click a name for that person's details and tasks.</li>
+        <li><b>Trip days per year:</b> counted "by project" or "by Location"; switch years with ‹ ›.</li>
+        <li><b>Trip calendar:</b> the trips across the whole year.</li>
+        <li><b>Adding a trip</b> (needs Edit mode): click "＋ Trip" and fill in the person, Location, departure / return dates, Purpose and related project.</li>
+      </ul>
+      <p class="muted">Trip days are calendar days (weekends included, both the departure and return days count); a trip across New Year is split between the two years. Trips are not counted in the workload.</p>
+      ${page("#/people", "Trips")}`
+          : `
       <ul>
         <li><b>出差中與即將出差：</b>所有還沒結束的出差（不受年度切換影響），列出人、地點、日期、天數、目的與專案；出差中的標示第幾天，未出發的標示幾天後出發。點一筆即可編輯（需編輯模式，會先要求進入）。</li>
         <li><b>名冊：</b>每人是否出差中、進行中 task 數、年度出差天數、下次出差；點姓名看這個人的詳細資料與 task。</li>
@@ -143,12 +270,25 @@
         <li><b>新增出差</b>（需編輯模式）：按「＋ 出差紀錄」，填員工、地點、出發 / 返回日、目的與關聯專案。</li>
       </ul>
       <p class="muted">出差天數以日曆天計算（含週末，出發與返回日都算），跨年的出差會拆到兩個年度。出差不會計入人力負載。</p>
-      ${page("#/people", "出差紀錄")}`,
+      ${page("#/people", "出差紀錄")}`),
     ],
     [
       "collab",
-      "MTE PFAM sync",
-      () => `
+      () => "MTE PFAM sync",
+      () => (
+        I18N.en
+          ? `
+      <p>The <b>list of running PFAMs</b> kept together with local MTE. The executor is <b>Both (Local support)</b> by default (HQ and local MTE follow it together); those handled by HQ alone are marked <b>HQ MTE Own</b> and shown in a different color. In Chinese the page shows Chinese and English side by side (English only in English mode), so the link <code>#/collab</code> can go straight to local MTE.</p>
+      <ul>
+        <li><b>Anyone can add, change and delete</b>, with no Edit mode or password. This page's data is stored apart from the department data (the <code>Collab</code> tab of the sheet), so changes here never touch projects, tasks or other pages.</li>
+        <li>Click "＋ Add PFAM" or any row to edit it. Project is picked from the department's existing projects, PFAM is typed in, Task type is NPI pilot / Closed loop / VB, and L10 PN is required; RK location takes several entries (e.g. <code>RK-001, RK-256</code>, separated by commas or spaces).</li>
+        <li>"Save" <b>writes to the cloud right away</b>; no sync needed. When two people change the same row at once, the one who saves second is asked whether to overwrite or load the other person's version.</li>
+        <li>While the page is open it refreshes every minute, and also when you come back to the tab; ${k("⟳")} reloads at once.</li>
+        <li>Grouped by Project (Others last), sorted by start date within a group; filter by Project, Site and executor at the top (remembered on this computer). Rows with status "Done" go under "Done"; deleted ones move to "Deleted", where anyone can restore them.</li>
+        <li>Every change is logged in the <code>CollabLog</code> tab of the sheet, so mistakes can be traced. Needs cloud sync to be turned on.</li>
+      </ul>
+      ${page("#/collab", "MTE PFAM sync")}`
+          : `
       <p>和 local MTE 共同維護的<b>執行中 PFAM 清單</b>：執行方預設是 <b>Both (Local support)</b>（HQ 與 local MTE 一起看），只由 HQ 處理的標成 <b>HQ MTE Own</b>，會以顏色標示。介面中英並列，可以直接把網址 <code>#/collab</code> 傳給 local。</p>
       <ul>
         <li><b>所有人都能新增、修改、刪除</b>，不需要編輯模式或密碼；這一頁的資料跟部門資料分開存（試算表的 <code>Collab</code> 分頁），改這裡不會動到專案、task 或其他頁面。</li>
@@ -158,22 +298,51 @@
         <li>依 Project 分組（Others 在最後）、組內依開始日排序；上方可依 Project、廠區、執行方篩選（記在這台電腦）。狀態「完成」的收進「已完成」；刪除的移到「已刪除」，任何人都能復原。</li>
         <li>每次修改都記在試算表的 <code>CollabLog</code> 分頁，誤改可以查。需要啟用雲端同步才能使用。</li>
       </ul>
-      ${page("#/collab", "MTE PFAM sync")}`,
+      ${page("#/collab", "MTE PFAM sync")}`),
     ],
     [
       "links",
-      "常用連結",
-      () => `
+      () => L("常用連結", "Links"),
+      () => (
+        I18N.en
+          ? `
+      <p>Websites and tools the department uses often, arranged by category; click a card to open it in a new tab. Search by name, URL or description at the top.</p>
+      <ul>
+        <li><b>Adding / changing</b> (needs Edit mode): click "＋ Add link" or "＋ Add to this category" next to a category heading, and fill in the name, URL (http / https), category and a one-line description; the ✎ at the right of each row changes or deletes it. Links are department data and sync to everyone.</li>
+      </ul>
+      ${page("#/links", "Links")}`
+          : `
       <p>部門常用的網站與工具，依分類排列，點卡片就在新分頁開啟；上方可搜尋名稱、網址或說明。</p>
       <ul>
         <li><b>新增 / 修改</b>（需編輯模式）：按「＋ 新增連結」或分類標題旁的「＋ 加到這一類」，填名稱、網址（http / https）、分類與一句說明；每列右側的 ✎ 可修改或刪除。連結屬於部門資料，會同步給大家。</li>
       </ul>
-      ${page("#/links", "常用連結")}`,
+      ${page("#/links", "常用連結")}`),
     ],
     [
       "settings",
-      "設定與資料",
-      () => `
+      () => L("設定與資料", "Settings & data"),
+      () => (
+        I18N.en
+          ? `
+      <ul>
+        <li><b>Roster:</b> enter the department members before you start (one per line, or separated by commas). When someone leaves, untick "Active"; their history is kept.</li>
+        <li><b>ADO account</b> (a column in the roster): fill it in only when the ADO display name differs from the name here (used for matching in "ADO Task › My members"); separate several with commas.</li>
+        <li><b>Not counted as workforce:</b> e.g. managers; not counted in the Busy / Active headcount or the workforce limit.</li>
+        <li><b>Holidays:</b> days off other than weekends (public holidays, company leave). They are not workdays and are shaded gray in the Gantt. Add them one at a time, or paste several lines at once, e.g. <code>2026-10-10 National Day</code>, <code>2026/2/14~2/22 Lunar New Year</code> (weekends in a run of holidays are skipped automatically).</li>
+        <li><b>Phase list, Site / Location lists, Alert rule</b>.</li>
+        <li><b>Edit password</b>: only people who know the password can change the cloud data; the Apps Script server checks it. The sheet owner sets it in the Apps Script property <code>EDIT_KEY</code>; here you can make this computer "forget the password".</li>
+      </ul>
+      <h4>Import and backup (under "Settings → Data", needs Edit mode)</h4>
+      <dl class="h-defs">
+        <dt>Import MONICA JSON</dt><dd>JSON exported from MONICA: Series → Project, project → PFAM. PIC is matched to the Roster by name.</dd>
+        <dt>Import Gen12 PFAM Excel</dt><dd>The NPI Dashboard Excel, parsed in the browser and never uploaded. Tasks whose LEAD includes STE / TE are ticked by default; adjust them one by one.</dd>
+        <dt>Re-import a new version</dt><dd>Only updates dates, <b>keeping the assignments, Done status and Notes made on the page</b>; the old dates become the baseline (▲▼). Tasks missing from the new file are kept by default.</dd>
+        <dt>Mark Done in bulk</dt><dd>Sets every unfinished task that ended before a given day to Done at once, for tidying up old data.</dd>
+        <dt>Export / restore JSON backup</dt><dd>A backup file of all the data; export one before switching computers or clearing browser data.</dd>
+      </dl>
+      <p class="muted">Every import shows a preview first, and can be undone with "Undo" after applying.</p>
+      ${page("#/settings", "Settings")}`
+          : `
       <ul>
         <li><b>員工名冊：</b>開始使用前先輸入部門成員（一行一位或用逗號分隔）。員工離職時取消「在職」即可，歷史紀錄會保留。</li>
         <li><b>ADO 帳號</b>（名冊裡的一欄）：只有在 ADO 顯示名稱與這裡的姓名不同時才要填（給「ADO Task › 我的成員」比對用），多個用逗號分隔。</li>
@@ -191,12 +360,24 @@
         <dt>匯出 / 還原 JSON 備份</dt><dd>整份資料的備份檔；換電腦或清除瀏覽器資料前建議先匯出。</dd>
       </dl>
       <p class="muted">所有匯入都會先顯示預覽，套用後也能按「復原」。</p>
-      ${page("#/settings", "設定")}`,
+      ${page("#/settings", "設定")}`),
     ],
     [
       "terms",
-      "名詞與計算",
-      () => `
+      () => L("名詞與計算", "Terms & calculations"),
+      () => (
+        I18N.en
+          ? `
+      <dl class="h-defs">
+        <dt>Active headcount</dt><dd>Active people minus those "Not counted as workforce".</dd>
+        <dt>Busy count</dt><dd>People with any running task that day; someone with several tasks still counts as 1. Only workdays count (Monday–Friday, minus "Settings → Holidays").</dd>
+        <dt>Unassigned</dt><dd>PFAMs that have a task with no assignee that day; each such PFAM needs 1 person. In Others, every 2 Unassigned tasks count as 1 (same rule as "Concurrent PFAMs").</dd>
+        <dt>Red alert</dt><dd>By default "nobody is free": Busy count + Unassigned PFAMs ≥ Active headcount. In Settings you can change it to "Busy count ≥ N% of the Active headcount".</dd>
+        <dt>Concurrent PFAMs</dt><dd>Several tasks of one PFAM count as 1; in Others every 2 tasks count as 1 (a single leftover one also counts as 1).</dd>
+        <dt>Task status</dt><dd>Only "Done / not done". Past its end date and not done = <span class="late">Overdue</span>; otherwise running or not started, by date. A Done task stops using workforce from today on.</dd>
+        <dt>Baseline ▲ ▼</dt><dd>On a re-import the old dates become the baseline; ▲ means later than the baseline (Delayed), ▼ earlier (Early).</dd>
+      </dl>`
+          : `
       <dl class="h-defs">
         <dt>在職人數</dt><dd>在職員工扣掉「不計入人力的人員」。</dd>
         <dt>忙碌人數</dt><dd>當天手上有任何進行中 task 的人數；一個人有好幾件 task 也只算 1 人。只算工作日（週一～五，扣除「設定 → 假日」）。</dd>
@@ -205,12 +386,24 @@
         <dt>同時進行的 PFAM</dt><dd>同一 PFAM 的多個 task 只算 1；Others 的每 2 個 task 算 1（單剩 1 個也算 1）。</dd>
         <dt>task 狀態</dt><dd>只有「已完成 / 未完成」。過了結束日仍未完成＝<span class="late">逾期</span>；其餘依日期為進行中或未開始。已完成的 task 從今天起不再佔用人力。</dd>
         <dt>基準 ▲ ▼</dt><dd>重新匯入時舊的日期成為基準；▲ 表示比基準晚（延遲），▼ 表示比基準早。</dd>
-      </dl>`,
+      </dl>`),
     ],
     [
       "faq",
-      "常見問題",
-      () => `
+      () => L("常見問題", "FAQ"),
+      () => (
+        I18N.en
+          ? `
+      <dl class="h-faq">
+        <dt>Nothing happens when I click a task in the Project Gantt?</dt><dd>Turn on ${k("✎ Edit mode")} at the top right first; in view mode you can only browse.</dd>
+        <dt>Others cannot see my changes?</dt><dd>In cloud mode your changes are kept in your browser first; they reach the cloud only when you click ${k("⇪ Sync to cloud")}. If someone else synced in the meantime, you are asked whether to overwrite the cloud or keep your local copy.</dd>
+        <dt>Someone overwrote my changes?</dt><dd>Every write to the cloud leaves a snapshot in the "LLT800_Dashboard 快照" folder on Google Drive (the last 30 versions are kept). Download that JSON file and restore it with "Settings → Data → Restore JSON backup".</dd>
+        <dt>The page keeps saying "Loading cloud data"?</dt><dd>It waits only on the first visit (when this computer has no data yet); Google's cloud sometimes takes 10–30 seconds, and you can click "Show local data first". After that it always shows the previous data at once and updates in the background, without blocking the page.</dd>
+        <dt>I see a "Demo data" banner?</dt><dd>The people, assignments and trips are made up. Under "Settings → Data" you can clear them and build real data, or import MONICA / Gen12 files.</dd>
+        <dt>The Gantt period changed after jumping to a task from another page?</dt><dd>The period stretches automatically so the task is always visible; click "Clear focus" to go back to the original period.</dd>
+        <dt>Is the data public?</dt><dd>The cloud data can be read by anyone (trips included); only writing needs a key. Do not put confidential information in it.</dd>
+      </dl>`
+          : `
       <dl class="h-faq">
         <dt>在專案甘特點 task 沒反應？</dt><dd>要先開啟右上角 ${k("✎ 編輯模式")} 才能修改；查看模式下只能瀏覽。</dd>
         <dt>我改的東西別人看不到？</dt><dd>雲端模式下修改會先存在你的瀏覽器，要按 ${k("⇪ 同步到雲端")} 才會寫入。若別人先同步過，系統會詢問要覆寫雲端還是保留本機。</dd>
@@ -219,15 +412,15 @@
         <dt>看到「示範資料」橫幅？</dt><dd>員工、指派與出差都是假的。到「設定 → 資料」可以清空後建立正式資料，或匯入 MONICA / Gen12 檔案。</dd>
         <dt>從別頁點 task 跳過來後，甘特期間變了？</dt><dd>為了讓那個 task 一定看得到，期間會自動延伸；按「清除定位」回到原本期間。</dd>
         <dt>資料公開嗎？</dt><dd>雲端資料是公開可讀的（包括出差紀錄），寫入才需要金鑰；請勿放入機密資訊。</dd>
-      </dl>`,
+      </dl>`),
     ],
   ];
 
   const Help = {
     open(sectionId) {
       const d = $("#dlgHelp");
-      $("#helpNav").innerHTML = SECTIONS.map(([id, label]) => `<button type="button" data-sec="${id}">${esc(label)}</button>`).join("");
-      $("#helpBody").innerHTML = SECTIONS.map(([id, label, html]) => `<section class="h-sec" id="help-${id}"><h3>${esc(label)}</h3>${html()}</section>`).join("");
+      $("#helpNav").innerHTML = SECTIONS.map(([id, label]) => `<button type="button" data-sec="${id}">${esc(label())}</button>`).join("");
+      $("#helpBody").innerHTML = SECTIONS.map(([id, label, html]) => `<section class="h-sec" id="help-${id}"><h3>${esc(label())}</h3>${html()}</section>`).join("");
       if (!d.open) d.showModal();
       this.spy();
       const target = sectionId && $("#help-" + sectionId);
@@ -237,6 +430,7 @@
 
     /** Highlights the nav entry of the section at the top of the scrolling body. */
     mark(id) {
+      this.cur = id;
       const nav = $("#helpNav");
       $$("[data-sec]", nav).forEach((b) => b.classList.toggle("on", b.dataset.sec === id));
       // On a phone the nav is one horizontal row: keep the current entry in view.
@@ -245,6 +439,11 @@
         const l = on.offsetLeft - nav.offsetLeft;
         if (l < nav.scrollLeft || l + on.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = l - 8;
       }
+    },
+
+    /** After a language switch: re-renders the open dialog on the section being read. */
+    refresh() {
+      if ($("#dlgHelp").open) this.open(this.cur);
     },
 
     spy() {
@@ -287,7 +486,7 @@
 
     /** Opens on the section of the page the user is on. */
     forRoute() {
-      const map = { overview: "intro", projects: "projects", ado: "ado", load: "load", people: "trips", settings: "settings" };
+      const map = { overview: "intro", projects: "projects", ado: "ado", load: "load", people: "trips", collab: "collab", links: "links", settings: "settings" };
       return map[App.route.name] || "intro";
     },
   };

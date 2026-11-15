@@ -68,7 +68,7 @@
         const wd = E.weekday(d);
         const txt = ppd >= 46 ? `${fmt(d, "short")} ${U.WD[wd]}` : E.fromDay(d).slice(8).replace(/^0/, "");
         const off = hol.has(d);
-        sub += `<div class="g-d${wd === 0 || wd === 6 || off ? " we" : ""}${d === opts.today ? " now" : ""}" style="left:${x(d)}px;width:${ppd}px"${off ? ` title="${esc(hol.get(d) || "假日")}"` : ""}>${txt}</div>`;
+        sub += `<div class="g-d${wd === 0 || wd === 6 || off ? " we" : ""}${d === opts.today ? " now" : ""}" style="left:${x(d)}px;width:${ppd}px"${off ? ` title="${esc(hol.get(d) || L("假日", "Holiday"))}"` : ""}>${txt}</div>`;
       }
     } else if (opts.zoom === "week") {
       for (let d = from; d <= to; d++) if (E.weekday(d) === 1) sub += `<div class="g-w" style="left:${x(d)}px">${fmt(d, "short")}</div>`;
@@ -83,7 +83,7 @@
     let front = "";
     if (opts.today >= from && opts.today <= to) {
       front = `<i class="g-today" style="left:${x(opts.today) + ppd / 2}px"></i>`;
-      if (opts.zoom !== "day") sub += `<b class="g-now" style="left:${x(opts.today) + ppd / 2}px">今天</b>`;
+      if (opts.zoom !== "day") sub += `<b class="g-now" style="left:${x(opts.today) + ppd / 2}px">${L("今天", "Today")}</b>`;
     }
 
     // Optional band chart above the date rows (same x axis as the bars).
@@ -129,7 +129,7 @@
       if (showCap) g += `<i class="gb-cap" style="top:${yb(B.cap)}px"></i>`;
       if (opts.today >= from && opts.today <= to) g += `<i class="g-today" style="left:${x(opts.today) + ppd / 2}px"></i>`;
       band = `<div class="g-hrow g-bandrow"><div class="g-corner gb-corner" style="height:${BH}px"><span class="gb-title">${B.title || ""}</span>${B.sub ? `<span class="gb-sub">${B.sub}</span>` : ""}${
-        showCap ? `<span class="gb-caplab" style="top:${yb(B.cap)}px">${B.capLabel || `上限 ${B.cap}`}</span>` : B.cap ? `<span class="gb-sub">上限：${B.capLabel || B.cap}（遠高於目前）</span>` : B.capNote ? `<span class="gb-sub">${B.capNote}</span>` : ""
+        showCap ? `<span class="gb-caplab" style="top:${yb(B.cap)}px">${B.capLabel || L(`上限 ${B.cap}`, `Limit ${B.cap}`)}</span>` : B.cap ? `<span class="gb-sub">${L(`上限：${B.capLabel || B.cap}（遠高於目前）`, `Limit: ${B.capLabel || B.cap} (far above now)`)}</span>` : B.capNote ? `<span class="gb-sub">${B.capNote}</span>` : ""
       }${ticks}</div><div class="g-band" style="width:${W}px;height:${BH}px">${g}</div></div>`;
     }
 
@@ -165,7 +165,7 @@
 
     el.innerHTML = `<div class="g-scroll"><div class="gantt" style="--W:${W}px">
       <div class="g-head">${band}<div class="g-hrow"><div class="g-corner">${opts.labelHead || ""}</div><div class="g-scale" style="width:${W}px"><div class="g-mrow">${top}</div><div class="g-srow">${sub}</div></div></div></div>
-      <div class="g-body"><div class="g-grid" style="width:${W}px">${grid}</div>${body || `<div class="g-empty">沒有資料</div>`}<div class="g-front" style="width:${W}px">${front}</div></div>
+      <div class="g-body"><div class="g-grid" style="width:${W}px">${grid}</div>${body || `<div class="g-empty">${L("沒有資料", "No data")}</div>`}<div class="g-front" style="width:${W}px">${front}</div></div>
     </div></div>`;
 
     const sc = el.querySelector(".g-scroll");
@@ -221,13 +221,13 @@
       .map(([id, ts]) => ({ name: Store.empName(id), ts }))
       .sort((a, b) => a.name.localeCompare(b.name));
     const un = [...d.unassigned.values()].map((u) => ({ f: u.pfam, ts: u.tasks }));
-    const line = (ts) => esc(ts.slice(0, 2).map((t) => t.name).join("、") + (ts.length > 2 ? ` 等 ${ts.length} 件` : ""));
+    const line = (ts) => esc(ts.slice(0, 2).map((t) => t.name).join(L("、", ", ")) + (ts.length > 2 ? L(` 等 ${ts.length} 件`, ` … (${ts.length} total)`) : ""));
     return `<b>${fmt(d.day, "full")}</b>
-      <div class="tt-big">忙碌 ${d.busy.size} / ${d.head} 人${d.unassigned.size ? `　＋ 未指派 ${d.unassigned.size} 個 PFAM` : ""}</div>
-      ${d.alert ? `<div class="tt-alert">⚠ 超出部門人力</div>` : ""}
-      ${busy.length ? `<div class="tt-sec">忙碌</div>${busy.slice(0, 10).map((b) => `<div class="tt-row"><span>${esc(b.name)}</span><small>${line(b.ts)}</small></div>`).join("")}${busy.length > 10 ? `<div class="muted">…還有 ${busy.length - 10} 人</div>` : ""}` : ""}
-      ${un.length ? `<div class="tt-sec">未指派</div>${un.slice(0, 6).map((u) => `<div class="tt-row"><span>${esc((u.f && u.f.name) || "?")}</span><small>${line(u.ts)}</small></div>`).join("")}` : ""}
-      <div class="tt-sec">空閒</div><div>${d.idle.length ? esc(d.idle.map((e) => e.name).join("、")) : "沒有人空著"}</div>`;
+      <div class="tt-big">${L(`忙碌 ${d.busy.size} / ${d.head} 人`, `Busy ${d.busy.size} / ${d.head}`)}${d.unassigned.size ? L(`　＋ 未指派 ${d.unassigned.size} 個 PFAM`, ` + ${d.unassigned.size} unassigned PFAM`) : ""}</div>
+      ${d.alert ? `<div class="tt-alert">⚠ ${L("超出部門人力", "Over department headcount")}</div>` : ""}
+      ${busy.length ? `<div class="tt-sec">${L("忙碌", "Busy")}</div>${busy.slice(0, 10).map((b) => `<div class="tt-row"><span>${esc(b.name)}</span><small>${line(b.ts)}</small></div>`).join("")}${busy.length > 10 ? `<div class="muted">${L(`…還有 ${busy.length - 10} 人`, `…${busy.length - 10} more`)}</div>` : ""}` : ""}
+      ${un.length ? `<div class="tt-sec">${L("未指派", "Unassigned")}</div>${un.slice(0, 6).map((u) => `<div class="tt-row"><span>${esc((u.f && u.f.name) || "?")}</span><small>${line(u.ts)}</small></div>`).join("")}` : ""}
+      <div class="tt-sec">${L("空閒", "Free")}</div><div>${d.idle.length ? esc(d.idle.map((e) => e.name).join(L("、", ", "))) : L("沒有人空著", "Nobody is free")}</div>`;
   }
 
   window.Charts = { ZOOM, gantt, rangeFor, loadTip, monthStarts };

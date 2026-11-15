@@ -1,7 +1,10 @@
 /* Shared browser helpers: dates, formatting, DOM shortcuts. */
 (function () {
   const E = window.Engine;
-  const WD = ["日", "一", "二", "三", "四", "五", "六"];
+  const WD_ZH = ["日", "一", "二", "三", "四", "五", "六"];
+  const WD_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  /** Weekday names in the current language (I18N, js/i18n.js). */
+  const wd = () => (window.I18N && I18N.en ? WD_EN : WD_ZH);
 
   function fmt(day, style) {
     if (day == null) return "";
@@ -9,8 +12,8 @@
     const [y, m, d] = E.fromDay(day).split("-");
     if (style === "short") return `${+m}/${+d}`;
     if (style === "yy") return `${y.slice(2)}/${m}/${d}`;
-    if (style === "full") return `${y}/${m}/${d} (${WD[E.weekday(day)]})`;
-    if (style === "wd") return `${+m}/${+d} (${WD[E.weekday(day)]})`;
+    if (style === "full") return `${y}/${m}/${d} (${wd()[E.weekday(day)]})`;
+    if (style === "wd") return `${+m}/${+d} (${wd()[E.weekday(day)]})`;
     return `${y}/${m}/${d}`;
   }
 
@@ -102,5 +105,10 @@
     },
   };
 
-  window.U = { fmt, range, esc, $, $$, debounce, today, download, readFile, inkOn, tip, WD };
+  window.U = {
+    fmt, range, esc, $, $$, debounce, today, download, readFile, inkOn, tip,
+    get WD() {
+      return wd();
+    },
+  };
 })();

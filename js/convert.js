@@ -15,6 +15,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.Convert = api;
 })(typeof self !== "undefined" ? self : this, function (E) {
+  const L = typeof window !== "undefined" && window.L ? window.L : (zh) => zh;
   const PALETTE = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
   // MONICA's current phase keys (export 2026-10-04). Older MONICA files used other keys for the same
   // phases (three racks + volume build); those are kept as aliases so either file lands on the same phase.
@@ -302,7 +303,7 @@
   // ------------------------------------------------------------------ MONICA JSON
   /** MONICA export -> { items, phases }  (phases = the file's phase list, to add missing ones) */
   function monicaItems(json) {
-    if (!json || !Array.isArray(json.tasks)) throw new Error("不是 MONICA 匯出的 JSON（缺少 tasks 陣列）");
+    if (!json || !Array.isArray(json.tasks)) throw new Error(L("不是 MONICA 匯出的 JSON（缺少 tasks 陣列）", "Not a MONICA export (no tasks array)"));
     const labels = json.labels || {};
     const phases = (labels.phaseList || []).map((p) => ({ key: p.key, label: p.label || p.key, color: p.color }));
     const phaseLabel = new Map(phases.map((p) => [p.key, p.label]));

@@ -11,6 +11,7 @@
   const SOON_AFTER = 30; //            .. today + 30
 
   const ICON = PfamBand.ICON;
+  const MON_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   function kpi(label, value, sub, cls, href) {
     const attr = !href ? "" : href.startsWith("scroll:") ? `href="javascript:void 0" onclick="document.getElementById('${href.slice(7)}').scrollIntoView({behavior:'smooth'})"` : `href="${href}"`;
@@ -18,7 +19,7 @@
   }
 
   function people(ids) {
-    if (!ids.length) return `<span class="tag ghost">未指派</span>`;
+    if (!ids.length) return `<span class="tag ghost">${L("未指派", "Unassigned")}</span>`;
     return ids.map((id) => `<span class="pname${Store.emp(id) && !Store.emp(id).active ? " gone" : ""}">${esc(Store.empName(id))}</span>`).join("");
   }
 
@@ -43,22 +44,22 @@
     const awayNow = new Set(soonTrips.filter((r) => D(r.start) <= today).map((r) => r.empId)).size;
 
     const kpis = [
-      kpi("進行中專案", activeProjects.length, `共 ${live.length} 個未封存專案`, "", "#/projects"),
-      kpi("本週進行中 task", weekTasks.length, `${fmt(ws, "short")} – ${fmt(ws + 6, "short")}`, "", "#/projects"),
-      kpi("逾期 task", late.length, late.length ? "過了結束日仍未完成" : "沒有逾期", late.length ? "bad" : "good", late.length ? "scroll:overview-attn" : ""),
+      kpi(L("進行中專案", "Active projects"), activeProjects.length, L(`共 ${live.length} 個未封存專案`, `of ${live.length} not archived`), "", "#/projects"),
+      kpi(L("本週進行中 task", "Tasks this week"), weekTasks.length, `${fmt(ws, "short")} – ${fmt(ws + 6, "short")}`, "", "#/projects"),
+      kpi(L("逾期 task", "Overdue tasks"), late.length, late.length ? L("過了結束日仍未完成", "Past the end date, not done") : L("沒有逾期", "None overdue"), late.length ? "bad" : "good", late.length ? "scroll:overview-attn" : ""),
       now
         ? kpi(
-            now.day === today ? "今日忙碌人數" : `${fmt(now.day, "wd")} 忙碌人數`,
+            now.day === today ? L("今日忙碌人數", "Busy today") : L(`${fmt(now.day, "wd")} 忙碌人數`, `Busy ${fmt(now.day, "wd")}`),
             `${now.busy.size}<small>/${now.head}</small>`,
-            now.alert ? "⚠ 超出部門人力" : `${now.idle.length} 人有空${now.unassigned.size ? `・${now.unassigned.size} 個 PFAM 未指派` : ""}`,
+            now.alert ? L("⚠ 超出部門人力", "⚠ Over department headcount") : L(`${now.idle.length} 人有空${now.unassigned.size ? `・${now.unassigned.size} 個 PFAM 未指派` : ""}`, `${now.idle.length} free${now.unassigned.size ? ` · ${now.unassigned.size} PFAM unassigned` : ""}`),
             now.alert ? "bad" : "",
             "#/load"
           )
-        : kpi("今日忙碌人數", "—", "", "", "#/load"),
+        : kpi(L("今日忙碌人數", "Busy today"), "—", "", "", "#/load"),
       kpi(
-        `${TRIP_KPI_DAYS} 天內出差`,
-        `${new Set(soonTrips.map((r) => r.empId)).size}<small> 人</small>`,
-        `${soonTrips.length} 人次${awayNow ? `・出差中 ${awayNow} 人` : ""}・到 ${fmt(today + TRIP_KPI_DAYS, "short")}`,
+        L(`${TRIP_KPI_DAYS} 天內出差`, `Trips in ${TRIP_KPI_DAYS} days`),
+        `${new Set(soonTrips.map((r) => r.empId)).size}<small>${L(" 人", " people")}</small>`,
+        L(`${soonTrips.length} 人次${awayNow ? `・出差中 ${awayNow} 人` : ""}・到 ${fmt(today + TRIP_KPI_DAYS, "short")}`, `${soonTrips.length} trip(s)${awayNow ? ` · ${awayNow} away now` : ""} · to ${fmt(today + TRIP_KPI_DAYS, "short")}`),
         "",
         "#/people"
       ),
@@ -67,13 +68,13 @@
     root.innerHTML = `
       <p class="ov-date muted">${fmt(today, "full")}</p>
       <section class="kpis">${kpis}</section>
-      <section class="card ov-attn" id="overview-attn" hidden><header class="card-h"><h3><span class="attn-ic">⚠</span>需要注意</h3><span class="muted" id="ovAttnSum"></span></header><div id="ovAttn"></div></section>
-      <section class="card"><header class="card-h"><h3>專案總覽</h3><span class="muted">${fmt(today - SOON_BEFORE, "wd")} – ${fmt(today + SOON_AFTER, "wd")}（前 7 天到後 30 天）未完成的 PFAM 與 task</span>
-        <div class="hctl"><button class="hbtn pfl-toggle" id="pflToggle" type="button"></button><button class="hbtn" id="soonToggle" type="button"></button><a class="hbtn ghost" href="#/projects/all">專案甘特${ICON.arrow}</a></div></header>
+      <section class="card ov-attn" id="overview-attn" hidden><header class="card-h"><h3><span class="attn-ic">⚠</span>${L("需要注意", "Needs attention")}</h3><span class="muted" id="ovAttnSum"></span></header><div id="ovAttn"></div></section>
+      <section class="card"><header class="card-h"><h3>${L("專案總覽", "Projects")}</h3><span class="muted">${L(`${fmt(today - SOON_BEFORE, "wd")} – ${fmt(today + SOON_AFTER, "wd")}（前 7 天到後 30 天）未完成的 PFAM 與 task`, `${fmt(today - SOON_BEFORE, "wd")} – ${fmt(today + SOON_AFTER, "wd")} (7 days back to 30 ahead): open PFAMs and tasks`)}</span>
+        <div class="hctl"><button class="hbtn pfl-toggle" id="pflToggle" type="button"></button><button class="hbtn" id="soonToggle" type="button"></button><a class="hbtn ghost" href="#/projects/all">${L("專案甘特", "Project Gantt")}${ICON.arrow}</a></div></header>
         <div id="ovPin"></div><div id="ovSoon"></div></section>
       <div class="ov-grid">
-        <section class="card ov-heat"><header class="card-h"><h3>人力熱度</h3><div class="ptabs" role="tablist" aria-label="計算方式" id="heatTabs"><button type="button" role="tab" data-heat="pfam">PFAM</button><button type="button" role="tab" data-heat="task">Task</button></div><span class="muted">未來一個月（${fmt(today, "short")} – ${fmt(today + HEAT_DAYS, "short")}）・每格 = 當天手上的 <span id="heatUnit"></span> 數</span><a class="hbtn ghost" href="#/load">人力資源${ICON.arrow}</a></header><div id="ovHeat"></div></section>
-        <section class="card ov-trips"><header class="card-h"><h3>近期出差</h3><span class="muted">出差中與未來 60 天</span><a class="hbtn ghost" href="#/people">出差紀錄${ICON.arrow}</a></header><div id="ovTrips"></div></section>
+        <section class="card ov-heat"><header class="card-h"><h3>${L("人力熱度", "Heat map")}</h3><div class="ptabs" role="tablist" aria-label="${L("計算方式", "Count by")}" id="heatTabs"><button type="button" role="tab" data-heat="pfam">PFAM</button><button type="button" role="tab" data-heat="task">Task</button></div><span class="muted">${L(`未來一個月（${fmt(today, "short")} – ${fmt(today + HEAT_DAYS, "short")}）・每格 = 當天手上的 <span id="heatUnit"></span> 數`, `Next month (${fmt(today, "short")} – ${fmt(today + HEAT_DAYS, "short")}) · each cell = <span id="heatUnit"></span> count that day`)}</span><a class="hbtn ghost" href="#/load">${L("人力資源", "Workload")}${ICON.arrow}</a></header><div id="ovHeat"></div></section>
+        <section class="card ov-trips"><header class="card-h"><h3>${L("近期出差", "Upcoming trips")}</h3><span class="muted">${L("出差中與未來 60 天", "Away now and next 60 days")}</span><a class="hbtn ghost" href="#/people">${L("出差紀錄", "Trips")}${ICON.arrow}</a></header><div id="ovTrips"></div></section>
       </div>`;
 
     renderSoon(U.$("#ovSoon"), live, today, st);
@@ -112,7 +113,7 @@
       App.render();
     };
     const shown = []; // project / PFAM ids listed now (only these count for the toggle)
-    const who = (ids) => esc(ids.map((id) => Store.empName(id)).join("、"));
+    const who = (ids) => esc(ids.map((id) => Store.empName(id)).join(L("、", ", ")));
     if (pin != null && (pin < from || pin > to)) pin = null;
     // A pinned day lists what the band counted that day (done tasks included for past days), else unfinished tasks in the window.
     const pinned = pin != null && pinOnly;
@@ -136,12 +137,12 @@
       rows.push({
         id: "p:" + p.id,
         kind: "proj",
-        label: `<button class="tw" type="button" aria-label="展開/收合" aria-expanded="${!pFold}">${pFold ? "▸" : "▾"}</button><i class="dot" style="--c:${p.color}"></i><span class="g-name" title="點一下展開 / 收合">${esc(p.name)}</span><a class="open-link" href="#/projects/${p.id}" title="到專案甘特">開啟 ›</a>`,
-        meta: `${pf.length} PFAM・${pts.length} task・${ppl.length} 人`,
+        label: `<button class="tw" type="button" aria-label="${L("展開/收合", "Expand/collapse")}" aria-expanded="${!pFold}">${pFold ? "▸" : "▾"}</button><i class="dot" style="--c:${p.color}"></i><span class="g-name" title="${L("點一下展開 / 收合", "Click to expand / collapse")}">${esc(p.name)}</span><a class="open-link" href="#/projects/${p.id}" title="${L("到專案甘特", "Go to Project Gantt")}">${L("開啟 ›", "Open ›")}</a>`,
+        meta: L(`${pf.length} PFAM・${pts.length} task・${ppl.length} 人`, `${pf.length} PFAM · ${pts.length} task · ${ppl.length} ppl`),
         // Span bars only when folded: open, the rows below already show the same span.
         bars: pFold ? [{ id: "p:" + p.id, start: ps.start, end: ps.end, color: p.color }] : [],
       });
-      tip.set("p:" + p.id, `<b>${esc(p.name)}</b><div>期間內 ${pf.length} 個 PFAM、${pts.length} 個 task</div>${ppl.length ? `<div class="muted">${who(ppl)}</div>` : ""}`);
+      tip.set("p:" + p.id, `<b>${esc(p.name)}</b><div>${L(`期間內 ${pf.length} 個 PFAM、${pts.length} 個 task`, `${pf.length} PFAM, ${pts.length} task(s) in the period`)}</div>${ppl.length ? `<div class="muted">${who(ppl)}</div>` : ""}`);
       if (pFold) continue;
       for (const { f, ts } of pf) {
         const fFold = !!saved[f.id] && !(pin != null && pinOnly);
@@ -152,7 +153,7 @@
           kind: "group",
           rc: p.color,
           cls: "nested",
-          label: `<button class="tw" type="button" aria-label="展開/收合" aria-expanded="${!fFold}">${fFold ? "▸" : "▾"}</button><span class="g-name" title="${esc(f.name)}（點一下展開 / 收合）">${esc(f.name)}</span>${Store.siteTag(f.site, siteColors)}`,
+          label: `<button class="tw" type="button" aria-label="${L("展開/收合", "Expand/collapse")}" aria-expanded="${!fFold}">${fFold ? "▸" : "▾"}</button><span class="g-name" title="${esc(f.name)}${L("（點一下展開 / 收合）", " (click to expand / collapse)")}">${esc(f.name)}</span>${Store.siteTag(f.site, siteColors)}`,
           meta: `${ts.length} task`,
           bars: fFold ? [{ id: "f:" + f.id, start: fs.start, end: fs.end, color: "var(--summary)" }] : [],
         });
@@ -163,24 +164,24 @@
           const ph = Store.phase(t.phase);
           const inDays = D(t.start) - today;
           const when =
-            k === "active" ? `<span class="pill st-active">進行中</span>`
-            : k === "late" ? `<span class="pill st-late">逾期 ${today - D(t.end)} 天</span>`
-            : k === "done" ? `<span class="pill st-done">已完成</span>`
-            : `<span class="pill st-future">${inDays === 1 ? "明天" : `${inDays} 天後`}開始</span>`;
+            k === "active" ? `<span class="pill st-active">${L("進行中", "In progress")}</span>`
+            : k === "late" ? `<span class="pill st-late">${L(`逾期 ${today - D(t.end)} 天`, `Overdue ${today - D(t.end)}d`)}</span>`
+            : k === "done" ? `<span class="pill st-done">${L("已完成", "Done")}</span>`
+            : `<span class="pill st-future">${inDays === 1 ? L("明天開始", "Starts tomorrow") : L(`${inDays} 天後開始`, `Starts in ${inDays}d`)}</span>`;
           rows.push({
             id: "t:" + t.id,
             kind: "task",
             rc: p.color,
             cls: "nested st-" + k,
             label: `<span class="g-name" title="${esc(t.name)}">${esc(t.name)}</span>${when}`,
-            meta: t.assignees.length ? who(t.assignees) : `<span class="tag ghost">未指派</span>`,
+            meta: t.assignees.length ? who(t.assignees) : `<span class="tag ghost">${L("未指派", "Unassigned")}</span>`,
             bars: [{ id: "t:" + t.id, start: D(t.start), end: D(t.end), color: ph ? ph.color : "var(--nophase)", cls: "st-" + k, text: t.name }],
           });
           tip.set(
             "t:" + t.id,
-            `<b>${esc(t.name)}</b><div class="muted">${esc(p.name)} › ${esc(f.name)}</div><div>${U.fmt(t.start, "wd")} – ${U.fmt(t.end, "wd")}・${M.workdays(t.start, t.end, hol)} 個工作天</div>` +
-              `<div>指派：${t.assignees.length ? who(t.assignees) : "未指派"}</div>${ph ? `<div class="muted">Phase：${esc(ph.label)}</div>` : ""}` +
-              `${t.notes ? `<div class="tt-note">${esc(t.notes)}</div>` : ""}<div class="tt-hint">${Store.editing ? "點一下編輯" : "點一下到專案甘特"}</div>`
+            `<b>${esc(t.name)}</b><div class="muted">${esc(p.name)} › ${esc(f.name)}</div><div>${U.fmt(t.start, "wd")} – ${U.fmt(t.end, "wd")}・${L(`${M.workdays(t.start, t.end, hol)} 個工作天`, `${M.workdays(t.start, t.end, hol)} workdays`)}</div>` +
+              `<div>${L("指派：", "Assigned: ")}${t.assignees.length ? who(t.assignees) : L("未指派", "Unassigned")}</div>${ph ? `<div class="muted">Phase${L("：", ": ")}${esc(ph.label)}</div>` : ""}` +
+              `${t.notes ? `<div class="tt-note">${esc(t.notes)}</div>` : ""}<div class="tt-hint">${Store.editing ? L("點一下編輯", "Click to edit") : L("點一下到專案甘特", "Click to open in Project Gantt")}</div>`
           );
         }
       }
@@ -188,7 +189,7 @@
     // One toggle: anything folded -> "全部展開"; everything open -> "只看 Project".
     const anyFolded = shown.some((id) => saved[id]);
     const tg = U.$("#soonToggle");
-    tg.innerHTML = anyFolded ? `${ICON.expand}<span>全部展開</span>` : `${ICON.collapse}<span>只看 Project</span>`;
+    tg.innerHTML = anyFolded ? `${ICON.expand}<span>${L("全部展開", "Expand all")}</span>` : `${ICON.collapse}<span>${L("只看 Project", "Projects only")}</span>`;
     tg.onclick = () => {
       if (anyFolded) soonFold = {};
       else soonFold = Object.fromEntries(live.map((p) => [p.id, true]));
@@ -211,7 +212,7 @@
       clear: () => ((pin = null), App.render()),
     });
     if (!rows.length) {
-      el.innerHTML = `<p class="empty">${live.length ? (pin != null && pinOnly ? "這天沒有進行中的 task。" : "這段期間沒有未完成的 task。") : `還沒有專案。<a href="#/projects">到「專案甘特」新增</a>，或到「設定」匯入 MONICA 資料。`}</p>`;
+      el.innerHTML = `<p class="empty">${live.length ? (pin != null && pinOnly ? L("這天沒有進行中的 task。", "No task in progress this day.") : L("這段期間沒有未完成的 task。", "No open task in this period.")) : L(`還沒有專案。<a href="#/projects">到「專案甘特」新增</a>，或到「設定」匯入 MONICA 資料。`, `No projects yet. <a href="#/projects">Add one in Project Gantt</a>, or import MONICA data in Settings.`)}</p>`;
       return;
     }
     const goTask = (id) => {
@@ -230,8 +231,8 @@
       today,
       scrollToToday: false,
       band: pflOpen ? pfl.band : null,
-      marks: pin != null ? [{ day: pin, cls: "pin", title: "標記日" }] : [],
-      labelHead: `Project / PFAM / task<span class="muted">${nTasks} 個 task・指派</span>`,
+      marks: pin != null ? [{ day: pin, cls: "pin", title: L("標記日", "Marked day") }] : [],
+      labelHead: `Project / PFAM / task<span class="muted">${L(`${nTasks} 個 task・指派`, `${nTasks} task(s) · assigned`)}</span>`,
       tip: (id) => tip.get(id),
       onBar: (id) => (id.startsWith("t:") ? goTask(id.slice(2)) : toggle(id.slice(2))),
       onLabel: (rowId, ev) => {
@@ -264,20 +265,20 @@
     const section = (title, n, cls, body, empty) => `<div class="attn ${cls}"><h4>${title} <span class="count">${n}</span></h4>${n ? body : `<p class="muted small">${empty}</p>`}</div>`;
     // On top of the page: 5 per group, the rest behind "顯示全部".
     const lim = attnAll ? Infinity : ATTN_N;
-    const more = (n, unit) => (n > ATTN_N ? `<button class="link small attn-more" type="button" data-attn-more>${attnAll ? "收起" : `顯示全部（還有 ${n - ATTN_N} ${unit}）`}</button>` : "");
+    const more = (n, unit) => (n > ATTN_N ? `<button class="link small attn-more" type="button" data-attn-more>${attnAll ? L("收起", "Show less") : L(`顯示全部（還有 ${n - ATTN_N} ${unit}）`, `Show all (${n - ATTN_N} more)`)}</button>` : "");
     const lateBody = `<ul>${late
       .slice(0, lim)
-      .map((t) => `<li data-task="${t.id}"><span class="a-main">${esc(t.name)}<small>${esc(pf(t))}</small></span><span class="a-side"><b class="late">逾期 ${today - D(t.end)} 天</b>${people(t.assignees)}</span></li>`)
-      .join("")}</ul>${more(late.length, "個")}`;
+      .map((t) => `<li data-task="${t.id}"><span class="a-main">${esc(t.name)}<small>${esc(pf(t))}</small></span><span class="a-side"><b class="late">${L(`逾期 ${today - D(t.end)} 天`, `Overdue ${today - D(t.end)}d`)}</b>${people(t.assignees)}</span></li>`)
+      .join("")}</ul>${more(late.length, L("個", ""))}`;
     const unBody = `<ul>${[...byPfam.entries()]
       .sort((a, b) => a[1][0].start.localeCompare(b[1][0].start))
       .slice(0, lim)
       .map(([fid, ts]) => {
         const f = Store.pfam(fid);
         const first = ts.reduce((m, t) => (t.start < m ? t.start : m), ts[0].start);
-        return `<li data-pfam="${fid}"><span class="a-main">${esc(f ? f.name : "")}<small>${esc(ts.slice(0, 2).map((t) => t.name).join("、"))}${ts.length > 2 ? ` 等 ${ts.length} 個 task` : ""}</small></span><span class="a-side">${D(first) <= today ? "進行中" : fmt(first, "short") + " 開始"}</span></li>`;
+        return `<li data-pfam="${fid}"><span class="a-main">${esc(f ? f.name : "")}<small>${esc(ts.slice(0, 2).map((t) => t.name).join(L("、", ", ")))}${ts.length > 2 ? L(` 等 ${ts.length} 個 task`, ` … (${ts.length} tasks)`) : ""}</small></span><span class="a-side">${D(first) <= today ? L("進行中", "In progress") : L(fmt(first, "short") + " 開始", "Starts " + fmt(first, "short"))}</span></li>`;
       })
-      .join("")}</ul>${more(byPfam.size, "個 PFAM")}`;
+      .join("")}</ul>${more(byPfam.size, L("個 PFAM", "PFAM"))}`;
     const goneBody = `<ul>${gone
       .slice(0, 6)
       .map((t) => `<li data-task="${t.id}"><span class="a-main">${esc(t.name)}<small>${esc(pf(t))}</small></span><span class="a-side">${people(t.assignees)}</span></li>`)
@@ -287,11 +288,11 @@
     const total = late.length + byPfam.size + gone.length;
     card.hidden = !total;
     if (!total) return;
-    U.$("#ovAttnSum").textContent = `共 ${total} 項・點一下到專案甘特查看`;
+    U.$("#ovAttnSum").textContent = L(`共 ${total} 項・點一下到專案甘特查看`, `${total} item(s) · click to view in Project Gantt`);
     el.innerHTML =
-      (late.length ? section("逾期 task", late.length, "a-late", lateBody, "") : "") +
-      (byPfam.size ? section("未指派（進行中或 3 個月內開始）", byPfam.size, "a-un", unBody, "") : "") +
-      (gone.length ? section("指派給已離開的人", gone.length, "a-gone", goneBody, "") : "");
+      (late.length ? section(L("逾期 task", "Overdue tasks"), late.length, "a-late", lateBody, "") : "") +
+      (byPfam.size ? section(L("未指派（進行中或 3 個月內開始）", "Unassigned (running or starting within 3 months)"), byPfam.size, "a-un", unBody, "") : "") +
+      (gone.length ? section(L("指派給已離開的人", "Assigned to people who left"), gone.length, "a-gone", goneBody, "") : "");
     el.onclick = (ev) => {
       if (ev.target.closest("[data-attn-more]")) return (attnAll = !attnAll), App.render();
       const li = ev.target.closest("li");
@@ -316,11 +317,11 @@
     const count = (ts) => (byPfam ? heatUnits(ts).length : ts.length);
     const emps = Store.workforce();
     if (!emps.length) {
-      el.innerHTML = `<p class="empty">名冊是空的。<a href="#/people">到「出差紀錄」新增員工</a>。</p>`;
+      el.innerHTML = `<p class="empty">${L(`名冊是空的。<a href="#/people">到「出差紀錄」新增員工</a>。`, `The roster is empty. <a href="#/people">Add people under Trips</a>.`)}</p>`;
       return;
     }
     if (!days.length) {
-      el.innerHTML = `<p class="empty">未來一個月沒有工作日。</p>`;
+      el.innerHTML = `<p class="empty">${L("未來一個月沒有工作日。", "No workdays in the next month.")}</p>`;
       return;
     }
     const lvl = (n) => (n >= 4 ? 5 : n); // 4 件以上 = darkest step
@@ -332,10 +333,10 @@
         const mon = iso.slice(5, 7);
         const showMon = mon !== lastMon;
         lastMon = mon;
-        return `<th class="${d.day === today ? "now" : ""}${wk(d)}">${showMon ? `<small>${+mon}月</small>` : ""}${+iso.slice(8)}<em>${U.WD[E.weekday(d.day)]}</em></th>`;
+        return `<th class="${d.day === today ? "now" : ""}${wk(d)}">${showMon ? `<small>${L(`${+mon}月`, MON_EN[+mon - 1])}</small>` : ""}${+iso.slice(8)}<em>${U.WD[E.weekday(d.day)]}</em></th>`;
       })
       .join("")}</tr>`;
-    const deptRow = `<tr class="dept"><th>部門負載<small>忙碌 / 在職</small></th>${days
+    const deptRow = `<tr class="dept"><th>${L("部門負載", "Dept. load")}<small>${L("忙碌 / 在職", "Busy / Active")}</small></th>${days
       .map((d) => {
         // Green while demand (busy + unassigned PFAMs) stays within the headcount (deeper as it fills up), red above it.
         const over = d.demand > d.head;
@@ -356,7 +357,7 @@
       })
       .join("");
     el.innerHTML = `<div class="heat-wrap"><table class="heat daily"><thead>${head}</thead><tbody>${deptRow}${rows}</tbody></table></div>
-      <div class="legend"><span>當天 ${byPfam ? "PFAM" : "task"} 數</span>${[1, 2, 3, 5].map((n) => `<span class="lg"><i class="h${n}"></i>${n === 5 ? "4+" : n}</span>`).join("")}<span class="sep"></span><span class="lg"><i class="lg-ok"></i>部門負載在人力內</span><span class="lg-alert">⚠ 超出在職人數</span><span class="muted">「+n」＝未指派 PFAM 數</span></div>`;
+      <div class="legend"><span>${L(`當天 ${byPfam ? "PFAM" : "task"} 數`, `${byPfam ? "PFAM" : "task"}s per day`)}</span>${[1, 2, 3, 5].map((n) => `<span class="lg"><i class="h${n}"></i>${n === 5 ? "4+" : n}</span>`).join("")}<span class="sep"></span><span class="lg"><i class="lg-ok"></i>${L("部門負載在人力內", "Dept. load within headcount")}</span><span class="lg-alert">⚠ ${L("超出在職人數", "Over active headcount")}</span><span class="muted">${L("「+n」＝未指派 PFAM 數", "“+n” = unassigned PFAMs")}</span></div>`;
     const byDay = new Map(days.map((d) => [d.day, d]));
     const t = el.querySelector("table");
     t.addEventListener("mousemove", (ev) => {
@@ -368,18 +369,18 @@
       if (byPfam) {
         const us = heatUnits(ts);
         return U.tip.show(
-          `<b>${esc(Store.empName(td.dataset.emp))}</b>・${fmt(d.day, "full")}<div class="tt-big">${us.length ? `${us.length} 個 PFAM・${ts.length} 件 task` : "空閒"}</div>${us
+          `<b>${esc(Store.empName(td.dataset.emp))}</b>・${fmt(d.day, "full")}<div class="tt-big">${us.length ? L(`${us.length} 個 PFAM・${ts.length} 件 task`, `${us.length} PFAM · ${ts.length} task(s)`) : L("空閒", "Free")}</div>${us
             .slice(0, 8)
-            .map((u) => `<div class="tt-row"><span>${esc(u.pfam ? u.pfam.name : "")}</span><small>${esc(u.tasks.map((x) => x.name).join("、"))}</small></div>`)
-            .join("")}${us.length > 8 ? `<div class="muted">…共 ${us.length} 個</div>` : ""}`,
+            .map((u) => `<div class="tt-row"><span>${esc(u.pfam ? u.pfam.name : "")}</span><small>${esc(u.tasks.map((x) => x.name).join(L("、", ", ")))}</small></div>`)
+            .join("")}${us.length > 8 ? `<div class="muted">${L(`…共 ${us.length} 個`, `…${us.length} in total`)}</div>` : ""}`,
           ev
         );
       }
       U.tip.show(
-        `<b>${esc(Store.empName(td.dataset.emp))}</b>・${fmt(d.day, "full")}<div class="tt-big">${ts.length ? `${ts.length} 件 task` : "空閒"}</div>${ts
+        `<b>${esc(Store.empName(td.dataset.emp))}</b>・${fmt(d.day, "full")}<div class="tt-big">${ts.length ? L(`${ts.length} 件 task`, `${ts.length} task(s)`) : L("空閒", "Free")}</div>${ts
           .slice(0, 8)
           .map((x) => `<div class="tt-row"><span>${esc(x.name)}</span><small>${esc((Store.pfam(x.pfamId) || {}).name || "")}</small></div>`)
-          .join("")}${ts.length > 8 ? `<div class="muted">…共 ${ts.length} 件</div>` : ""}`,
+          .join("")}${ts.length > 8 ? `<div class="muted">${L(`…共 ${ts.length} 件`, `…${ts.length} in total`)}</div>` : ""}`,
         ev
       );
     });
@@ -389,14 +390,14 @@
   function renderTrips(el, today) {
     const list = Store.data.trips.filter((r) => D(r.end) >= today && D(r.start) <= today + TRIP_DAYS).sort((a, b) => a.start.localeCompare(b.start));
     if (!list.length) {
-      el.innerHTML = `<p class="empty">出差中與未來 60 天都沒有出差紀錄。</p>`;
+      el.innerHTML = `<p class="empty">${L("出差中與未來 60 天都沒有出差紀錄。", "No trips now or in the next 60 days.")}</p>`;
       return;
     }
     el.innerHTML = `<ul class="trip-list">${list
       .map((r) => {
         const on = D(r.start) <= today;
         const p = r.projectId && Store.project(r.projectId);
-        return `<li class="${on ? "on" : ""}"><span class="loc">${esc(r.location)}</span><span class="t-main"><a href="#/people/${r.empId}">${esc(Store.empName(r.empId))}</a><small>${esc(r.purpose || "")}${p ? `・${esc(p.name)}` : ""}</small></span><span class="t-side">${on ? `<b class="on-tag">出差中</b>` : ""}${U.range(r.start, r.end)}</span></li>`;
+        return `<li class="${on ? "on" : ""}"><span class="loc">${esc(r.location)}</span><span class="t-main"><a href="#/people/${r.empId}">${esc(Store.empName(r.empId))}</a><small>${esc(r.purpose || "")}${p ? `・${esc(p.name)}` : ""}</small></span><span class="t-side">${on ? `<b class="on-tag">${L("出差中", "Away")}</b>` : ""}${U.range(r.start, r.end)}</span></li>`;
       })
       .join("")}</ul>`;
   }

@@ -19,7 +19,7 @@
         el.onload = () => resolve(window.XLSX);
         el.onerror = () => {
           xlsxLoading = null;
-          reject(new Error("無法載入 js/vendor/xlsx.full.min.js"));
+          reject(new Error(L("無法載入 js/vendor/xlsx.full.min.js", "Could not load js/vendor/xlsx.full.min.js")));
         };
         document.head.appendChild(el);
       });
@@ -85,7 +85,11 @@
       return `${fmt(it.start, "yy")} – ${fmt(it.end, "short")}`;
     };
     const tag = (r) =>
-      r.status === "new" ? `<span class="tag imp-new">新</span>` : r.status === "update" ? `<span class="tag imp-upd">更新</span>` : `<span class="tag ghost">無變動</span>`;
+      r.status === "new"
+        ? `<span class="tag imp-new">${L("新", "New")}</span>`
+        : r.status === "update"
+          ? `<span class="tag imp-upd">${L("更新", "Updated")}</span>`
+          : `<span class="tag ghost">${L("無變動", "No change")}</span>`;
     const phaseLabel = (key) => {
       const k = Convert.resolvePhase(Store.data, key);
       return (k && (Store.phase(k) || {}).label) || ((ctx.phases || []).find((p) => p.key === key) || {}).label || key;
@@ -96,26 +100,26 @@
         const onIn = newIdx.filter((i) => rows[i].on).length;
         return `<details class="imp-group"${groups.size <= 3 || onIn ? " open" : ""}>
           <summary><label class="check" onclick="event.stopPropagation()"><input type="checkbox" data-grp="${esc(newIdx.join(","))}"${newIdx.length && onIn === newIdx.length ? " checked" : ""}${newIdx.length ? "" : " disabled"}></label>
-            <b>${esc(g.name)}</b><span class="muted">${isG ? "" : esc(g.series)}${newIdx.length ? `・新 ${onIn}/${newIdx.length} 勾選` : ""}${g.list.length - newIdx.length ? `・更新/無變動 ${g.list.length - newIdx.length}` : ""}</span></summary>
+            <b>${esc(g.name)}</b><span class="muted">${isG ? "" : esc(g.series)}${newIdx.length ? L(`・新 ${onIn}/${newIdx.length} 勾選`, ` · new ${onIn}/${newIdx.length} ticked`) : ""}${g.list.length - newIdx.length ? L(`・更新/無變動 ${g.list.length - newIdx.length}`, ` · updated/no change ${g.list.length - newIdx.length}`) : ""}</span></summary>
           <table class="imp-table"><tbody>${g.list
             .map((i) => {
               const r = rows[i];
               const it = r.item;
               return `<tr class="${r.status}${it.inherited ? " inh" : ""}"><td class="c"><input type="checkbox" data-row="${i}"${r.on ? " checked" : ""}${r.status === "new" ? "" : " disabled"}></td>
-                <td>${tag(r)} ${esc(it.name)}${it.section ? `<small class="muted"> · ${esc(it.section)}</small>` : ""}${it.inherited ? ` <span class="tag ghost" title="2nd build 中從 1st build 複製的區段">沿用 1st</span>` : ""}</td>
+                <td>${tag(r)} ${esc(it.name)}${it.section ? `<small class="muted"> · ${esc(it.section)}</small>` : ""}${it.inherited ? ` <span class="tag ghost" title="${L("2nd build 中從 1st build 複製的區段", "Section copied from 1st build into 2nd build")}">${L("沿用 1st", "Same as 1st")}</span>` : ""}</td>
                 <td class="muted small">${esc(it.lead || (it.phase ? phaseLabel(it.phase) : ""))}</td>
                 <td class="num small">${dates(r)}</td>
-                <td class="small">${r.task && r.task.assignees.length ? `<span class="muted">保留指派：</span>${esc(r.task.assignees.map((id) => Store.empName(id)).join("、"))}` : it.assignNames && it.assignNames.length ? esc(it.assignNames.join("、")) : ""}</td></tr>`;
+                <td class="small">${r.task && r.task.assignees.length ? `<span class="muted">${L("保留指派：", "Keeps assigned: ")}</span>${esc(r.task.assignees.map((id) => Store.empName(id)).join(L("、", ", ")))}` : it.assignNames && it.assignNames.length ? esc(it.assignNames.join(L("、", ", "))) : ""}</td></tr>`;
             })
             .join("")}</tbody></table></details>`;
       })
       .join("");
 
     const goneHtml = pl.gone.length
-      ? `<section class="imp-sec"><h4><label class="check"><input type="checkbox" data-goneall${goneOn === pl.gone.length ? " checked" : ""}> 新檔裡已經沒有（${pl.gone.length}）</label><span class="muted">預設保留；勾選＝刪除</span></h4><table class="imp-table"><tbody>${pl.gone
+      ? `<section class="imp-sec"><h4><label class="check"><input type="checkbox" data-goneall${goneOn === pl.gone.length ? " checked" : ""}> ${L(`新檔裡已經沒有（${pl.gone.length}）`, `No longer in the file (${pl.gone.length})`)}</label><span class="muted">${L("預設保留；勾選＝刪除", "Kept by default; tick = delete")}</span></h4><table class="imp-table"><tbody>${pl.gone
           .map((g, i) => {
             const t = g.task;
-            return `<tr><td class="c"><input type="checkbox" data-gone="${i}"${g.on ? " checked" : ""}></td><td>${esc(t.name)} <small class="muted">${esc((Store.pfam(t.pfamId) || {}).name || "")}</small></td><td class="num small">${U.range(t.start, t.end)}</td><td class="small">${esc(t.assignees.map((id) => Store.empName(id)).join("、"))}</td></tr>`;
+            return `<tr><td class="c"><input type="checkbox" data-gone="${i}"${g.on ? " checked" : ""}></td><td>${esc(t.name)} <small class="muted">${esc((Store.pfam(t.pfamId) || {}).name || "")}</small></td><td class="num small">${U.range(t.start, t.end)}</td><td class="small">${esc(t.assignees.map((id) => Store.empName(id)).join(L("、", ", ")))}</td></tr>`;
           })
           .join("")}</tbody></table></section>`
       : "";
@@ -123,31 +127,34 @@
     const projOpts = Store.projects().map((p) => `<option value="${p.id}"${p.id === ctx.projectId ? " selected" : ""}>${esc(p.name)}</option>`).join("");
     const options = isG
       ? `<div class="imp-opts">
-          <label class="field-inline">匯入到 <select id="impProj"><option value=""${ctx.projectId ? "" : " selected"}>＋ 新 Project</option>${projOpts}</select></label>
-          ${ctx.projectId ? "" : `<input id="impNewName" value="${esc(ctx.newName)}" placeholder="新 Project 名稱">`}
-          <label class="field-inline">預設勾選的 LEAD 角色 <input id="impRoles" value="${esc(ctx.roles)}" class="w-roles"></label>
-          <button class="btn small" id="impReselect" type="button">依角色重新勾選</button>
-          <label class="check small"><input type="checkbox" id="impRoleOnly"${ctx.roleOnly ? " checked" : ""}> 只列出 LEAD 符合的新 task</label>
-          <label class="check small"><input type="checkbox" id="impSame"${ctx.showSame ? " checked" : ""}> 顯示無變動</label>
+          <label class="field-inline">${L("匯入到", "Import into")} <select id="impProj"><option value=""${ctx.projectId ? "" : " selected"}>${L("＋ 新 Project", "+ New Project")}</option>${projOpts}</select></label>
+          ${ctx.projectId ? "" : `<input id="impNewName" value="${esc(ctx.newName)}" placeholder="${L("新 Project 名稱", "New Project name")}">`}
+          <label class="field-inline">${L("預設勾選的 LEAD 角色", "LEAD roles ticked by default")} <input id="impRoles" value="${esc(ctx.roles)}" class="w-roles"></label>
+          <button class="btn small" id="impReselect" type="button">${L("依角色重新勾選", "Re-tick by role")}</button>
+          <label class="check small"><input type="checkbox" id="impRoleOnly"${ctx.roleOnly ? " checked" : ""}> ${L("只列出 LEAD 符合的新 task", "Only new tasks matching LEAD")}</label>
+          <label class="check small"><input type="checkbox" id="impSame"${ctx.showSame ? " checked" : ""}> ${L("顯示無變動", "Show unchanged")}</label>
         </div>`
       : `<div class="imp-opts">
-          <label class="check small"><input type="checkbox" id="impCreate"${ctx.createEmployees ? " checked" : ""}> PIC 比對不到名冊時，自動新增為員工</label>
-          <label class="check small"><input type="checkbox" id="impSame"${ctx.showSame ? " checked" : ""}> 顯示無變動</label>
+          <label class="check small"><input type="checkbox" id="impCreate"${ctx.createEmployees ? " checked" : ""}> ${L("PIC 比對不到名冊時，自動新增為員工", "Add PICs not in the Roster as employees")}</label>
+          <label class="check small"><input type="checkbox" id="impSame"${ctx.showSame ? " checked" : ""}> ${L("顯示無變動", "Show unchanged")}</label>
         </div>`;
-    $("#impTitle").textContent = (isG ? "匯入 Gen12 PFAM Excel" : "匯入 MONICA JSON") + "：" + ctx.fileName;
+    $("#impTitle").textContent = (isG ? L("匯入 Gen12 PFAM Excel", "Import Gen12 PFAM Excel") : L("匯入 MONICA JSON", "Import MONICA JSON")) + L("：", ": ") + ctx.fileName;
     $("#impBody").innerHTML = `
       ${options}
       <div class="imp-chips">
-        <span class="imp-chip c-new"><b>${onN}</b> / ${fresh.length} 個新 task 勾選</span>
-        <span class="imp-chip c-update"><b>${upd.length}</b> 個更新日期／名稱</span>
-        <span class="imp-chip c-same"><b>${same.length}</b> 個無變動</span>
-        ${pl.gone.length ? `<span class="imp-chip c-gone"><b>${goneOn}</b> / ${pl.gone.length} 個將刪除</span>` : ""}
+        <span class="imp-chip c-new"><b>${onN}</b> / ${fresh.length} ${L("個新 task 勾選", "new tasks ticked")}</span>
+        <span class="imp-chip c-update"><b>${upd.length}</b> ${L("個更新日期／名稱", "with new dates/names")}</span>
+        <span class="imp-chip c-same"><b>${same.length}</b> ${L("個無變動", "unchanged")}</span>
+        ${pl.gone.length ? `<span class="imp-chip c-gone"><b>${goneOn}</b> / ${pl.gone.length} ${L("個將刪除", "to delete")}</span>` : ""}
       </div>
-      <p class="muted small">${isG ? `同一 PFAM 的 1st + 2nd build 合併為一個 PFAM；2nd build 中「沿用 1st」的區段不預先勾選，避免重複計算。${ctx.noDate ? `${ctx.noDate} 個沒有日期（TBD）的 task 已略過。` : ""}` : "Series → Project、project → PFAM；task 名稱空白時以 Phase 名稱代替。"}
-        更新的 task 會保留網頁上的指派、完成狀態與備註，舊日期成為基準（甘特圖顯示 ▲▼）。</p>
-      ${groupHtml || `<p class="imp-nothing">沒有需要顯示的項目</p>`}
+      <p class="muted small">${isG ? `${L("同一 PFAM 的 1st + 2nd build 合併為一個 PFAM；2nd build 中「沿用 1st」的區段不預先勾選，避免重複計算。", "1st + 2nd build of the same PFAM become one PFAM; sections marked “Same as 1st” in the 2nd build are not pre-ticked, so they are not counted twice. ")}${ctx.noDate ? L(`${ctx.noDate} 個沒有日期（TBD）的 task 已略過。`, `${ctx.noDate} task(s) without dates (TBD) skipped. `) : ""}` : L("Series → Project、project → PFAM；task 名稱空白時以 Phase 名稱代替。", "Series → Project, project → PFAM; a blank task name uses the Phase name. ")}
+        ${L("更新的 task 會保留網頁上的指派、完成狀態與備註，舊日期成為基準（甘特圖顯示 ▲▼）。", "Updated tasks keep their assignees, done state and notes; the old dates become the baseline (▲▼ in the Gantt).")}</p>
+      ${groupHtml || `<p class="imp-nothing">${L("沒有需要顯示的項目", "Nothing to show")}</p>`}
       ${goneHtml}`;
-    $("#impSummary").textContent = `將新增 ${onN}、更新 ${upd.length}${goneOn ? `、刪除 ${goneOn}` : ""}`;
+    $("#impSummary").textContent = L(
+      `將新增 ${onN}、更新 ${upd.length}${goneOn ? `、刪除 ${goneOn}` : ""}`,
+      `Add ${onN}, update ${upd.length}${goneOn ? `, delete ${goneOn}` : ""}`
+    );
   }
 
   function onChange(ev) {
@@ -189,9 +196,18 @@
       if (isG) d.settings.gen12Roles = ctx.roles;
     });
     $("#dlgImport").close();
-    const msg = `已匯入 ${ctx.fileName}：新增 ${counts.added}、更新 ${counts.updated}${counts.removed ? `、刪除 ${counts.removed}` : ""} 個 task${counts.projects ? `，新 Project ${counts.projects}` : ""}${counts.pfams ? `、新 PFAM ${counts.pfams}` : ""}`;
-    App.toast(msg, "", [{ label: "復原", run: () => Store.undo() }]);
-    if (counts.unmatched.length) App.toast(`PIC 比對不到名冊：${counts.unmatched.join("、")}（可勾選「自動新增為員工」重新匯入，或到設定 → 員工名冊新增後再匯入）`, "error");
+    const msg = L(
+      `已匯入 ${ctx.fileName}：新增 ${counts.added}、更新 ${counts.updated}${counts.removed ? `、刪除 ${counts.removed}` : ""} 個 task${counts.projects ? `，新 Project ${counts.projects}` : ""}${counts.pfams ? `、新 PFAM ${counts.pfams}` : ""}`,
+      `Imported ${ctx.fileName}: tasks ${counts.added} added, ${counts.updated} updated${counts.removed ? `, ${counts.removed} deleted` : ""}${counts.projects ? `; new Project ${counts.projects}` : ""}${counts.pfams ? `, new PFAM ${counts.pfams}` : ""}`
+    );
+    App.toast(msg, "", [{ label: L("復原", "Undo"), run: () => Store.undo() }]);
+    if (counts.unmatched.length) App.toast(
+        L(
+          `PIC 比對不到名冊：${counts.unmatched.join("、")}（可勾選「自動新增為員工」重新匯入，或到設定 → 員工名冊新增後再匯入）`,
+          `PIC not in the Roster: ${counts.unmatched.join(", ")} (import again with “Add PICs not in the Roster as employees” ticked, or add them in Settings → Roster first)`
+        ),
+        "error"
+      );
     ctx = null;
   }
 
@@ -212,14 +228,14 @@
   }
 
   async function pickXlsx(file) {
-    App.toast(`讀取 ${file.name}…`);
+    App.toast(L(`讀取 ${file.name}…`, `Reading ${file.name}…`));
     try {
       const XLSX = await loadXlsx();
       const wb = XLSX.read(await file.arrayBuffer(), { type: "array", cellFormula: true, cellNF: true, cellDates: false });
       openGen12(Importer.convert(XLSX, wb, file.name), file.name);
     } catch (err) {
       console.error(err);
-      App.toast("讀取 Excel 失敗：" + err.message, "error");
+      App.toast(L("讀取 Excel 失敗：", "Could not read the Excel: ") + err.message, "error");
     }
   }
 
@@ -229,19 +245,33 @@
     try {
       json = JSON.parse(await U.readFile(file));
     } catch (err) {
-      return App.toast("不是有效的 JSON：" + err.message, "error");
+      return App.toast(L("不是有效的 JSON：", "Not valid JSON: ") + err.message, "error");
     }
     try {
       if (json && Array.isArray(json.tasks) && (json.labels || (json.tasks[0] && "category" in json.tasks[0]))) return openMonica(json, file.name);
       if (json && Array.isArray(json.pfams) && json.calendars) return openGen12(json, file.name);
       const data = json && json.data && json.data.projects ? json.data : json && json.projects ? json : null;
-      if (!data) return App.toast(expect === "monica" ? "這不是 MONICA 匯出的 JSON" : "看不出這是哪一種 JSON（支援：本系統備份、MONICA 匯出、Gen12 資料）", "error");
-      if (!confirm(`用「${file.name}」還原？目前全部資料會被取代（可按 ↶ 復原）。\n\n${data.projects.length} 個 Project、${(data.tasks || []).length} 個 task、${(data.employees || []).length} 位員工`)) return;
+      if (!data)
+        return App.toast(
+          expect === "monica"
+            ? L("這不是 MONICA 匯出的 JSON", "This is not a MONICA JSON export")
+            : L("看不出這是哪一種 JSON（支援：本系統備份、MONICA 匯出、Gen12 資料）", "Unknown JSON (supported: this dashboard's backup, MONICA export, Gen12 data)"),
+          "error"
+        );
+      if (
+        !confirm(
+          L(
+            `用「${file.name}」還原？目前全部資料會被取代（可按 ↶ 復原）。\n\n${data.projects.length} 個 Project、${(data.tasks || []).length} 個 task、${(data.employees || []).length} 位員工`,
+            `Restore from “${file.name}”? All current data will be replaced (↶ Undo can bring it back).\n\n${data.projects.length} Project(s), ${(data.tasks || []).length} task(s), ${(data.employees || []).length} employee(s)`
+          )
+        )
+      )
+        return;
       Store.replace(data, { keepUndo: true, dirty: true });
-      App.toast("已還原備份");
+      App.toast(L("已還原備份", "Backup restored"));
     } catch (err) {
       console.error(err);
-      App.toast("匯入失敗：" + err.message, "error");
+      App.toast(L("匯入失敗：", "Import failed: ") + err.message, "error");
     }
   }
 

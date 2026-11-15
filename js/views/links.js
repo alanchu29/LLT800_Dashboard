@@ -32,7 +32,7 @@
         <span class="lk-note">${l.note ? esc(l.note) : ""}</span>
         <span class="lk-go" aria-hidden="true">↗</span>
       </a>
-      <button class="mini edit-only lk-edit" type="button" data-edit="${esc(l.id)}" aria-label="編輯「${esc(name)}」">✎</button>
+      <button class="mini edit-only lk-edit" type="button" data-edit="${esc(l.id)}" aria-label="${L(`編輯「${esc(name)}」`, `Edit “${esc(name)}”`)}">✎</button>
     </div>`;
   }
 
@@ -48,22 +48,22 @@
     const order = [...groups.keys()].filter((g) => g !== OTHER).concat(groups.has(OTHER) ? [OTHER] : []);
 
     const section = (g, list) => `<section class="card lk-group">
-      <header class="card-h"><h3>${esc(g)}</h3><span class="count">${list.length}</span><span class="grow"></span>
-        <button class="btn small edit-only" type="button" data-add="${esc(g === OTHER ? "" : g)}">＋ 加到這一類</button></header>
+      <header class="card-h"><h3>${esc(g === OTHER ? L(OTHER, "Others") : g)}</h3><span class="count">${list.length}</span><span class="grow"></span>
+        <button class="btn small edit-only" type="button" data-add="${esc(g === OTHER ? "" : g)}">${L("＋ 加到這一類", "＋ Add here")}</button></header>
       <div class="lk-list">${list.map(tile).join("")}</div></section>`;
 
     root.innerHTML = `
-      <div class="page-head"><h2>常用連結</h2>
-        <label class="field-inline lk-search"><span>搜尋</span><input type="search" id="lkSearch" placeholder="名稱、網址、說明…" autocomplete="off"></label>
+      <div class="page-head"><h2>${L("常用連結", "Links")}</h2>
+        <label class="field-inline lk-search"><span>${L("搜尋", "Search")}</span><input type="search" id="lkSearch" placeholder="${L("名稱、網址、說明…", "Name, URL, notes…")}" autocomplete="off"></label>
         <span class="grow"></span>
-        <button class="btn primary edit-only" id="lkAdd" type="button">＋ 新增連結</button>
+        <button class="btn primary edit-only" id="lkAdd" type="button">${L("＋ 新增連結", "＋ Add link")}</button>
       </div>
       ${
         links.length
           ? order.map((g) => section(g, groups.get(g))).join("")
-          : `<section class="card"><p class="empty">還沒有連結。${Store.editing ? "按右上角「＋ 新增連結」加第一個。" : "進入<b>編輯模式</b>後按「＋ 新增連結」，連結會同步給部門所有人。"}</p></section>`
+          : `<section class="card"><p class="empty">${L("還沒有連結。", "No links yet.")}${Store.editing ? L("按右上角「＋ 新增連結」加第一個。", " Use “＋ Add link” at the top right to add the first one.") : L("進入<b>編輯模式</b>後按「＋ 新增連結」，連結會同步給部門所有人。", " Turn on <b>Edit mode</b> and use “＋ Add link”; links sync to the whole department.")}</p></section>`
       }
-      <p class="muted lk-none" id="lkNone" hidden>沒有符合的連結。</p>`;
+      <p class="muted lk-none" id="lkNone" hidden>${L("沒有符合的連結。", "No matching links.")}</p>`;
 
     $("#lkAdd").onclick = () => Editors.link(null);
     root.onclick = (ev) => {

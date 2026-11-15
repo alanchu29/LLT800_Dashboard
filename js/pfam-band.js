@@ -29,8 +29,8 @@
     // Default limit: the people who count as manpower (active, minus 設定 › 不計入人力的人員 such as the manager).
     const head = Store.workforce().length;
     const cap = custom ? opts.cap : head;
-    const capLabel = custom ? opts.capLabel || `警戒 ${cap} 個` : `人力上限 ${cap}`;
-    const overWord = custom ? "超過警戒" : "超過人力";
+    const capLabel = custom ? opts.capLabel || L(`警戒 ${cap} 個`, `Alert ${cap}`) : L(`人力上限 ${cap}`, `Headcount ${cap}`);
+    const overWord = custom ? L("超過警戒", "Over alert") : L("超過人力", "Over headcount");
     // Per day: PFAMs per project, and the projects over their own 警戒上限 (opts.projCaps only).
     for (const d of days) {
       d.per = new Map();
@@ -58,14 +58,14 @@
           .join("")}</svg>`
       : "";
     const chips =
-      (nowD ? `<span class="chip-n" title="${nowD.day === today ? "今天" : `下一個工作天 ${fmt(nowD.day, "full")}`}">目前 <b>${nowD.total}</b></span>` : "") +
-      (peak && peak.total ? `<span class="chip-n" title="今天起到期間結束最多">峰值 <b>${peak.total}</b><small>${fmt(peak.day, "short")}</small></span>` : "") +
-      (overN ? `<span class="chip-n warn" title="同時進行的 PFAM 多於${capLabel}${custom ? "" : `（計入人力的在職人數）`}">${overWord} <b>${overN}</b> 天</span>` : "") +
-      (projOverN ? `<span class="chip-n warn" title="有 Project 同時進行的 PFAM 多於它自己的警戒上限（編輯 Project 設定）">專案超過警戒 <b>${projOverN}</b> 天</span>` : "");
+      (nowD ? `<span class="chip-n" title="${nowD.day === today ? L("今天", "Today") : L(`下一個工作天 ${fmt(nowD.day, "full")}`, `Next workday ${fmt(nowD.day, "full")}`)}">${L("目前", "Now")} <b>${nowD.total}</b></span>` : "") +
+      (peak && peak.total ? `<span class="chip-n" title="${L("今天起到期間結束最多", "Highest from today to the end of the period")}">${L("峰值", "Peak")} <b>${peak.total}</b><small>${fmt(peak.day, "short")}</small></span>` : "") +
+      (overN ? `<span class="chip-n warn" title="${L(`同時進行的 PFAM 多於${capLabel}${custom ? "" : `（計入人力的在職人數）`}`, `More PFAMs running at once than the limit (${capLabel}${custom ? "" : ", active people counted as manpower"})`)}">${L(`${overWord} <b>${overN}</b> 天`, `${overWord} <b>${overN}</b> d`)}</span>` : "") +
+      (projOverN ? `<span class="chip-n warn" title="${L("有 Project 同時進行的 PFAM 多於它自己的警戒上限（編輯 Project 設定）", "A Project runs more PFAMs at once than its own alert limit (set in the Project's edit form)")}">${L(`專案超過警戒 <b>${projOverN}</b> 天`, `Project over alert <b>${projOverN}</b> d`)}</span>` : "");
 
     const band = {
-      title: "同時進行的 PFAM",
-      sub: "點柱子＝只看那天的 task",
+      title: L("同時進行的 PFAM", "PFAMs at once"),
+      sub: L("點柱子＝只看那天的 task", "Click a column = that day's tasks"),
       cap,
       capLabel,
       capNote: !cap ? opts.capNote || "" : "",
@@ -92,12 +92,12 @@
     const projOver = d ? d.projOver : [];
     el.innerHTML = `<div class="pin-bar${over || projOver.length ? " over" : ""}">
         <span class="pin-day">📌 ${fmt(day, "full")}</span>
-        <span>同時 <b>${n}</b> 個 PFAM・<b>${tasks}</b> 個 task</span>
-        ${over ? `<span class="chip-n warn">${b.overWord} ${n - b.cap} 個（${b.capLabel}）</span>` : ""}
-        ${projOver.map((p) => `<span class="chip-n warn">${esc(p.name)} ${d.per.get(p.id)} 個・超過警戒 ${d.per.get(p.id) - p.pfamCap} 個（警戒 ${p.pfamCap} 個）</span>`).join("")}
-        <label class="check small"><input type="checkbox" data-pin="only"${only ? " checked" : ""}> 只看這天進行中的 PFAM / task</label>
+        <span>${L(`同時 <b>${n}</b> 個 PFAM・<b>${tasks}</b> 個 task`, `<b>${n}</b> PFAM · <b>${tasks}</b> task(s) at once`)}</span>
+        ${over ? `<span class="chip-n warn">${L(`${b.overWord} ${n - b.cap} 個（${b.capLabel}）`, `${b.overWord} by ${n - b.cap} (${b.capLabel})`)}</span>` : ""}
+        ${projOver.map((p) => `<span class="chip-n warn">${esc(p.name)} ${L(`${d.per.get(p.id)} 個・超過警戒 ${d.per.get(p.id) - p.pfamCap} 個（警戒 ${p.pfamCap} 個）`, `${d.per.get(p.id)} · ${d.per.get(p.id) - p.pfamCap} over alert (alert ${p.pfamCap})`)}</span>`).join("")}
+        <label class="check small"><input type="checkbox" data-pin="only"${only ? " checked" : ""}> ${L("只看這天進行中的 PFAM / task", "Only PFAMs / tasks running this day")}</label>
         <span class="grow"></span>
-        <button class="hbtn ghost" type="button" data-pin="clear">✕ 取消標記</button>
+        <button class="hbtn ghost" type="button" data-pin="clear">✕ ${L("取消標記", "Clear mark")}</button>
       </div>`;
     el.querySelector('[data-pin="only"]').onchange = (ev) => on.only(ev.target.checked);
     el.querySelector('[data-pin="clear"]').onclick = () => on.clear();
@@ -113,23 +113,23 @@
       .filter((p) => by.has(p.id))
       .map((p) => {
         const us = by.get(p.id);
-        const names = us.map((u) => (u.others ? `${u.pfam.name}：${u.tasks.map((t) => t.name).join("、")}` : u.pfam.name));
+        const names = us.map((u) => (u.others ? `${u.pfam.name}${L("：", ": ")}${u.tasks.map((t) => t.name).join(L("、", ", "))}` : u.pfam.name));
         const pOver = d.projOver.includes(p);
-        return `<div class="tt-sec"><i class="dot" style="--c:${p.color}"></i> ${esc(p.name)}・${us.length} 個${pOver ? `<span class="late">（超過警戒 ${p.pfamCap} 個）</span>` : ""}</div>${names
+        return `<div class="tt-sec"><i class="dot" style="--c:${p.color}"></i> ${esc(p.name)}${L(`・${us.length} 個`, ` · ${us.length}`)}${pOver ? `<span class="late">${L(`（超過警戒 ${p.pfamCap} 個）`, ` (over alert ${p.pfamCap})`)}</span>` : ""}</div>${names
           .slice(0, 8)
           .map((x) => `<div class="tt-row"><span>${esc(x)}</span></div>`)
-          .join("")}${names.length > 8 ? `<div class="muted">…還有 ${names.length - 8} 個</div>` : ""}`;
+          .join("")}${names.length > 8 ? `<div class="muted">${L(`…還有 ${names.length - 8} 個`, `…${names.length - 8} more`)}</div>` : ""}`;
       })
       .join("");
-    return `<b>${fmt(d.day, "full")}</b><div class="tt-big">同時 ${d.total} 個 PFAM${cap && d.total > cap ? `<span class="late">（超過${capLabel}）</span>` : ""}</div>${rows || `<div class="muted">沒有進行中的 PFAM</div>`}`;
+    return `<b>${fmt(d.day, "full")}</b><div class="tt-big">${L(`同時 ${d.total} 個 PFAM`, `${d.total} PFAM at once`)}${cap && d.total > cap ? `<span class="late">${L(`（超過${capLabel}）`, ` (over ${capLabel})`)}</span>` : ""}</div>${rows || `<div class="muted">${L("沒有進行中的 PFAM", "No PFAM in progress")}</div>`}`;
   }
 
   /** Fill the toggle button (a .hbtn) for the current state; onToggle() flips it. */
   function button(el, b, open, onToggle) {
     if (!el) return;
-    el.innerHTML = `${b.spark}<span>PFAM 負載</span>${b.chips}<span class="chev">${ICON.chev}</span>`;
+    el.innerHTML = `${b.spark}<span>${L("PFAM 負載", "PFAM load")}</span>${b.chips}<span class="chev">${ICON.chev}</span>`;
     el.setAttribute("aria-pressed", String(open));
-    el.title = open ? "收起同時進行的 PFAM 柱狀圖" : "在日期列上方展開同時進行的 PFAM 柱狀圖";
+    el.title = open ? L("收起同時進行的 PFAM 柱狀圖", "Hide the PFAMs-at-once chart") : L("在日期列上方展開同時進行的 PFAM 柱狀圖", "Show the PFAMs-at-once chart above the dates");
     el.onclick = onToggle;
   }
 

@@ -9,13 +9,15 @@
   else root.Model = api;
 })(typeof self !== "undefined" ? self : this, function (E) {
   const D = (iso) => (iso ? E.toDay(iso) : null);
+  const L = typeof window !== "undefined" && window.L ? window.L : (zh) => zh;
 
+  // label is a getter so it follows the language switch (js/i18n.js) without a reload.
   const STATUS = {
-    done: { label: "已完成", icon: "✓" },
-    late: { label: "逾期", icon: "!" },
-    active: { label: "進行中", icon: "●" },
-    future: { label: "未開始", icon: "○" },
-    nodate: { label: "無日期", icon: "–" },
+    done: { get label() { return L("已完成", "Done"); }, icon: "✓" },
+    late: { get label() { return L("逾期", "Overdue"); }, icon: "!" },
+    active: { get label() { return L("進行中", "In progress"); }, icon: "●" },
+    future: { get label() { return L("未開始", "Not started"); }, icon: "○" },
+    nodate: { get label() { return L("無日期", "No dates"); }, icon: "–" },
   };
 
   /** done: ticked as finished; late: past its end and not done; active / future by dates. */

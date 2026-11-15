@@ -11,6 +11,7 @@
  * this browser (localStorage) and is never written into the department dataset or the cloud sheet.
  */
 (function () {
+  const L = typeof window !== "undefined" && window.L ? window.L : (zh) => zh;
   const API = "7.1";
   const BATCH = 200; // workitemsbatch takes at most 200 ids per call
   const LS_CFG = "llt800.ado.cfg.v1";
@@ -87,11 +88,15 @@
     } catch (err) {
       // A wrong org / project also lands here: its 404 carries no CORS header, so the browser
       // rejects the response before JS can read the status.
-      throw adoError(`連不到 dev.azure.com — 請確認組織／專案名稱、網路、VPN 或 proxy。（${err && err.message ? err.message : "network error"}）`, "network");
+      const why = err && err.message ? err.message : "network error";
+      throw adoError(
+        L(`連不到 dev.azure.com — 請確認組織／專案名稱、網路、VPN 或 proxy。（${why}）`, `Cannot reach dev.azure.com - check the organization / project name, network, VPN or proxy. (${why})`),
+        "network"
+      );
     }
     // A rejected PAT comes back as 203 + the HTML sign-in page, not a 401.
-    if (res.status === 203 || text.startsWith("<")) throw adoError("PAT 被拒絕 — 可能打錯、過期，或沒有 Work Items (Read) 權限。", "auth");
-    if (res.status === 401 || res.status === 403) throw adoError(`沒有權限讀取這個專案（HTTP ${res.status}）。`, "auth");
+    if (res.status === 203 || text.startsWith("<")) throw adoError(L("PAT 被拒絕 — 可能打錯、過期，或沒有 Work Items (Read) 權限。", "PAT rejected - it may be mistyped, expired, or lack Work Items (Read) permission."), "auth");
+    if (res.status === 401 || res.status === 403) throw adoError(L(`沒有權限讀取這個專案（HTTP ${res.status}）。`, `No permission to read this project (HTTP ${res.status}).`), "auth");
     if (!res.ok) {
       let detail = "";
       try {
@@ -99,12 +104,12 @@
       } catch {
         detail = text.slice(0, 200);
       }
-      throw adoError(`ADO 回應 HTTP ${res.status}${detail ? "：" + detail : ""}`, "http");
+      throw adoError(L(`ADO 回應 HTTP ${res.status}${detail ? "：" + detail : ""}`, `ADO answered HTTP ${res.status}${detail ? ": " + detail : ""}`), "http");
     }
     try {
       return JSON.parse(text);
     } catch {
-      throw adoError("ADO 回了無法解析的內容。", "parse");
+      throw adoError(L("ADO 回了無法解析的內容。", "ADO sent back something that cannot be read."), "parse");
     }
   }
 
@@ -247,7 +252,7 @@
     },
     /** Where a file-provided PAT came from, for the UI's hints. */
     patFile() {
-      return window.LLT_ADO_PAT_FROM || "C:\\Users\\<登入者>\\.ado_pat";
+      return window.LLT_ADO_PAT_FROM || L("C:\\Users\\<登入者>\\.ado_pat", "C:\\Users\\<username>\\.ado_pat");
     },
     /** Never log this, never put it in the URL, never send it anywhere but dev.azure.com. */
     setPat(pat, remember) {
@@ -256,7 +261,7 @@
       } catch {
         /* private mode: the PAT then lives only in this render */
       }
-      if (remember) write(localStorage, LS_PAT, pat) || window.App?.toast("瀏覽器拒絕儲存 PAT，這次只記在這個分頁。", "error");
+      if (remember) write(localStorage, LS_PAT, pat) || window.App?.toast(L("瀏覽器拒絕儲存 PAT，這次只記在這個分頁。", "The browser refused to store the PAT; it is kept in this tab only."), "error");
       else drop(localStorage, LS_PAT);
     },
     /** Clears what this browser stores. A PAT that came from the file is still there on the next load. */
@@ -295,7 +300,7 @@
     async fetchItems(opts) {
       const say = opts.onProgress || (() => {});
       const base = `https://dev.azure.com/${encodeURIComponent(opts.org)}/${encodeURIComponent(opts.project)}`;
-      say("查詢工作項目…");
+      say(L("查詢工作項目…", "Querying work items…"));
       const res = opts.queryId
         ? await call(`${base}/_apis/wit/wiql/${encodeURIComponent(opts.queryId)}?api-version=${API}`, opts.pat)
         : await call(`${base}/_apis/wit/wiql?api-version=${API}`, opts.pat, { query: buildWiql(opts.project, opts.where || "", opts.doneDays) });
@@ -303,13 +308,14 @@
       // A tree / one-hop query answers with relations instead of a flat list.
       const raw = res.workItemRelations ? res.workItemRelations.filter((r) => r.target).map((r) => r.target.id) : (res.workItems || []).map((w) => w.id);
       const ids = [...new Set(raw)];
-      if (!ids.length) throw adoError("查詢結果是空的 — 沒有符合條件的工作項目。", "empty");
+      if (!ids.length) throw adoError(L("查詢結果是空的 — 沒有符合條件的工作項目。", "The query came back empty - no work items match."), "empty");
 
       const items = [];
       // Sequential on purpose: a big board must not open dozens of parallel requests.
       for (let i = 0; i < ids.length; i += BATCH) {
         const chunk = ids.slice(i, i + BATCH);
-        say(`取得欄位 ${Math.min(i + BATCH, ids.length)} / ${ids.length}…`);
+        const got = Math.min(i + BATCH, ids.length);
+        say(L(`取得欄位 ${got} / ${ids.length}…`, `Fetching fields ${got} / ${ids.length}…`));
         const r = await call(`${base}/_apis/wit/workitemsbatch?api-version=${API}`, opts.pat, { ids: chunk, fields: FIELDS });
         items.push(...(r.value || []));
       }

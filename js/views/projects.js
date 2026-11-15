@@ -18,9 +18,9 @@
   const isOthers = (f) => Convert.isOthers(f);
   // Shown period (Gantt, table and people allocation only show tasks overlapping it).
   const PERIODS = [
-    ["m2p3", "前 2 週 + 後 3 月", (t) => [t - 14, t + 91]],
-    ["p6", "未來 6 個月", (t) => [t, t + 183]],
-    ["year", "今年", (t) => {
+    ["m2p3", () => L("前 2 週 + 後 3 月", "Last 2 wk + next 3 mo"), (t) => [t - 14, t + 91]],
+    ["p6", () => L("未來 6 個月", "Next 6 months"), (t) => [t, t + 183]],
+    ["year", () => L("今年", "This year"), (t) => {
       const y = E.fromDay(t).slice(0, 4);
       return [E.toDay(`${y}-01-01`), E.toDay(`${y}-12-31`)];
     }],
@@ -51,20 +51,23 @@
     return win;
   }
 
+  const STATUS_EN = { done: "Done", late: "Overdue", active: "In progress", future: "Not started", nodate: "No dates" };
+
   function statusPill(k) {
     const s = M.STATUS[k];
-    return `<span class="pill st-${k}" title="${s.label}">${s.icon} ${s.label}</span>`;
+    const label = L(s.label, STATUS_EN[k]);
+    return `<span class="pill st-${k}" title="${label}">${s.icon} ${label}</span>`;
   }
 
   function delta(t) {
     if (!t.baseEnd || !t.end) return "";
     const d = D(t.end) - D(t.baseEnd);
-    if (!d) return `<span class="delta same" title="與基準相同">±0</span>`;
-    return `<span class="delta ${d > 0 ? "late" : "early"}" title="結束日相對基準 ${fmt(t.baseEnd, "short")}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}d</span>`;
+    if (!d) return `<span class="delta same" title="${L("與基準相同", "Same as baseline")}">±0</span>`;
+    return `<span class="delta ${d > 0 ? "late" : "early"}" title="${L(`結束日相對基準 ${fmt(t.baseEnd, "short")}`, `End vs. baseline ${fmt(t.baseEnd, "short")}`)}">${d > 0 ? "▲" : "▼"}${Math.abs(d)}d</span>`;
   }
 
   function names(ids) {
-    return ids.map((id) => esc(Store.empName(id))).join("、");
+    return ids.map((id) => esc(Store.empName(id))).join(L("、", ", "));
   }
 
   // ---------------------------------------------------------------- fold state
@@ -106,15 +109,15 @@
         allTasks: ts.length,
       };
     };
-    const winNote = (n) => `顯示期間 ${U.range(cardWin.from, cardWin.to)} 內的數量；全部 ${n.allPfams} PFAM・${n.allTasks} task`;
+    const winNote = (n) => L(`顯示期間 ${U.range(cardWin.from, cardWin.to)} 內的數量；全部 ${n.allPfams} PFAM・${n.allTasks} task`, `Counts within the shown period ${U.range(cardWin.from, cardWin.to)}; total ${n.allPfams} PFAM · ${n.allTasks} task`);
     const card = (p) => {
       const n = winNums(p);
       const late = n.tasks.filter((t) => M.status(t, today) === "late").length;
       const act = n.tasks.filter((t) => M.status(t, today) === "active").length;
       return `<a class="pcard${p.id === pid ? " on" : ""}${p.status === "archived" ? " archived" : ""}" href="#/projects/${p.id}" style="--c:${p.color}" title="${esc(winNote(n))}">
-        <span class="pc-name"><i class="dot"></i>${esc(p.name)}${p.status === "archived" ? `<span class="tag ghost">封存</span>` : ""}</span>
+        <span class="pc-name"><i class="dot"></i>${esc(p.name)}${p.status === "archived" ? `<span class="tag ghost">${L("封存", "Archived")}</span>` : ""}</span>
         <span class="pc-nums">${n.pfams} PFAM・${n.tasks.length} task</span>
-        <span class="pc-st">${act ? `<b>${act}</b> 進行中` : `<span class="muted">無進行中</span>`}${late ? `・<b class="late">${late}</b> 逾期` : ""}</span>
+        <span class="pc-st">${act ? L(`<b>${act}</b> 進行中`, `<b>${act}</b> in progress`) : `<span class="muted">${L("無進行中", "None in progress")}</span>`}${late ? L(`・<b class="late">${late}</b> 逾期`, ` · <b class="late">${late}</b> overdue`) : ""}</span>
       </a>`;
     };
     const allNums = shown.map(winNums);
@@ -122,22 +125,25 @@
     const allLate = liveTasks.filter((t) => M.status(t, today) === "late").length;
     const allCard = shown.length
       ? `<a class="pcard all${pid === ALL ? " on" : ""}" href="#/projects/all" title="${esc(
-          `顯示期間 ${U.range(cardWin.from, cardWin.to)} 內的數量；全部 ${allNums.reduce((x, n) => x + n.allPfams, 0)} PFAM・${allNums.reduce((x, n) => x + n.allTasks, 0)} task`
+          L(
+            `顯示期間 ${U.range(cardWin.from, cardWin.to)} 內的數量；全部 ${allNums.reduce((x, n) => x + n.allPfams, 0)} PFAM・${allNums.reduce((x, n) => x + n.allTasks, 0)} task`,
+            `Counts within the shown period ${U.range(cardWin.from, cardWin.to)}; total ${allNums.reduce((x, n) => x + n.allPfams, 0)} PFAM · ${allNums.reduce((x, n) => x + n.allTasks, 0)} task`
+          )
         )}">
-          <span class="pc-name"><span class="dots">${shown.slice(0, 8).map((p) => `<i class="dot" style="--c:${p.color}"></i>`).join("")}</span>全部專案</span>
+          <span class="pc-name"><span class="dots">${shown.slice(0, 8).map((p) => `<i class="dot" style="--c:${p.color}"></i>`).join("")}</span>${L("全部專案", "All projects")}</span>
           <span class="pc-nums">${allNums.filter((n) => n.pfams).length} Project・${allNums.reduce((x, n) => x + n.pfams, 0)} PFAM・${liveTasks.length} task</span>
-          <span class="pc-st">一併檢視時程與人力分配${allLate ? `・<b class="late">${allLate}</b> 逾期` : ""}</span>
+          <span class="pc-st">${L("一併檢視時程與人力分配", "Schedule and assignments together")}${allLate ? L(`・<b class="late">${allLate}</b> 逾期`, ` · <b class="late">${allLate}</b> overdue`) : ""}</span>
         </a>`
       : "";
     const archivedN = all.filter((p) => p.status === "archived").length;
 
     root.innerHTML = `
-      <div class="page-head"><h2>專案甘特</h2>
+      <div class="page-head"><h2>${L("專案甘特", "Project Gantt")}</h2>
         <span class="grow"></span>
-        ${archivedN ? `<label class="check small"><input type="checkbox" id="showArch"${ui.showArchived ? " checked" : ""}> 顯示封存 (${archivedN})</label>` : ""}
-        <button class="btn edit-only" id="addProject" type="button">＋ 新增 Project</button>
+        ${archivedN ? `<label class="check small"><input type="checkbox" id="showArch"${ui.showArchived ? " checked" : ""}> ${L("顯示封存", "Show archived")} (${archivedN})</label>` : ""}
+        <button class="btn edit-only" id="addProject" type="button">${L("＋ 新增 Project", "＋ New Project")}</button>
       </div>
-      <div class="pcards">${allCard}${shown.map(card).join("") || `<p class="empty">還沒有專案。${Store.editing ? "按右上「新增 Project」開始。" : "切換「編輯模式」後即可新增，或到「設定」匯入 MONICA 資料。"}</p>`}</div>
+      <div class="pcards">${allCard}${shown.map(card).join("") || `<p class="empty">${L("還沒有專案。", "No projects yet. ")}${Store.editing ? L("按右上「新增 Project」開始。", "Click “New Project” at the top right to start.") : L("切換「編輯模式」後即可新增，或到「設定」匯入 MONICA 資料。", "Turn on Edit mode to add one, or import MONICA data in Settings.")}</p>`}</div>
       <section class="card" id="projBody"></section>
       <section class="card" id="allocBody" hidden></section>`;
 
@@ -198,27 +204,33 @@
     el.hidden = false;
     el.style.setProperty("--c", multi ? "var(--brand)" : proj.color);
     const title = multi
-      ? `<div class="proj-title"><div><h3>全部專案</h3><p class="muted">${winProjects.length} 個 Project・${winPfams.length} 個 PFAM・${winTasks.length} 個 task・${people.size} 人參與${sp.start != null ? `・${U.range(sp.start, sp.end)}` : ""}・已完成 ${dc.done} / ${dc.total}</p></div></div>`
+      ? `<div class="proj-title"><div><h3>${L("全部專案", "All projects")}</h3><p class="muted">${L(
+          `${winProjects.length} 個 Project・${winPfams.length} 個 PFAM・${winTasks.length} 個 task・${people.size} 人參與${sp.start != null ? `・${U.range(sp.start, sp.end)}` : ""}・已完成 ${dc.done} / ${dc.total}`,
+          `${winProjects.length} Project · ${winPfams.length} PFAM · ${winTasks.length} task · ${people.size} people${sp.start != null ? ` · ${U.range(sp.start, sp.end)}` : ""} · Done ${dc.done} / ${dc.total}`
+        )}</p></div></div>`
       : `<div class="proj-title"><i class="dot big"></i><div><h3>${esc(proj.name)}</h3>
-          <p class="muted">${winPfams.length} 個 PFAM・${winTasks.length} 個 task・${people.size} 人參與・${sp.start != null ? U.range(sp.start, sp.end) : "期間內無 task"}・已完成 ${dc.done} / ${dc.total}${proj.notes ? `・${esc(proj.notes)}` : ""}</p></div></div>`;
+          <p class="muted">${L(
+            `${winPfams.length} 個 PFAM・${winTasks.length} 個 task・${people.size} 人參與・${sp.start != null ? U.range(sp.start, sp.end) : "期間內無 task"}・已完成 ${dc.done} / ${dc.total}`,
+            `${winPfams.length} PFAM · ${winTasks.length} task · ${people.size} people · ${sp.start != null ? U.range(sp.start, sp.end) : "no task in the period"} · Done ${dc.done} / ${dc.total}`
+          )}${proj.notes ? `・${esc(proj.notes)}` : ""}</p></div></div>`;
     el.innerHTML = `
       <header class="proj-h">${title}
         <div class="proj-actions">
-          ${!multi && proj.link ? `<a class="hbtn ext-link" href="${esc(proj.link)}" target="_blank" rel="noopener" title="${esc(proj.link)}">${esc(proj.linkName || `開啟 ${proj.name} 系統`)}<svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4v4M13 3 7.5 8.5M12 9.5V13H3V4h3.5"/></svg></a>` : ""}
-          ${multi ? "" : `<button class="btn edit-only" id="editProject" type="button">編輯 Project</button><button class="btn edit-only" id="addPfam" type="button">＋ PFAM</button>`}
+          ${!multi && proj.link ? `<a class="hbtn ext-link" href="${esc(proj.link)}" target="_blank" rel="noopener" title="${esc(proj.link)}">${esc(proj.linkName || L(`開啟 ${proj.name} 系統`, `Open ${proj.name} system`))}<svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4v4M13 3 7.5 8.5M12 9.5V13H3V4h3.5"/></svg></a>` : ""}
+          ${multi ? "" : `<button class="btn edit-only" id="editProject" type="button">${L("編輯 Project", "Edit Project")}</button><button class="btn edit-only" id="addPfam" type="button">＋ PFAM</button>`}
           <button class="btn primary edit-only" id="addTask" type="button">＋ task</button>
         </div>
       </header>
       <div class="toolbar">
-        <div class="seg" role="group" aria-label="期間">${PERIODS.map(([k, l]) => `<button type="button" data-period="${k}" class="${win.key === k ? "on" : ""}">${l}</button>`).join("")}</div>
-        <label class="field-inline">從 <input type="date" id="pFrom" value="${E.fromDay(win.from)}"></label>
-        <label class="field-inline">到 <input type="date" id="pTo" value="${E.fromDay(win.to)}"></label>
-        ${focusHere ? `<span class="focus-note">📍 定位：${esc(focus.name)}${win.extended ? "（已延伸期間以顯示此 task）" : ""}<button class="link" id="clearFocus" type="button">清除定位</button></span>` : ""}
-        <div class="seg" role="group" aria-label="檢視">${[["gantt", "甘特圖"], ["table", "表格"]].map(([k, l]) => `<button type="button" data-view="${k}" class="${view === k ? "on" : ""}">${l}</button>`).join("")}</div>
-        ${view === "gantt" ? `<div class="seg" role="group" aria-label="時間尺度">${[["day", "日"], ["week", "週"], ["month", "月"]].map(([k, l]) => `<button type="button" data-zoom="${k}" class="${ui.zoom === k ? "on" : ""}">${l}</button>`).join("")}</div>` : ""}
-        ${siteList.length + (noSite ? 1 : 0) > 1 || site ? `<label class="field-inline">廠區 <select id="fSite"><option value="">全部</option>${siteList.map((s) => `<option value="${esc(s)}"${s === site ? " selected" : ""}>${esc(s)}</option>`).join("")}${noSite ? `<option value="${NO_SITE}"${site === NO_SITE ? " selected" : ""}>未指定</option>` : ""}</select></label>` : ""}
-        <label class="field-inline">負責人 <select id="fEmp"><option value="">全部</option>${emps.map((e) => `<option value="${e.id}"${e.id === who ? " selected" : ""}>${esc(e.name)}</option>`).join("")}</select></label>
-        <label class="check small"><input type="checkbox" id="fOpen"${openOnly ? " checked" : ""}> 隱藏已完成</label>
+        <div class="seg" role="group" aria-label="${L("期間", "Period")}">${PERIODS.map(([k, l]) => `<button type="button" data-period="${k}" class="${win.key === k ? "on" : ""}">${l()}</button>`).join("")}</div>
+        <label class="field-inline">${L("從", "From")} <input type="date" id="pFrom" value="${E.fromDay(win.from)}"></label>
+        <label class="field-inline">${L("到", "To")} <input type="date" id="pTo" value="${E.fromDay(win.to)}"></label>
+        ${focusHere ? `<span class="focus-note">📍 ${L("定位：", "Focus: ")}${esc(focus.name)}${win.extended ? L("（已延伸期間以顯示此 task）", " (period extended to show this task)") : ""}<button class="link" id="clearFocus" type="button">${L("清除定位", "Clear focus")}</button></span>` : ""}
+        <div class="seg" role="group" aria-label="${L("檢視", "View")}">${[["gantt", L("甘特圖", "Gantt")], ["table", L("表格", "Table")]].map(([k, l]) => `<button type="button" data-view="${k}" class="${view === k ? "on" : ""}">${l}</button>`).join("")}</div>
+        ${view === "gantt" ? `<div class="seg" role="group" aria-label="${L("時間尺度", "Time scale")}">${[["day", L("日", "Day")], ["week", L("週", "Week")], ["month", L("月", "Month")]].map(([k, l]) => `<button type="button" data-zoom="${k}" class="${ui.zoom === k ? "on" : ""}">${l}</button>`).join("")}</div>` : ""}
+        ${siteList.length + (noSite ? 1 : 0) > 1 || site ? `<label class="field-inline">${L("廠區", "Site")} <select id="fSite"><option value="">${L("全部", "All")}</option>${siteList.map((s) => `<option value="${esc(s)}"${s === site ? " selected" : ""}>${esc(s)}</option>`).join("")}${noSite ? `<option value="${NO_SITE}"${site === NO_SITE ? " selected" : ""}>${L("未指定", "None")}</option>` : ""}</select></label>` : ""}
+        <label class="field-inline">${L("負責人", "Owner")} <select id="fEmp"><option value="">${L("全部", "All")}</option>${emps.map((e) => `<option value="${e.id}"${e.id === who ? " selected" : ""}>${esc(e.name)}</option>`).join("")}</select></label>
+        <label class="check small"><input type="checkbox" id="fOpen"${openOnly ? " checked" : ""}> ${L("隱藏已完成", "Hide done")}</label>
         <span class="grow"></span>
         ${view === "gantt" ? `<div class="hctl"><button class="hbtn pfl-toggle" id="pflToggle" type="button"></button><button class="hbtn" id="foldToggle" type="button"></button></div>` : ""}
       </div>
@@ -230,7 +242,7 @@
       $("#addPfam").onclick = () => Editors.pfam(null, { projectId: proj.id });
     }
     $("#addTask").onclick = () => {
-      if (!pfams.length) return proj ? Editors.pfam(null, { projectId: proj.id }) : App.toast("請先新增 PFAM", "error");
+      if (!pfams.length) return proj ? Editors.pfam(null, { projectId: proj.id }) : App.toast(L("請先新增 PFAM", "Add a PFAM first"), "error");
       const f = Store.pfam(ui.focusPfam);
       Editors.task(null, { pfamId: f && pfams.includes(f) ? f.id : pfams[0].id });
     };
@@ -240,7 +252,7 @@
       const a = $("#pFrom").value;
       const b = $("#pTo").value;
       if (!a || !b) return;
-      if (b < a) return App.toast("結束日不能早於開始日", "error");
+      if (b < a) return App.toast(L("結束日不能早於開始日", "The end date can't be before the start date"), "error");
       Store.setUi({ projPeriod: "custom", projFrom: a, projTo: b, focusTask: "" });
       App.render();
     };
@@ -255,7 +267,7 @@
     // One toggle: anything folded -> "全部展開"; everything open -> fold the PFAMs.
     if ($("#foldToggle")) {
       const anyFolded = (multi && projects.some((p) => fold.folded(p.id, "proj"))) || pfams.some((f) => fold.folded(f.id, "pfam"));
-      $("#foldToggle").innerHTML = anyFolded ? `${PfamBand.ICON.expand}<span>全部展開</span>` : `${PfamBand.ICON.collapse}<span>${multi ? "收合 PFAM" : "全部收合"}</span>`;
+      $("#foldToggle").innerHTML = anyFolded ? `${PfamBand.ICON.expand}<span>${L("全部展開", "Expand all")}</span>` : `${PfamBand.ICON.collapse}<span>${multi ? L("收合 PFAM", "Collapse PFAMs") : L("全部收合", "Collapse all")}</span>`;
       $("#foldToggle").onclick = () =>
         fold.set(anyFolded ? Object.fromEntries([...projects.map((p) => [p.id, false]), ...pfams.map((f) => [f.id, false])]) : Object.fromEntries(pfams.map((f) => [f.id, true])));
     }
@@ -264,7 +276,7 @@
     let pfl = null;
     if (view === "gantt") {
       // 全部專案: limit = headcount, plus each project's own 警戒上限; one project: its own 警戒上限 (set in 編輯 Project; none = no line)
-      const capOpts = multi ? { projCaps: true } : { cap: Number(proj.pfamCap) || 0, capLabel: `警戒 ${Number(proj.pfamCap) || 0} 個`, capNote: `未設定警戒上限${Store.editing ? "（編輯 Project 可設定）" : ""}` };
+      const capOpts = multi ? { projCaps: true } : { cap: Number(proj.pfamCap) || 0, capLabel: L(`警戒 ${Number(proj.pfamCap) || 0} 個`, `Alert ${Number(proj.pfamCap) || 0}`), capNote: L(`未設定警戒上限${Store.editing ? "（編輯 Project 可設定）" : ""}`, `No alert limit${Store.editing ? " (set in Edit Project)" : ""}`) };
       pfl = PfamBand.build(scopes.map((s) => s.proj), win.from, win.to, today, { pfamIds: site ? new Set(pfams.map((f) => f.id)) : null, ...capOpts });
       PfamBand.button($("#pflToggle"), pfl, pflOpen, () => {
         pflOpen = !pflOpen;
@@ -283,12 +295,12 @@
       });
     }
     if (!pfams.some((f) => !isOthers(f)) && site) {
-      $("#projView").innerHTML = `<p class="empty">沒有${site === NO_SITE ? "未指定廠區" : `廠區「${esc(site)}」`}的 PFAM。</p>`;
+      $("#projView").innerHTML = `<p class="empty">${L(`沒有${site === NO_SITE ? "未指定廠區" : `廠區「${esc(site)}」`}的 PFAM。`, `No PFAM ${site === NO_SITE ? "without a site" : `at site “${esc(site)}”`}.`)}</p>`;
       allocEl.hidden = true;
       return;
     }
     if (!pfams.length) {
-      $("#projView").innerHTML = `<p class="empty">${multi ? "還沒有 PFAM。" : `這個 Project 還沒有 PFAM。${Store.editing ? "按「＋ PFAM」新增。" : "切換編輯模式後即可新增。"}`}</p>`;
+      $("#projView").innerHTML = `<p class="empty">${multi ? L("還沒有 PFAM。", "No PFAMs yet.") : `${L("這個 Project 還沒有 PFAM。", "This Project has no PFAMs yet. ")}${Store.editing ? L("按「＋ PFAM」新增。", "Click “＋ PFAM” to add one.") : L("切換編輯模式後即可新增。", "Turn on Edit mode to add one.")}`}</p>`;
       allocEl.hidden = true;
       return;
     }
@@ -296,7 +308,7 @@
     // PFAMs without any task yet are always listed (so new ones show up and can get their first task).
     const emptyPfams = pfams.filter((f) => !Store.tasksOf(f.id).length).length;
     if (!tasksAll.some(keep) && !emptyPfams) {
-      $("#projView").innerHTML = `<p class="empty">這段期間（${U.range(win.from, win.to)}）沒有符合條件的 task。可以改選其他期間。</p>`;
+      $("#projView").innerHTML = `<p class="empty">${L(`這段期間（${U.range(win.from, win.to)}）沒有符合條件的 task。可以改選其他期間。`, `No matching task in this period (${U.range(win.from, win.to)}). Try another period.`)}</p>`;
       $("#projLegend").innerHTML = "";
       renderAllocation(allocEl, proj, scopes.map((s) => s.proj), { from: win.from, to: win.to, zoom: ui.zoom || "week" }, today, site ? new Set(pfams.map((f) => f.id)) : null);
       return;
@@ -308,9 +320,9 @@
     const phases = Store.data.settings.phases.filter((p) => tasksAll.some((t) => t.phase === p.key));
     $("#projLegend").innerHTML =
       view === "gantt"
-        ? `${multi ? `<span class="muted">Project 條＝專案色；task 條＝Phase 色</span>` : ""}<span class="lg"><i class="lg-summary"></i>PFAM 期間（收合時）</span>${phases.map((p) => `<span class="lg"><i style="background:${p.color}"></i>${esc(p.label)}</span>`).join("")}${
-            tasksAll.some((t) => !t.phase) ? `<span class="lg"><i style="background:var(--nophase)"></i>未指定 Phase</span>` : ""
-          }<span class="lg"><i class="lg-base"></i>基準</span><span class="lg"><i class="lg-done"></i>已完成</span><span class="lg"><i class="lg-late"></i>逾期</span>`
+        ? `${multi ? `<span class="muted">${L("Project 條＝專案色；task 條＝Phase 色", "Project bar = project color; task bar = Phase color")}</span>` : ""}<span class="lg"><i class="lg-summary"></i>${L("PFAM 期間（收合時）", "PFAM span (folded)")}</span>${phases.map((p) => `<span class="lg"><i style="background:${p.color}"></i>${esc(p.label)}</span>`).join("")}${
+            tasksAll.some((t) => !t.phase) ? `<span class="lg"><i style="background:var(--nophase)"></i>${L("未指定 Phase", "No Phase")}</span>` : ""
+          }<span class="lg"><i class="lg-base"></i>${L("基準", "Baseline")}</span><span class="lg"><i class="lg-done"></i>${L("已完成", "Done")}</span><span class="lg"><i class="lg-late"></i>${L("逾期", "Overdue")}</span>`
         : "";
 
     renderAllocation(allocEl, proj, scopes.map((s) => s.proj), range, today, site ? new Set(pfams.map((f) => f.id)) : null);
@@ -336,12 +348,12 @@
           id: "p:" + proj.id,
           kind: "proj",
           cls: folded ? "collapsed" : "",
-          label: `<button class="tw" type="button" aria-label="展開/收合" aria-expanded="${!folded}">${folded ? "▸" : "▾"}</button><i class="dot" style="--c:${proj.color}"></i><span class="g-name" title="點一下展開 / 收合">${esc(proj.name)}</span><a class="open-link" href="#/projects/${proj.id}" title="開啟這個專案">開啟 ›</a>`,
-          meta: `${pfams.length} PFAM・${ppl.size} 人${late ? `・<b class="late">${late} 逾期</b>` : ""}`,
+          label: `<button class="tw" type="button" aria-label="${L("展開/收合", "Expand/collapse")}" aria-expanded="${!folded}">${folded ? "▸" : "▾"}</button><i class="dot" style="--c:${proj.color}"></i><span class="g-name" title="${L("點一下展開 / 收合", "Click to expand / collapse")}">${esc(proj.name)}</span><a class="open-link" href="#/projects/${proj.id}" title="${L("開啟這個專案", "Open this project")}">${L("開啟 ›", "Open ›")}</a>`,
+          meta: L(`${pfams.length} PFAM・${ppl.size} 人${late ? `・<b class="late">${late} 逾期</b>` : ""}`, `${pfams.length} PFAM · ${ppl.size} ppl${late ? ` · <b class="late">${late} overdue</b>` : ""}`),
           // Span bars only when folded: open, the rows below already show the same span.
           bars: folded ? [{ id: "p:" + proj.id, start: s.start, end: s.end, color: proj.color, text: "" }] : [],
         });
-        tipFor.set("p:" + proj.id, `<b>${esc(proj.name)}</b><div>${U.range(s.start, s.end)}・${pfams.length} 個 PFAM・${pts.length} 個 task</div><div>已完成 ${M.doneCount(pts).done} / ${pts.length}</div>${ppl.size ? `<div class="muted">${names([...ppl])}</div>` : ""}`);
+        tipFor.set("p:" + proj.id, `<b>${esc(proj.name)}</b><div>${U.range(s.start, s.end)}${L(`・${pfams.length} 個 PFAM・${pts.length} 個 task`, ` · ${pfams.length} PFAM · ${pts.length} task(s)`)}</div><div>${L(`已完成 ${M.doneCount(pts).done} / ${pts.length}`, `Done ${M.doneCount(pts).done} / ${pts.length}`)}</div>${ppl.size ? `<div class="muted">${names([...ppl])}</div>` : ""}`);
         if (folded) continue;
       }
       for (const f of pfams) {
@@ -357,11 +369,11 @@
           kind: "group",
           rc: proj.color,
           cls: (isCol ? "collapsed" : "") + (ui.focusPfam === f.id ? " focus" : "") + (multi ? " nested" : ""),
-          label: `<button class="tw" type="button" aria-label="展開/收合" aria-expanded="${!isCol}">${isCol ? "▸" : "▾"}</button><span class="g-name" title="${esc(f.name)}（點一下展開 / 收合）">${esc(f.name)}</span>${Store.siteTag(f.site, siteColors)}<button class="mini edit-only" type="button" data-editpfam="${f.id}" title="編輯 PFAM">✎</button><button class="mini edit-only" type="button" data-addtask="${f.id}" title="在這個 PFAM 新增 task">＋</button>`,
-          meta: !ts.length ? `<span class="muted">尚無 task${Store.editing ? "，按 ＋ 新增" : ""}</span>` : `${ts.length} task${late ? `・<b class="late">${late} 逾期</b>` : ""}`,
+          label: `<button class="tw" type="button" aria-label="${L("展開/收合", "Expand/collapse")}" aria-expanded="${!isCol}">${isCol ? "▸" : "▾"}</button><span class="g-name" title="${esc(f.name)}${L("（點一下展開 / 收合）", " (click to expand / collapse)")}">${esc(f.name)}</span>${Store.siteTag(f.site, siteColors)}<button class="mini edit-only" type="button" data-editpfam="${f.id}" title="${L("編輯 PFAM", "Edit PFAM")}">✎</button><button class="mini edit-only" type="button" data-addtask="${f.id}" title="${L("在這個 PFAM 新增 task", "Add a task to this PFAM")}">＋</button>`,
+          meta: !ts.length ? `<span class="muted">${L(`尚無 task${Store.editing ? "，按 ＋ 新增" : ""}`, `No task yet${Store.editing ? ", click ＋ to add" : ""}`)}</span>` : `${ts.length} task${late ? L(`・<b class="late">${late} 逾期</b>`, ` · <b class="late">${late} overdue</b>`) : ""}`,
           bars: isCol ? [{ id: "f:" + f.id, start: s.start, end: s.end, color: "var(--summary)", text: "" }] : [],
         });
-        tipFor.set("f:" + f.id, `<b>${esc(f.name)}</b>${multi ? `<div class="muted">${esc(proj.name)}</div>` : ""}<div>${U.range(s.start, s.end)}・${ts.length} 個 task${late ? `・${late} 逾期` : ""}</div>${ppl.length ? `<div>${names(ppl)}</div>` : `<div class="muted">尚未指派</div>`}${f.notes ? `<div>${esc(f.notes)}</div>` : ""}`);
+        tipFor.set("f:" + f.id, `<b>${esc(f.name)}</b>${multi ? `<div class="muted">${esc(proj.name)}</div>` : ""}<div>${U.range(s.start, s.end)}${L(`・${ts.length} 個 task${late ? `・${late} 逾期` : ""}`, ` · ${ts.length} task(s)${late ? ` · ${late} overdue` : ""}`)}</div>${ppl.length ? `<div>${names(ppl)}</div>` : `<div class="muted">${L("尚未指派", "Not assigned yet")}</div>`}${f.notes ? `<div>${esc(f.notes)}</div>` : ""}`);
         if (isCol) continue;
         let sec = null;
         for (const t of vis) {
@@ -377,16 +389,16 @@
             rc: proj.color,
             cls: `st-${k}` + (ui.focusTask === t.id ? " focus" : "") + (multi ? " nested" : ""),
             label: `<span class="g-name" title="${esc(t.name)}">${esc(t.name)}</span>${delta(t)}`,
-            meta: t.assignees.length ? names(t.assignees) : `<span class="tag ghost">未指派</span>`,
+            meta: t.assignees.length ? names(t.assignees) : `<span class="tag ghost">${L("未指派", "Unassigned")}</span>`,
             bars: [{ id: "t:" + t.id, start: D(t.start), end: D(t.end), color: ph ? ph.color : "var(--nophase)", cls: `st-${k}`, text: "", base: t.baseStart ? { start: D(t.baseStart), end: D(t.baseEnd) } : null }],
           });
           tipFor.set(
             "t:" + t.id,
-            `<b>${esc(t.name)}</b>${statusPill(k)}${multi ? `<div class="muted">${esc(proj.name)} › ${esc(f.name)}</div>` : ""}<div>${U.fmt(t.start, "wd")} – ${U.fmt(t.end, "wd")}・${M.workdays(t.start, t.end, hol)} 個工作天</div>
-             ${t.baseStart ? `<div class="muted">基準 ${U.range(t.baseStart, t.baseEnd)} ${delta(t)}</div>` : ""}
-             <div>指派：${t.assignees.length ? names(t.assignees) : "未指派"}</div>
-             ${ph ? `<div class="muted">Phase：${esc(ph.label)}</div>` : ""}${t.lead ? `<div class="muted">LEAD：${esc(t.lead)}</div>` : ""}${t.notes ? `<div class="tt-note">${esc(t.notes)}</div>` : ""}
-             ${Store.editing ? `<div class="tt-hint">點一下編輯</div>` : ""}`
+            `<b>${esc(t.name)}</b>${statusPill(k)}${multi ? `<div class="muted">${esc(proj.name)} › ${esc(f.name)}</div>` : ""}<div>${U.fmt(t.start, "wd")} – ${U.fmt(t.end, "wd")}・${L(`${M.workdays(t.start, t.end, hol)} 個工作天`, `${M.workdays(t.start, t.end, hol)} workdays`)}</div>
+             ${t.baseStart ? `<div class="muted">${L("基準", "Baseline")} ${U.range(t.baseStart, t.baseEnd)} ${delta(t)}</div>` : ""}
+             <div>${L("指派：", "Assigned: ")}${t.assignees.length ? names(t.assignees) : L("未指派", "Unassigned")}</div>
+             ${ph ? `<div class="muted">Phase${L("：", ": ")}${esc(ph.label)}</div>` : ""}${t.lead ? `<div class="muted">LEAD${L("：", ": ")}${esc(t.lead)}</div>` : ""}${t.notes ? `<div class="tt-note">${esc(t.notes)}</div>` : ""}
+             ${Store.editing ? `<div class="tt-hint">${L("點一下編輯", "Click to edit")}</div>` : ""}`
           );
         }
       }
@@ -401,8 +413,8 @@
       today,
       scrollToDay: pin != null ? pin : win.focusDay,
       band,
-      marks: pin != null ? [{ day: pin, cls: "pin", title: "標記日" }] : [],
-      labelHead: `${multi ? "Project / PFAM / task" : "PFAM / task"}<span class="muted">指派</span>`,
+      marks: pin != null ? [{ day: pin, cls: "pin", title: L("標記日", "Marked day") }] : [],
+      labelHead: `${multi ? "Project / PFAM / task" : "PFAM / task"}<span class="muted">${L("指派", "Assigned")}</span>`,
       tip: (id) => tipFor.get(id),
       onBar: (id) => {
         if (id.startsWith("t:") && Store.editing) Editors.task(id.slice(2));
@@ -424,7 +436,7 @@
         if (rowId.startsWith("f:")) return fold.set({ [id]: !fold.folded(id, "pfam") });
         if (rowId.startsWith("t:")) {
           if (Store.editing) Editors.task(id);
-          else App.toast("切換到「編輯模式」才能修改");
+          else App.toast(L("切換到「編輯模式」才能修改", "Turn on Edit mode to make changes"));
         }
       },
     });
@@ -452,7 +464,7 @@
         const all = Store.tasksOf(f.id);
         const ts = all.filter(keep);
         if (!ts.length && all.length && !isOthers(f)) continue;
-        pr.push(`<tr class="grp"><th colspan="7">${esc(f.name)} ${Store.siteTag(f.site, siteColors)}<button class="mini edit-only" type="button" data-addtask="${f.id}">＋ task</button>${all.length ? "" : ` <span class="muted small">尚無 task</span>`}</th></tr>`);
+        pr.push(`<tr class="grp"><th colspan="7">${esc(f.name)} ${Store.siteTag(f.site, siteColors)}<button class="mini edit-only" type="button" data-addtask="${f.id}">＋ task</button>${all.length ? "" : ` <span class="muted small">${L("尚無 task", "No task yet")}</span>`}</th></tr>`);
         for (const t of ts) {
           const k = M.status(t, today);
           const ph = Store.phase(t.phase);
@@ -460,14 +472,14 @@
             <td>${esc(t.name)}${t.section ? `<small class="muted"> · ${esc(t.section)}</small>` : ""}</td>
             <td>${ph ? `<span class="phase" style="--c:${ph.color}">${esc(ph.label)}</span>` : ""}</td>
             <td class="num">${U.fmt(t.start, "yy")}</td><td class="num">${U.fmt(t.end, "yy")} ${delta(t)}</td>
-            <td>${t.assignees.length ? names(t.assignees) : `<span class="tag ghost">未指派</span>`}</td>
+            <td>${t.assignees.length ? names(t.assignees) : `<span class="tag ghost">${L("未指派", "Unassigned")}</span>`}</td>
             <td>${statusPill(k)}</td><td class="muted small">${esc(t.lead || "")}</td></tr>`);
         }
       }
       if (multi && pr.length) rows.push(`<tr class="proj-grp"><th colspan="7" style="--c:${proj.color}"><i class="dot"></i>${esc(proj.name)}</th></tr>`);
       rows.push(...pr);
     }
-    el.innerHTML = `<div class="table-wrap"><table class="grid-table"><thead><tr><th>Task</th><th>Phase</th><th>開始</th><th>結束</th><th>指派</th><th>狀態</th><th>LEAD</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="7" class="empty">沒有符合條件的 task</td></tr>`}</tbody></table></div>`;
+    el.innerHTML = `<div class="table-wrap"><table class="grid-table"><thead><tr><th>Task</th><th>Phase</th><th>${L("開始", "Start")}</th><th>${L("結束", "End")}</th><th>${L("指派", "Assigned")}</th><th>${L("狀態", "Status")}</th><th>LEAD</th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="7" class="empty">${L("沒有符合條件的 task", "No matching task")}</td></tr>`}</tbody></table></div>`;
     el.onclick = (ev) => {
       const add = ev.target.closest("[data-addtask]");
       if (add) return Editors.task(null, { pfamId: add.dataset.addtask });
@@ -487,9 +499,9 @@
     const r = range || Charts.rangeFor(projects.map((p) => M.span(Store.tasksOfProject(p.id))), today, zoom);
     el.hidden = false;
     el.innerHTML = `
-      <header class="card-h"><h3>人力分配</h3>
-        <span class="muted">${multi ? "所有專案的 task 依人排列・顏色 = 專案・紅色底線 = 超出部門人力的日子" : "參與這個專案的人・顏色 = Phase"}${range ? "・與上方甘特圖同一時間軸" : ""}</span>
-        <a class="hbtn ghost" href="#/load">完整人力資源${PfamBand.ICON.arrow}</a></header>
+      <header class="card-h"><h3>${L("人力分配", "Assignments")}</h3>
+        <span class="muted">${multi ? L("所有專案的 task 依人排列・顏色 = 專案・紅色底線 = 超出部門人力的日子", "All projects' tasks by person · color = project · red underline = days over department headcount") : L("參與這個專案的人・顏色 = Phase", "People on this project · color = Phase")}${range ? L("・與上方甘特圖同一時間軸", " · same time axis as the Gantt above") : ""}</span>
+        <a class="hbtn ghost" href="#/load">${L("完整人力資源", "Full Workload")}${PfamBand.ICON.arrow}</a></header>
       <div id="allocPeople"></div>
       ${multi ? `<div class="legend">${projects.map((p) => `<span class="lg"><i style="background:${p.color}"></i>${esc(p.name)}</span>`).join("")}</div>` : ""}`;
 

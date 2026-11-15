@@ -57,141 +57,158 @@
     const isWeekend = (iso) => E.weekday(E.toDay(iso)) % 6 === 0;
     const holOnWeekdays = hols.filter((h) => !isWeekend(h.date)).length;
     root.innerHTML = `
-      <div class="page-head"><h2>設定</h2>${Store.editing ? "" : `<span class="muted">切換「編輯模式」後才能修改設定與匯入資料</span>`}</div>
+      <div class="page-head"><h2>${L("設定", "Settings")}</h2>${Store.editing ? "" : `<span class="muted">${L("切換「編輯模式」後才能修改設定與匯入資料", "Switch on Edit mode to change settings or import data")}</span>`}</div>
       <div class="set-grid">
-        <section class="card"><header class="card-h"><h3>一般</h3></header>
+        <section class="card"><header class="card-h"><h3>${L("一般", "General")}</h3></header>
           <div class="form-grid">
-            <div class="field wide"><label for="sTitle">Dashboard 標題</label><input id="sTitle" value="${esc(s.title)}"${lock}></div>
-            <div class="field wide"><label>人力資源標紅規則</label>
-              <label class="check"><input type="radio" name="sAlert" value="full"${s.alertMode !== "pct" ? " checked" : ""}${lock}> 沒有人空著：忙碌人數 + 未指派 PFAM ≥ 在職人數</label>
-              <label class="check"><input type="radio" name="sAlert" value="pct"${s.alertMode === "pct" ? " checked" : ""}${lock}> 忙碌人數 ≥ 在職人數的 <input id="sPct" type="number" min="1" max="100" value="${s.alertPct}" class="w-num"${lock}> %</label>
+            <div class="field wide"><label for="sTitle">${L("Dashboard 標題", "Dashboard title")}</label><input id="sTitle" value="${esc(s.title)}"${lock}></div>
+            <div class="field wide"><label>${L("人力資源標紅規則", "Workload alert rule")}</label>
+              <label class="check"><input type="radio" name="sAlert" value="full"${s.alertMode !== "pct" ? " checked" : ""}${lock}> ${L("沒有人空著：忙碌人數 + 未指派 PFAM ≥ 在職人數", "Nobody free: busy people + unassigned PFAMs ≥ active people")}</label>
+              <label class="check"><input type="radio" name="sAlert" value="pct"${s.alertMode === "pct" ? " checked" : ""}${lock}> ${L("忙碌人數 ≥ 在職人數的", "Busy people ≥")} <input id="sPct" type="number" min="1" max="100" value="${s.alertPct}" class="w-num"${lock}> ${L("%", "% of active people")}</label>
             </div>
-            <div class="field wide"><label for="sRoles">Gen12 Excel 匯入預設勾選的 LEAD 角色</label><input id="sRoles" value="${esc(s.gen12Roles || "STE, TE")}"${lock}><small class="muted">以逗號分隔；LEAD 欄含其中任一角色的 task 會預先勾選，匯入時仍可逐項調整</small></div>
-            <div class="field wide"><label for="sNotCounted">不計入人力的人員</label><input id="sNotCounted" value="${esc(s.notCounted || "")}" placeholder="例如 Dixon"${lock}><small class="muted">以逗號分隔的姓名（如主管）；不算進忙碌 / 在職人數、人力熱度與 PFAM 負載的人力上限，仍可被指派 task</small></div>
-            <div class="field wide"><label for="sSites">廠區 / 出差地點清單</label><input id="sSites" value="${esc(s.sites.join(", "))}"${lock}><small class="muted">PFAM 廠區與出差地點的下拉建議；順序也決定出差地點的顏色</small></div>
+            <div class="field wide"><label for="sRoles">${L("Gen12 Excel 匯入預設勾選的 LEAD 角色", "LEAD roles ticked by default on Gen12 Excel import")}</label><input id="sRoles" value="${esc(s.gen12Roles || "STE, TE")}"${lock}><small class="muted">${L("以逗號分隔；LEAD 欄含其中任一角色的 task 會預先勾選，匯入時仍可逐項調整", "Comma-separated; tasks whose LEAD has any of these roles are pre-ticked, and you can still change each one when importing")}</small></div>
+            <div class="field wide"><label for="sNotCounted">${L("不計入人力的人員", "Not counted as workforce")}</label><input id="sNotCounted" value="${esc(s.notCounted || "")}" placeholder="${L("例如 Dixon", "e.g. Dixon")}"${lock}><small class="muted">${L("以逗號分隔的姓名（如主管）；不算進忙碌 / 在職人數、人力熱度與 PFAM 負載的人力上限，仍可被指派 task", "Comma-separated names (e.g. managers); left out of busy / active counts, the workload heatmap and the PFAM load capacity, but can still be assigned tasks")}</small></div>
+            <div class="field wide"><label for="sSites">${L("廠區 / 出差地點清單", "Sites / trip locations")}</label><input id="sSites" value="${esc(s.sites.join(", "))}"${lock}><small class="muted">${L("PFAM 廠區與出差地點的下拉建議；順序也決定出差地點的顏色", "Suggestions for PFAM site and trip location; the order also sets the trip location colors")}</small></div>
           </div>
-          <div class="row-end"><button class="btn primary edit-only" id="saveGeneral" type="button">儲存</button></div>
+          <div class="row-end"><button class="btn primary edit-only" id="saveGeneral" type="button">${L("儲存", "Save")}</button></div>
         </section>
 
-        <section class="card"><header class="card-h"><h3>Phase 清單</h3><span class="muted">task 的分類與甘特圖顏色（同 MONICA）</span></header>
-          <table class="grid-table phases"><thead><tr><th>顏色</th><th>名稱 / 代碼</th><th class="num">task</th><th class="edit-only">合併到</th><th></th></tr></thead><tbody>
+        <section class="card"><header class="card-h"><h3>${L("Phase 清單", "Phases")}</h3><span class="muted">${L("task 的分類與甘特圖顏色（同 MONICA）", "Task categories and Gantt colors (as in MONICA)")}</span></header>
+          <table class="grid-table phases"><thead><tr><th>${L("顏色", "Color")}</th><th>${L("名稱 / 代碼", "Name / code")}</th><th class="num">task</th><th class="edit-only">${L("合併到", "Merge into")}</th><th></th></tr></thead><tbody>
           ${s.phases
             .map((p, i) => {
               const n = d.tasks.filter((t) => t.phase === p.key).length;
-              return `<tr data-i="${i}"><td><input type="color" value="${esc(p.color)}" data-f="color"${lock}></td><td><input value="${esc(p.label)}" data-f="label"${lock}><small class="ph-key muted" title="${(p.aliases || []).length ? "也接受舊代碼：" + esc(p.aliases.join(", ")) : ""}">${esc(p.key)}${(p.aliases || []).length ? `・＋${p.aliases.length} 個舊代碼` : ""}</small></td><td class="num">${n}</td>
+              return `<tr data-i="${i}"><td><input type="color" value="${esc(p.color)}" data-f="color"${lock}></td><td><input value="${esc(p.label)}" data-f="label"${lock}><small class="ph-key muted" title="${(p.aliases || []).length ? L("也接受舊代碼：", "Also accepts old codes: ") + esc(p.aliases.join(", ")) : ""}">${esc(p.key)}${(p.aliases || []).length ? L(`・＋${p.aliases.length} 個舊代碼`, ` · +${p.aliases.length} old code(s)`) : ""}</small></td><td class="num">${n}</td>
                 <td class="edit-only"><select data-merge="${i}"><option value="">—</option>${s.phases.filter((x) => x.key !== p.key).map((x) => `<option value="${esc(x.key)}">${esc(x.label)}</option>`).join("")}</select></td>
-                <td><button class="mini edit-only" type="button" data-del="${i}" title="刪除">✕</button></td></tr>`;
+                <td><button class="mini edit-only" type="button" data-del="${i}" title="${L("刪除", "Delete")}">✕</button></td></tr>`;
             })
             .join("")}
           </tbody></table>
-          <div class="row-end"><input id="newPhase" placeholder="新 Phase 名稱" class="edit-only"><button class="btn edit-only" id="addPhase" type="button">＋ 新增</button><button class="btn primary edit-only" id="savePhases" type="button">儲存</button></div>
+          <div class="row-end"><input id="newPhase" placeholder="${L("新 Phase 名稱", "New Phase name")}" class="edit-only"><button class="btn edit-only" id="addPhase" type="button">${L("＋ 新增", "+ Add")}</button><button class="btn primary edit-only" id="savePhases" type="button">${L("儲存", "Save")}</button></div>
         </section>
 
-        <section class="card" id="set-hol"><header class="card-h"><h3>假日</h3><div class="seg year" role="group" aria-label="年度"><button type="button" id="hPrev" aria-label="前一年">‹</button><b>${holYear} 年</b><button type="button" id="hNext" aria-label="下一年">›</button></div></header>
-          <p class="muted small">週末以外的放假日（國定假日、公司休假）。假日不算工作日：忙碌人數、人力熱度、PFAM 負載與「n 個工作天」都會扣掉，甘特圖以灰底標示。</p>
-          <table class="grid-table hols"><thead><tr><th>日期</th><th>名稱</th><th></th></tr></thead><tbody>
+        <section class="card" id="set-hol"><header class="card-h"><h3>${L("假日", "Holidays")}</h3><div class="seg year" role="group" aria-label="${L("年度", "Year")}"><button type="button" id="hPrev" aria-label="${L("前一年", "Previous year")}">‹</button><b>${L(`${holYear} 年`, `${holYear}`)}</b><button type="button" id="hNext" aria-label="${L("下一年", "Next year")}">›</button></div></header>
+          <p class="muted small">${L("週末以外的放假日（國定假日、公司休假）。假日不算工作日：忙碌人數、人力熱度、PFAM 負載與「n 個工作天」都會扣掉，甘特圖以灰底標示。", "Days off besides weekends (public holidays, company days off). Holidays are not workdays: busy counts, the workload heatmap, PFAM load and “n workdays” leave them out, and the Gantt shades them gray.")}</p>
+          <table class="grid-table hols"><thead><tr><th>${L("日期", "Date")}</th><th>${L("名稱", "Name")}</th><th></th></tr></thead><tbody>
           ${hols.length ? hols
-            .map((h) => `<tr class="${isWeekend(h.date) ? "muted" : ""}"><td>${U.fmt(h.date, "full")}</td><td>${esc(h.name)}${isWeekend(h.date) ? ` <small class="muted">（週末，不影響計算）</small>` : ""}</td><td class="num"><button class="mini edit-only" type="button" data-delhol="${h.date}" title="刪除">✕</button></td></tr>`)
-            .join("") : `<tr><td colspan="3" class="empty">${holYear} 年還沒有設定假日</td></tr>`}
+            .map((h) => `<tr class="${isWeekend(h.date) ? "muted" : ""}"><td>${U.fmt(h.date, "full")}</td><td>${esc(h.name)}${isWeekend(h.date) ? ` <small class="muted">${L("（週末，不影響計算）", "(weekend, no effect)")}</small>` : ""}</td><td class="num"><button class="mini edit-only" type="button" data-delhol="${h.date}" title="${L("刪除", "Delete")}">✕</button></td></tr>`)
+            .join("") : `<tr><td colspan="3" class="empty">${L(`${holYear} 年還沒有設定假日`, `No holidays set for ${holYear} yet`)}</td></tr>`}
           </tbody></table>
-          ${hols.length ? `<div class="row-end hol-sum"><span class="muted small">${holYear} 年共 ${hols.length} 天，其中 ${holOnWeekdays} 天在週一～五</span><button class="btn edit-only" id="hClear" type="button">清除 ${holYear} 年</button></div>` : ""}
+          ${hols.length ? `<div class="row-end hol-sum"><span class="muted small">${L(`${holYear} 年共 ${hols.length} 天，其中 ${holOnWeekdays} 天在週一～五`, `${holYear}: ${hols.length} day(s), ${holOnWeekdays} on Mon–Fri`)}</span><button class="btn edit-only" id="hClear" type="button">${L(`清除 ${holYear} 年`, `Clear ${holYear}`)}</button></div>` : ""}
           <div class="hol-add edit-only">
-            <input type="date" id="hDate" aria-label="日期"><input id="hName" placeholder="名稱，例如 國慶日" aria-label="名稱"><button class="btn" id="hAdd" type="button">＋ 新增</button>
+            <input type="date" id="hDate" aria-label="${L("日期", "Date")}"><input id="hName" placeholder="${L("名稱，例如 國慶日", "Name, e.g. National Day")}" aria-label="${L("名稱", "Name")}"><button class="btn" id="hAdd" type="button">${L("＋ 新增", "+ Add")}</button>
           </div>
-          <details class="hol-bulk edit-only"><summary>批次貼上…</summary>
-            <textarea id="hBulk" rows="6" placeholder="一行一筆，日期在前或在後都可以&#10;2026-10-10 國慶日&#10;2026/2/14~2/22 春節&#10;10/10 國慶日（沒寫年份 = ${holYear} 年）"></textarea>
-            <p class="muted small">用 ~ 表示連續假期（期間內的週末會略過，最長 ${HOL_MAX_RANGE} 天）；已存在的日期會更新名稱。</p>
-            <div class="row-end"><button class="btn primary" id="hBulkAdd" type="button">加入</button></div>
+          <details class="hol-bulk edit-only"><summary>${L("批次貼上…", "Paste many…")}</summary>
+            <textarea id="hBulk" rows="6" placeholder="${L(`一行一筆，日期在前或在後都可以&#10;2026-10-10 國慶日&#10;2026/2/14~2/22 春節&#10;10/10 國慶日（沒寫年份 = ${holYear} 年）`, `One per line, date before or after the name&#10;2026-10-10 National Day&#10;2026/2/14~2/22 Lunar New Year&#10;10/10 National Day (no year = ${holYear})`)}"></textarea>
+            <p class="muted small">${L(`用 ~ 表示連續假期（期間內的週末會略過，最長 ${HOL_MAX_RANGE} 天）；已存在的日期會更新名稱。`, `Use ~ for a range (weekends inside it are skipped, ${HOL_MAX_RANGE} days max); dates already listed get the new name.`)}</p>
+            <div class="row-end"><button class="btn primary" id="hBulkAdd" type="button">${L("加入", "Add")}</button></div>
           </details>
         </section>
 
-        <section class="card" id="set-pw"><header class="card-h"><h3>編輯密碼</h3></header>
+        <section class="card" id="set-pw"><header class="card-h"><h3>${L("編輯密碼", "Edit password")}</h3></header>
           ${Remote.active
-            ? `<p class="muted small">雲端資料所有人都能看，但只有知道編輯密碼的人能修改：切換「編輯模式」時要輸入，由 Google Apps Script 伺服器檢查，沒有密碼的人送出的修改一律被拒絕。</p>
-              <p class="muted small">密碼設在 Apps Script 的<b>指令碼屬性 <code>EDIT_KEY</code></b>，只有試算表擁有者能變更（步驟見 README）。變更後，各電腦記住的舊密碼會在下次編輯時要求重新輸入。</p>
-              <p>這台電腦：<b>${Remote.hasKey ? "已記住編輯密碼" : "未輸入（只能觀看）"}</b></p>
-              ${Remote.hasKey ? `<div class="row-end"><button class="btn" id="forgetPw" type="button">忘記這台電腦的密碼</button></div>` : ""}`
-            : `<p class="muted small">本機模式的資料只存在這個瀏覽器，不需要密碼。啟用雲端同步後，只有知道編輯密碼（Apps Script 的 <code>EDIT_KEY</code>）的人能修改共用資料。</p>`}
+            ? `<p class="muted small">${L("雲端資料所有人都能看，但只有知道編輯密碼的人能修改：切換「編輯模式」時要輸入，由 Google Apps Script 伺服器檢查，沒有密碼的人送出的修改一律被拒絕。", "Everyone can view the cloud data, but only people with the edit password can change it: it is asked for when you switch on Edit mode and checked by the Google Apps Script server, which rejects any change sent without it.")}</p>
+              <p class="muted small">${L("密碼設在 Apps Script 的<b>指令碼屬性 <code>EDIT_KEY</code></b>，只有試算表擁有者能變更（步驟見 README）。變更後，各電腦記住的舊密碼會在下次編輯時要求重新輸入。", "The password is the Apps Script <b>script property <code>EDIT_KEY</code></b>; only the sheet owner can change it (steps in the README). After a change, every computer that saved the old password asks for it again on the next edit.")}</p>
+              <p>${L("這台電腦：", "This computer: ")}<b>${Remote.hasKey ? L("已記住編輯密碼", "Edit password saved") : L("未輸入（只能觀看）", "Not entered (view only)")}</b></p>
+              ${Remote.hasKey ? `<div class="row-end"><button class="btn" id="forgetPw" type="button">${L("忘記這台電腦的密碼", "Forget the password on this computer")}</button></div>` : ""}`
+            : `<p class="muted small">${L("本機模式的資料只存在這個瀏覽器，不需要密碼。啟用雲端同步後，只有知道編輯密碼（Apps Script 的 <code>EDIT_KEY</code>）的人能修改共用資料。", "In local mode the data lives only in this browser, so no password is needed. With Cloud sync on, only people with the edit password (Apps Script <code>EDIT_KEY</code>) can change the shared data.")}</p>`}
         </section>
 
-        <section class="card" id="set-ado"><header class="card-h"><h3>ADO Task</h3><span class="muted">選用</span></header>
+        <section class="card" id="set-ado"><header class="card-h"><h3>ADO Task</h3><span class="muted">${L("選用", "Optional")}</span></header>
           ${(() => {
             const a = AdoView.status();
-            const pat = { file: `來自 <code>${esc(a.patFile)}</code>（開 ADO Task 時自動擷取）`, remembered: "已存在這台電腦", session: "只記在這個分頁", none: "尚未輸入" }[a.pat];
-            return `<p class="muted small">「<a href="#/ado">ADO Task</a>」的連線設定、PAT 與擷取回來的項目都只存在這台電腦的瀏覽器，<b>不會</b>同步到雲端，也不會寫進部門資料。</p>
-              <p class="small">組織 / 專案：<b>${esc(a.cfg.org)} / ${esc(a.cfg.project)}</b>${a.cfg.queryId ? `・已存查詢 <code>${esc(a.cfg.queryId)}</code>` : a.cfg.where ? `・額外條件 <code>${esc(a.cfg.where)}</code>` : ""}<br>
-              本機快照：<b>${a.count ? `${a.count} 筆` : "尚未擷取"}</b>${a.at ? `（擷取於 ${esc(new Date(a.at).toLocaleString("zh-TW", { hour12: false }))}）` : ""}・PAT：<b>${pat}</b>${a.pat === "none" ? `<br>要免手動輸入：把 PAT 存成單獨一行放進 <code>${esc(a.patFile)}</code>，再跑 <code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code>。` : ""}</p>`;
+            const pat = {
+              file: L(`來自 <code>${esc(a.patFile)}</code>（開 ADO Task 時自動擷取）`, `From <code>${esc(a.patFile)}</code> (read when ADO Task opens)`),
+              remembered: L("已存在這台電腦", "Saved on this computer"),
+              session: L("只記在這個分頁", "This tab only"),
+              none: L("尚未輸入", "Not entered"),
+            }[a.pat];
+            return `<p class="muted small">${L("「<a href=\"#/ado\">ADO Task</a>」的連線設定、PAT 與擷取回來的項目都只存在這台電腦的瀏覽器，<b>不會</b>同步到雲端，也不會寫進部門資料。", "The <a href=\"#/ado\">ADO Task</a> connection settings, PAT and fetched items are stored only in this computer's browser: they are <b>not</b> synced to the cloud or written into the team data.")}</p>
+              <p class="small">${L("組織 / 專案：", "Organization / project: ")}<b>${esc(a.cfg.org)} / ${esc(a.cfg.project)}</b>${a.cfg.queryId ? `${L("・已存查詢", " · saved query")} <code>${esc(a.cfg.queryId)}</code>` : a.cfg.where ? `${L("・額外條件", " · extra filter")} <code>${esc(a.cfg.where)}</code>` : ""}<br>
+              ${L("本機快照：", "Local snapshot: ")}<b>${a.count ? L(`${a.count} 筆`, `${a.count} item(s)`) : L("尚未擷取", "Not fetched yet")}</b>${a.at ? L(`（擷取於 ${esc(new Date(a.at).toLocaleString(I18N.locale(), { hour12: false }))}）`, ` (fetched ${esc(new Date(a.at).toLocaleString(I18N.locale(), { hour12: false }))})`) : ""}${L("・PAT：", " · PAT: ")}<b>${pat}</b>${a.pat === "none" ? `<br>${L(`要免手動輸入：把 PAT 存成單獨一行放進 <code>${esc(a.patFile)}</code>，再跑 <code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code>。`, `To skip typing it: save the PAT as a single line in <code>${esc(a.patFile)}</code>, then run <code>powershell -ExecutionPolicy Bypass -File tools\\ado_pat.ps1</code>.`)}` : ""}</p>`;
           })()}
           <div class="btn-list">
-            <button class="btn" id="adoSet" type="button">ADO 連線設定…</button>
-            <button class="btn" id="adoGo" type="button">前往 ADO Task</button>
+            <button class="btn" id="adoSet" type="button">${L("ADO 連線設定…", "ADO connection…")}</button>
+            <button class="btn" id="adoGo" type="button">${L("前往 ADO Task", "Go to ADO Task")}</button>
           </div>
           <div class="btn-list danger-zone">
-            <button class="btn danger" id="adoWipe" type="button">清除這台電腦的 ADO 快照與 PAT</button>
+            <button class="btn danger" id="adoWipe" type="button">${L("清除這台電腦的 ADO 快照與 PAT", "Clear the ADO snapshot and PAT on this computer")}</button>
           </div>
         </section>
 
-        <section class="card" id="set-data"><header class="card-h"><h3>資料</h3></header>
-          <p class="muted small">目前：${d.projects.length} 個 Project、${d.pfams.length} 個 PFAM、${d.tasks.length} 個 task、${d.employees.length} 位員工、${d.trips.length} 筆出差${d.source && d.source.demo ? "（示範資料）" : ""}</p>
+        <section class="card" id="set-data"><header class="card-h"><h3>${L("資料", "Data")}</h3></header>
+          <p class="muted small">${L(
+            `目前：${d.projects.length} 個 Project、${d.pfams.length} 個 PFAM、${d.tasks.length} 個 task、${d.employees.length} 位員工、${d.trips.length} 筆出差${d.source && d.source.demo ? "（示範資料）" : ""}`,
+            `Now: ${d.projects.length} Project(s), ${d.pfams.length} PFAM(s), ${d.tasks.length} task(s), ${d.employees.length} employee(s), ${d.trips.length} trip(s)${d.source && d.source.demo ? " (demo data)" : ""}`
+          )}</p>
           <div class="btn-list">
-            <button class="btn edit-only" id="impMonica" type="button">⤓ 匯入 MONICA JSON…</button>
-            <button class="btn edit-only" id="impGen12" type="button">⤓ 匯入 Gen12 PFAM Excel…</button>
-            <button class="btn" id="expJson" type="button">⤒ 匯出 JSON 備份</button>
-            <button class="btn edit-only" id="impJson" type="button">還原 JSON 備份…</button>
+            <button class="btn edit-only" id="impMonica" type="button">${L("⤓ 匯入 MONICA JSON…", "⤓ Import MONICA JSON…")}</button>
+            <button class="btn edit-only" id="impGen12" type="button">${L("⤓ 匯入 Gen12 PFAM Excel…", "⤓ Import Gen12 PFAM Excel…")}</button>
+            <button class="btn" id="expJson" type="button">${L("⤒ 匯出 JSON 備份", "⤒ Export JSON backup")}</button>
+            <button class="btn edit-only" id="impJson" type="button">${L("還原 JSON 備份…", "Restore JSON backup…")}</button>
           </div>
-          <p class="muted small">MONICA：Series → Project、project → PFAM、Phase 帶入 task；同一份資料再匯入會更新日期並保留網頁上的指派。<br>Gen12 Excel：匯入到「Gen12 AMD」，1st + 2nd build 合併為一個 PFAM，預設勾選 LEAD 含「${esc(s.gen12Roles || "STE, TE")}」的 task，其餘可自行勾選。</p>
+          <p class="muted small">${L("MONICA：Series → Project、project → PFAM、Phase 帶入 task；同一份資料再匯入會更新日期並保留網頁上的指派。", "MONICA: Series → Project, project → PFAM, Phase carried into tasks; importing the same data again updates the dates and keeps the assignments made here.")}<br>${L(
+            `Gen12 Excel：匯入到「Gen12 AMD」，1st + 2nd build 合併為一個 PFAM，預設勾選 LEAD 含「${esc(s.gen12Roles || "STE, TE")}」的 task，其餘可自行勾選。`,
+            `Gen12 Excel: imported into “Gen12 AMD”; 1st + 2nd build become one PFAM; tasks whose LEAD has “${esc(s.gen12Roles || "STE, TE")}” are ticked by default, tick the rest yourself.`
+          )}</p>
           <div class="batch-done edit-only">
-            <b>批次標記完成</b>
-            <span>結束日早於 <input type="date" id="bdDate" value="${firstOfLastMonth()}"> 的未完成 task，全部設為已完成</span>
+            <b>${L("批次標記完成", "Mark done in bulk")}</b>
+            <span>${L("結束日早於", "Set all unfinished tasks ending before")} <input type="date" id="bdDate" value="${firstOfLastMonth()}"> ${L("的未完成 task，全部設為已完成", "to done")}</span>
             <span class="muted small" id="bdCount"></span>
-            <button class="btn" id="bdApply" type="button">套用</button>
+            <button class="btn" id="bdApply" type="button">${L("套用", "Apply")}</button>
           </div>
           <div class="btn-list danger-zone">
-            <button class="btn edit-only" id="loadDemo" type="button">載入示範資料</button>
-            <button class="btn danger edit-only" id="clearDemo" type="button">清空專案與員工資料</button>
+            <button class="btn edit-only" id="loadDemo" type="button">${L("載入示範資料", "Load demo data")}</button>
+            <button class="btn danger edit-only" id="clearDemo" type="button">${L("清空專案與員工資料", "Clear projects and people")}</button>
           </div>
         </section>
 
-        <section class="card" id="set-cloud"><header class="card-h"><h3>Google Sheet 雲端同步</h3><span class="muted">選用</span></header>
-          <p class="muted small">把 <code>apps-script/Code.gs</code> 部署成 Web App 後貼上網址（結尾 /exec），全部門共用同一份資料。步驟見 README。這個設定只存在這台電腦的瀏覽器。</p>
+        <section class="card" id="set-cloud"><header class="card-h"><h3>${L("Google Sheet 雲端同步", "Google Sheet cloud sync")}</h3><span class="muted">${L("選用", "Optional")}</span></header>
+          <p class="muted small">${L("把 <code>apps-script/Code.gs</code> 部署成 Web App 後貼上網址（結尾 /exec），全部門共用同一份資料。步驟見 README。這個設定只存在這台電腦的瀏覽器。", "Deploy <code>apps-script/Code.gs</code> as a Web App and paste its URL (ending in /exec) so the whole team shares one set of data. Steps in the README. This setting is stored only in this computer's browser.")}</p>
           <div class="form-grid">
-            <div class="field wide"><label for="cUrl">Apps Script 網址</label><input id="cUrl" type="url" value="${esc(Remote.config.url)}" placeholder="https://script.google.com/macros/s/…/exec"></div>
-            <div class="field"><label>&nbsp;</label><label class="check"><input type="checkbox" id="cOn"${Remote.config.enabled ? " checked" : ""}> 啟用雲端模式</label></div>
+            <div class="field wide"><label for="cUrl">${L("Apps Script 網址", "Apps Script URL")}</label><input id="cUrl" type="url" value="${esc(Remote.config.url)}" placeholder="https://script.google.com/macros/s/…/exec"></div>
+            <div class="field"><label>&nbsp;</label><label class="check"><input type="checkbox" id="cOn"${Remote.config.enabled ? " checked" : ""}> ${L("啟用雲端模式", "Use cloud mode")}</label></div>
           </div>
-          <p class="small">${Remote.active ? `雲端版本 ${Store.meta.cloudVersion || "—"}${Store.meta.cloudAt ? `・最後同步 ${esc(Store.meta.cloudAt.slice(0, 16).replace("T", " "))}` : ""}${Store.meta.dirty ? "・<b>有未同步修改</b>" : ""}` : "目前是本機模式：資料只存在這個瀏覽器。"}</p>
+          <p class="small">${Remote.active ? `${L("雲端版本", "Cloud version")} ${Store.meta.cloudVersion || "—"}${Store.meta.cloudAt ? `${L("・最後同步", " · last sync")} ${esc(Store.meta.cloudAt.slice(0, 16).replace("T", " "))}` : ""}${Store.meta.dirty ? L("・<b>有未同步修改</b>", " · <b>unsynced edits</b>") : ""}` : L("目前是本機模式：資料只存在這個瀏覽器。", "Local mode: the data lives only in this browser.")}</p>
           <div class="btn-list">
-            <button class="btn" id="cTest" type="button">測試連線</button>
-            <button class="btn primary" id="cSave" type="button">儲存設定</button>
-            <button class="btn" id="cPull" type="button"${Remote.active ? "" : " disabled"}>從雲端重新載入</button>
-            <button class="btn edit-only" id="cPush" type="button"${Remote.active ? "" : " disabled"}>上傳本機資料到雲端</button>
+            <button class="btn" id="cTest" type="button">${L("測試連線", "Test connection")}</button>
+            <button class="btn primary" id="cSave" type="button">${L("儲存設定", "Save settings")}</button>
+            <button class="btn" id="cPull" type="button"${Remote.active ? "" : " disabled"}>${L("從雲端重新載入", "Reload from cloud")}</button>
+            <button class="btn edit-only" id="cPush" type="button"${Remote.active ? "" : " disabled"}>${L("上傳本機資料到雲端", "Upload this computer's data to the cloud")}</button>
           </div>
         </section>
 
-        <details class="card wide-card fold-card" id="set-emps"${empsOpen ? " open" : ""}><summary class="card-h"><h3>員工名冊</h3><span class="muted">${d.employees.filter((e) => e.active).length} 位在職${d.employees.some((e) => !e.active) ? `・${d.employees.filter((e) => !e.active).length} 位已離開` : ""}・點一下展開 / 收合</span></summary>
+        <details class="card wide-card fold-card" id="set-emps"${empsOpen ? " open" : ""}><summary class="card-h"><h3>${L("員工名冊", "Roster")}</h3><span class="muted">${L(
+          `${d.employees.filter((e) => e.active).length} 位在職${d.employees.some((e) => !e.active) ? `・${d.employees.filter((e) => !e.active).length} 位已離開` : ""}・點一下展開 / 收合`,
+          `${d.employees.filter((e) => e.active).length} active${d.employees.some((e) => !e.active) ? ` · ${d.employees.filter((e) => !e.active).length} left` : ""} · click to expand / collapse`
+        )}</span></summary>
           <div class="emp-grid">
             <div>
-              <table class="grid-table emps"><thead><tr><th>#</th><th>姓名</th><th>ADO 帳號</th><th>在職</th><th class="num">指派 task</th><th class="num">出差紀錄</th><th></th></tr></thead><tbody>
+              <table class="grid-table emps"><thead><tr><th>#</th><th>${L("姓名", "Name")}</th><th>${L("ADO 帳號", "ADO account")}</th><th>${L("在職", "Active")}</th><th class="num">${L("指派 task", "Assigned tasks")}</th><th class="num">${L("出差紀錄", "Trips")}</th><th></th></tr></thead><tbody>
               ${d.employees.length ? d.employees
                 .map((e, i) => {
                   const nt = d.tasks.filter((t) => t.assignees.includes(e.id)).length;
                   const nr = d.trips.filter((r) => r.empId === e.id).length;
                   return `<tr data-emp="${e.id}" class="${e.active ? "" : "gone"}"><td class="muted small">${i + 1}</td>
                     <td><input value="${esc(e.name)}" data-f="name"${lock}></td>
-                    <td><input value="${esc(e.ado || "")}" data-f="ado" placeholder="同姓名" title="ADO 上的顯示名稱或信箱，多個用逗號分隔（給「ADO Task」比對用）"${lock}></td>
-                    <td><label class="check"><input type="checkbox" data-f="active"${e.active ? " checked" : ""}${lock}> ${e.active ? "在職" : "已離開"}</label></td>
+                    <td><input value="${esc(e.ado || "")}" data-f="ado" placeholder="${L("同姓名", "Same as name")}" title="${L("ADO 上的顯示名稱或信箱，多個用逗號分隔（給「ADO Task」比對用）", "Display name or email on ADO, comma-separated if several (used to match ADO Task)")}"${lock}></td>
+                    <td><label class="check"><input type="checkbox" data-f="active"${e.active ? " checked" : ""}${lock}> ${e.active ? L("在職", "Active") : L("已離開", "Left")}</label></td>
                     <td class="num">${nt}</td><td class="num">${nr}</td>
-                    <td><button class="mini edit-only" type="button" data-delemp="${e.id}" title="刪除">✕</button></td></tr>`;
+                    <td><button class="mini edit-only" type="button" data-delemp="${e.id}" title="${L("刪除", "Delete")}">✕</button></td></tr>`;
                 })
-                .join("") : `<tr><td colspan="7" class="empty">名冊是空的，從右邊輸入員工姓名。</td></tr>`}
+                .join("") : `<tr><td colspan="7" class="empty">${L("名冊是空的，從右邊輸入員工姓名。", "The roster is empty: enter names on the right.")}</td></tr>`}
               </tbody></table>
-              <p class="muted small">${d.employees.filter((e) => e.active).length} 位在職・${d.employees.filter((e) => !e.active).length} 位已離開。離開部門請取消「在職」（不再計入人力，保留歷史 task 與出差紀錄）；刪除會把此人從 task 指派中移除，並刪除其出差紀錄。「ADO 帳號」只在 ADO 上的顯示名稱與這裡的姓名不同時才需要填（給「ADO Task」比對用）。</p>
-              <div class="row-end"><button class="btn primary edit-only" id="saveEmps" type="button"${d.employees.length ? "" : " disabled"}>儲存名冊變更</button></div>
+              <p class="muted small">${L(
+                `${d.employees.filter((e) => e.active).length} 位在職・${d.employees.filter((e) => !e.active).length} 位已離開。離開部門請取消「在職」（不再計入人力，保留歷史 task 與出差紀錄）；刪除會把此人從 task 指派中移除，並刪除其出差紀錄。「ADO 帳號」只在 ADO 上的顯示名稱與這裡的姓名不同時才需要填（給「ADO Task」比對用）。`,
+                `${d.employees.filter((e) => e.active).length} active · ${d.employees.filter((e) => !e.active).length} left. When someone leaves the team, untick “Active” (no longer counted as workforce; past tasks and trips are kept). Deleting removes the person from task assignments and deletes their trips. Fill in “ADO account” only when the ADO display name differs from the name here (used to match ADO Task).`
+              )}</p>
+              <div class="row-end"><button class="btn primary edit-only" id="saveEmps" type="button"${d.employees.length ? "" : " disabled"}>${L("儲存名冊變更", "Save roster changes")}</button></div>
             </div>
             <div class="emp-add edit-only">
-              <label for="newEmps"><b>新增員工</b></label>
-              <textarea id="newEmps" rows="7" placeholder="一行一位，或用逗號分隔&#10;例如：&#10;王小明&#10;陳大文, 林美玲"></textarea>
-              <div class="row-end"><button class="btn" id="addEmps" type="button">＋ 加入名冊</button></div>
-              <p class="muted small">名冊裡已有的姓名會略過（不分大小寫）。</p>
+              <label for="newEmps"><b>${L("新增員工", "Add people")}</b></label>
+              <textarea id="newEmps" rows="7" placeholder="${L("一行一位，或用逗號分隔&#10;例如：&#10;王小明&#10;陳大文, 林美玲", "One per line, or comma-separated&#10;e.g.:&#10;Alex Wang&#10;David Chen, Mei Lin")}"></textarea>
+              <div class="row-end"><button class="btn" id="addEmps" type="button">${L("＋ 加入名冊", "+ Add to roster")}</button></div>
+              <p class="muted small">${L("名冊裡已有的姓名會略過（不分大小寫）。", "Names already in the roster are skipped (case-insensitive).")}</p>
             </div>
           </div>
         </details>
@@ -204,9 +221,13 @@
     $("#adoSet").onclick = () => AdoView.openConfig();
     $("#adoGo").onclick = () => App.go("#/ado");
     $("#adoWipe").onclick = () => {
-      if (!confirm("清除這台電腦上的 ADO 快照與已儲存的 PAT？\n\n部門資料不受影響；下次要看 ADO Task 需要重新擷取。")) return;
+      if (!confirm(L("清除這台電腦上的 ADO 快照與已儲存的 PAT？\n\n部門資料不受影響；下次要看 ADO Task 需要重新擷取。", "Clear the ADO snapshot and saved PAT on this computer?\n\nTeam data is not affected; ADO Task will need to fetch again next time."))) return;
       AdoView.forget();
-      App.toast(Ado.pat() ? "已清除快照與瀏覽器裡的 PAT；檔案提供的 PAT 仍然有效（要停用請刪掉 data/ado_pat.js）" : "已清除這台電腦的 ADO 快照與 PAT");
+      App.toast(
+        Ado.pat()
+          ? L("已清除快照與瀏覽器裡的 PAT；檔案提供的 PAT 仍然有效（要停用請刪掉 data/ado_pat.js）", "Cleared the snapshot and the PAT in this browser; the PAT from the file still works (delete data/ado_pat.js to stop it)")
+          : L("已清除這台電腦的 ADO 快照與 PAT", "Cleared the ADO snapshot and PAT on this computer")
+      );
       App.render();
     };
 
@@ -226,7 +247,7 @@
         }
       }
       if (add.length) Store.commit((dd) => add.forEach((name) => dd.employees.push({ id: Convert.uid("e"), name, active: true })));
-      App.toast(`已加入 ${add.length} 位${dup ? `，略過 ${dup} 位已在名冊中的姓名` : ""}`);
+      App.toast(L(`已加入 ${add.length} 位${dup ? `，略過 ${dup} 位已在名冊中的姓名` : ""}`, `Added ${add.length}${dup ? `; skipped ${dup} name(s) already in the roster` : ""}`));
     };
     $("#saveEmps").onclick = () => {
       const rows = $$("table.emps tbody tr[data-emp]").map((tr) => ({
@@ -235,10 +256,10 @@
         active: tr.querySelector('[data-f="active"]').checked,
         ado: tr.querySelector('[data-f="ado"]').value.trim(),
       }));
-      if (rows.some((r) => !r.name)) return App.toast("姓名不能空白", "error");
+      if (rows.some((r) => !r.name)) return App.toast(L("姓名不能空白", "Name cannot be empty"), "error");
       const keys = rows.map((r) => Convert.normName(r.name));
       const dupName = rows.find((r, i) => keys.indexOf(keys[i]) !== i);
-      if (dupName) return App.toast(`名冊裡有重複的姓名：${dupName.name}`, "error");
+      if (dupName) return App.toast(L(`名冊裡有重複的姓名：${dupName.name}`, `Duplicate name in the roster: ${dupName.name}`), "error");
       Store.commit((dd) => {
         for (const r of rows) {
           const e = Object.assign(dd.employees.find((x) => x.id === r.id), { name: r.name, active: r.active });
@@ -246,7 +267,7 @@
           else delete e.ado;
         }
       });
-      App.toast("已儲存名冊");
+      App.toast(L("已儲存名冊", "Roster saved"));
     };
     root.querySelectorAll("[data-delemp]").forEach(
       (b) =>
@@ -255,7 +276,15 @@
           const e = Store.emp(id);
           const nt = d.tasks.filter((t) => t.assignees.includes(id)).length;
           const nr = d.trips.filter((r) => r.empId === id).length;
-          if (!confirm(`刪除「${e.name}」？${nt ? `\n會從 ${nt} 個 task 的指派中移除。` : ""}${nr ? `\n${nr} 筆出差紀錄會一起刪除。` : ""}\n\n只是離開部門的話，建議取消「在職」，保留歷史紀錄。`)) return;
+          if (
+            !confirm(
+              L(
+                `刪除「${e.name}」？${nt ? `\n會從 ${nt} 個 task 的指派中移除。` : ""}${nr ? `\n${nr} 筆出差紀錄會一起刪除。` : ""}\n\n只是離開部門的話，建議取消「在職」，保留歷史紀錄。`,
+                `Delete “${e.name}”?${nt ? `\nThey will be removed from ${nt} task(s).` : ""}${nr ? `\n${nr} trip(s) will be deleted too.` : ""}\n\nIf they just left the team, untick “Active” instead to keep their history.`
+              )
+            )
+          )
+            return;
           Store.commit((dd) => {
             for (const t of dd.tasks) t.assignees = t.assignees.filter((x) => x !== id);
             dd.trips = dd.trips.filter((x) => x.empId !== id);
@@ -285,18 +314,24 @@
       const name = $("#hName").value.trim();
       holYear = +date.slice(0, 4);
       setHolidays((m) => m.set(date, name));
-      App.toast(`已加入假日 ${U.fmt(date, "full")}${name ? " " + name : ""}`);
+      App.toast(L(`已加入假日 ${U.fmt(date, "full")}${name ? " " + name : ""}`, `Holiday added: ${U.fmt(date, "full")}${name ? " " + name : ""}`));
     };
     $("#hBulkAdd").onclick = () => {
       const { add, bad } = parseHolidays($("#hBulk").value, holYear);
-      if (!add.length) return App.toast(bad.length ? `看不懂的日期：${bad[0]}` : "請先貼上假日", bad.length ? "error" : "");
+      if (!add.length) return App.toast(bad.length ? L(`看不懂的日期：${bad[0]}`, `Cannot read the date: ${bad[0]}`) : L("請先貼上假日", "Paste the holidays first"), bad.length ? "error" : "");
       holYear = +add[0].date.slice(0, 4);
       setHolidays((m) => add.forEach((h) => m.set(h.date, h.name)));
-      App.toast(`已加入 ${add.length} 天假日${bad.length ? `；略過 ${bad.length} 行看不懂的：${bad.slice(0, 3).join("、")}` : ""}`, bad.length ? "error" : "");
+      App.toast(
+        L(
+          `已加入 ${add.length} 天假日${bad.length ? `；略過 ${bad.length} 行看不懂的：${bad.slice(0, 3).join("、")}` : ""}`,
+          `Added ${add.length} holiday(s)${bad.length ? `; skipped ${bad.length} line(s) that could not be read: ${bad.slice(0, 3).join(", ")}` : ""}`
+        ),
+        bad.length ? "error" : ""
+      );
     };
     if ($("#hClear"))
       $("#hClear").onclick = () => {
-        if (!confirm(`刪除 ${holYear} 年的 ${hols.length} 天假日？（可按 ↶ 復原）`)) return;
+        if (!confirm(L(`刪除 ${holYear} 年的 ${hols.length} 天假日？（可按 ↶ 復原）`, `Delete the ${hols.length} holiday(s) of ${holYear}? (↶ Undo can bring them back)`))) return;
         setHolidays((m) => hols.forEach((h) => m.delete(h.date)));
       };
     root.querySelectorAll("[data-delhol]").forEach((b) => (b.onclick = () => setHolidays((m) => m.delete(b.dataset.delhol))));
@@ -313,7 +348,7 @@
           gen12Roles: $("#sRoles").value.trim() || "STE, TE",
         });
       });
-      App.toast("已儲存設定");
+      App.toast(L("已儲存設定", "Settings saved"));
     };
 
     const phaseRows = () =>
@@ -323,7 +358,7 @@
       });
     $("#savePhases").onclick = () => {
       Store.commit((d) => (d.settings.phases = phaseRows()));
-      App.toast("已儲存 Phase");
+      App.toast(L("已儲存 Phase", "Phases saved"));
     };
     $("#addPhase").onclick = () => {
       const label = $("#newPhase").value.trim();
@@ -341,12 +376,19 @@
           const to = s.phases.find((x) => x.key === sel.value);
           if (!to) return;
           const n = d.tasks.filter((t) => t.phase === from.key).length;
-          if (!confirm(`把「${from.label}」合併到「${to.label}」？\n${n} 個 task 會改成「${to.label}」，「${from.label}」從清單移除；之後匯入的檔案若用「${from.label}」的代碼，也會歸到「${to.label}」。`)) {
+          if (
+            !confirm(
+              L(
+                `把「${from.label}」合併到「${to.label}」？\n${n} 個 task 會改成「${to.label}」，「${from.label}」從清單移除；之後匯入的檔案若用「${from.label}」的代碼，也會歸到「${to.label}」。`,
+                `Merge “${from.label}” into “${to.label}”?\n${n} task(s) will become “${to.label}” and “${from.label}” leaves the list; files imported later that use the “${from.label}” code also go to “${to.label}”.`
+              )
+            )
+          ) {
             sel.value = "";
             return;
           }
           Store.commit((dd) => Convert.mergePhase(dd, from.key, to.key));
-          App.toast(`已合併：${from.label} → ${to.label}`);
+          App.toast(L(`已合併：${from.label} → ${to.label}`, `Merged: ${from.label} → ${to.label}`));
         })
     );
     root.querySelectorAll("[data-del]").forEach(
@@ -354,7 +396,7 @@
         (b.onclick = () => {
           const p = s.phases[+b.dataset.del];
           const n = d.tasks.filter((t) => t.phase === p.key).length;
-          if (n && !confirm(`有 ${n} 個 task 使用「${p.label}」，刪除後這些 task 會變成未指定 Phase。確定？`)) return;
+          if (n && !confirm(L(`有 ${n} 個 task 使用「${p.label}」，刪除後這些 task 會變成未指定 Phase。確定？`, `${n} task(s) use “${p.label}”; after deleting it they will have no Phase. Continue?`))) return;
           Store.commit((dd) => {
             dd.settings.phases = dd.settings.phases.filter((x) => x.key !== p.key);
             for (const t of dd.tasks) if (t.phase === p.key) t.phase = "";
@@ -364,17 +406,17 @@
 
     if ($("#forgetPw"))
       $("#forgetPw").onclick = () => {
-        if (!confirm("讓這台電腦忘記編輯密碼？之後要修改需要重新輸入。")) return;
+        if (!confirm(L("讓這台電腦忘記編輯密碼？之後要修改需要重新輸入。", "Forget the edit password on this computer? You will need to enter it again to make changes."))) return;
         Remote.forgetKey();
         if (Store.editing) Store.setEditing(false);
-        App.toast("已忘記編輯密碼，這台電腦目前只能觀看");
+        App.toast(L("已忘記編輯密碼，這台電腦目前只能觀看", "Edit password forgotten: this computer can only view now"));
         App.render();
       };
 
     const bdCount = () => {
       const c = $("#bdDate").value;
       const n = c ? d.tasks.filter((t) => !t.done && t.end && t.end < c).length : 0;
-      $("#bdCount").textContent = `（目前符合 ${n} 個）`;
+      $("#bdCount").textContent = L(`（目前符合 ${n} 個）`, `(${n} match now)`);
       return n;
     };
     bdCount();
@@ -382,10 +424,10 @@
     $("#bdApply").onclick = () => {
       const c = $("#bdDate").value;
       const n = bdCount();
-      if (!n) return App.toast("沒有符合的 task");
-      if (!confirm(`把結束日早於 ${c} 的 ${n} 個未完成 task 全部設為已完成？（可按 ↶ 復原）`)) return;
+      if (!n) return App.toast(L("沒有符合的 task", "No matching tasks"));
+      if (!confirm(L(`把結束日早於 ${c} 的 ${n} 個未完成 task 全部設為已完成？（可按 ↶ 復原）`, `Mark the ${n} unfinished task(s) ending before ${c} as done? (↶ Undo can bring them back)`))) return;
       Store.commit((dd) => Convert.markDoneBefore(dd, c));
-      App.toast(`已將 ${n} 個 task 設為已完成`, "", [{ label: "復原", run: () => Store.undo() }]);
+      App.toast(L(`已將 ${n} 個 task 設為已完成`, `Marked ${n} task(s) as done`), "", [{ label: L("復原", "Undo"), run: () => Store.undo() }]);
     };
     $("#impMonica").onclick = () => $("#fileMonica").click();
     $("#impJson").onclick = () => $("#fileJson").click();
@@ -395,55 +437,55 @@
       U.download(`LLT800_backup_${stamp}.json`, JSON.stringify({ app: "LLT800_Dashboard", exportedAt: new Date().toISOString(), data: Store.data }, null, 1));
     };
     $("#loadDemo").onclick = () => {
-      if (!confirm("用示範資料取代目前全部資料？（可按 ↶ 復原）")) return;
+      if (!confirm(L("用示範資料取代目前全部資料？（可按 ↶ 復原）", "Replace all current data with demo data? (↶ Undo can bring it back)"))) return;
       Store.replace(JSON.parse(JSON.stringify(window.LLT_SEED)), { keepUndo: true, dirty: true });
       Store.setUi({ demoHidden: false, projectId: "" });
     };
     $("#clearDemo").onclick = () => {
-      if (!confirm("清空所有 Project、PFAM、task、員工與出差紀錄？\n設定（Phase、廠區、假日）會保留。可按 ↶ 復原。")) return;
+      if (!confirm(L("清空所有 Project、PFAM、task、員工與出差紀錄？\n設定（Phase、廠區、假日）會保留。可按 ↶ 復原。", "Clear all Projects, PFAMs, tasks, people and trips?\nSettings (Phases, sites, holidays) are kept. ↶ Undo can bring it back."))) return;
       const next = Convert.emptyData();
       next.settings = JSON.parse(JSON.stringify(Store.data.settings));
       Store.replace(next, { keepUndo: true, dirty: true });
       Store.setUi({ projectId: "" });
-      App.toast("已清空，可以開始建立正式資料");
+      App.toast(L("已清空，可以開始建立正式資料", "Cleared: you can start entering the real data"));
     };
 
     const cfg = () => ({ url: $("#cUrl").value.trim(), enabled: $("#cOn").checked });
     $("#cTest").onclick = async () => {
       const c = cfg();
-      if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(c.url)) return App.toast("網址應以 https://script.google.com/ 開頭", "error");
+      if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(c.url)) return App.toast(L("網址應以 https://script.google.com/ 開頭", "The URL should start with https://script.google.com/"), "error");
       try {
         const r = await Remote.ping(c.url);
-        App.toast(`連線成功（${r.service || "Apps Script"}）`);
+        App.toast(L(`連線成功（${r.service || "Apps Script"}）`, `Connected (${r.service || "Apps Script"})`));
       } catch (err) {
-        App.toast("連線失敗：" + err.message, "error");
+        App.toast(L("連線失敗：", "Connection failed: ") + err.message, "error");
       }
     };
     $("#cSave").onclick = () => {
       const c = cfg();
-      if (c.enabled && !c.url) return App.toast("請先填 Apps Script 網址", "error");
+      if (c.enabled && !c.url) return App.toast(L("請先填 Apps Script 網址", "Enter the Apps Script URL first"), "error");
       const was = Remote.active;
       Remote.saveConfig(c);
-      App.toast(c.enabled ? "已啟用雲端模式" : "已切回本機模式");
+      App.toast(c.enabled ? L("已啟用雲端模式", "Cloud mode on") : L("已切回本機模式", "Back to local mode"));
       if (!was && Remote.active) App.loadCloud();
       App.render();
     };
     $("#cPull").onclick = async () => {
-      if (Store.meta.dirty && !confirm("本機有尚未同步的修改，重新載入會捨棄它們。確定？")) return;
+      if (Store.meta.dirty && !confirm(L("本機有尚未同步的修改，重新載入會捨棄它們。確定？", "This computer has unsynced edits; reloading will discard them. Continue?"))) return;
       Store.meta.dirty = false;
       await App.loadCloud({ force: true }); // a re-read is the point here, so do not let "unchanged" skip it
     };
     $("#cPush").onclick = async () => {
-      if (!confirm("用這台電腦的資料覆寫雲端？")) return;
+      if (!confirm(L("用這台電腦的資料覆寫雲端？", "Overwrite the cloud with this computer's data?"))) return;
       if (!(await App.unlockEdit())) return;
-      App.blocker(true, "正在上傳…");
+      App.blocker(true, L("正在上傳…", "Uploading…"));
       try {
         const r = await Remote.save(Store.data, null, true);
         Object.assign(Store.meta, { cloudVersion: r.version, cloudAt: r.savedAt || new Date().toISOString(), dirty: false });
         Store.save();
-        App.toast("已上傳到雲端");
+        App.toast(L("已上傳到雲端", "Uploaded to the cloud"));
       } catch (err) {
-        App.toast("上傳失敗：" + err.message, "error");
+        App.toast(L("上傳失敗：", "Upload failed: ") + err.message, "error");
       } finally {
         App.blocker(false);
         App.render();

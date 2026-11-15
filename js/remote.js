@@ -41,7 +41,11 @@
   // The MTE PFAM sync fields this page sends; a backend that lacks any of them would silently drop it.
   const COLLAB_FIELDS = ["project", "pfam", "type", "pn", "site", "pod", "rk", "start", "end", "owner", "status", "note"];
 
-  const OUTDATED = "雲端後端版本較舊，部分欄位會存不進去：請把最新的 apps-script/Code.gs 重新部署（新版本）。The cloud backend is outdated: some fields will not be saved.";
+  const OUTDATED = () =>
+    L(
+      "雲端後端版本較舊，部分欄位會存不進去：請把最新的 apps-script/Code.gs 重新部署（新版本）。The cloud backend is outdated: some fields will not be saved.",
+      "The cloud backend is outdated: some fields will not be saved. Redeploy the latest apps-script/Code.gs (new version)."
+    );
 
   const Remote = {
     config: loadConfig(),
@@ -72,7 +76,7 @@
         };
         const timer = setTimeout(() => {
           cleanup();
-          reject(new Error("連線逾時：請確認 Apps Script 已部署為「所有人」可存取，且網址結尾是 /exec"));
+          reject(new Error(L("連線逾時：請確認 Apps Script 已部署為「所有人」可存取，且網址結尾是 /exec", "Connection timed out: make sure the Apps Script is deployed with access for “Anyone” and the URL ends in /exec")));
         }, TIMEOUT_MS);
         window[cb] = (data) => {
           cleanup();
@@ -80,7 +84,7 @@
         };
         s.onerror = () => {
           cleanup();
-          reject(new Error("無法連線到 Apps Script 網址"));
+          reject(new Error(L("無法連線到 Apps Script 網址", "Cannot reach the Apps Script URL")));
         };
         s.src = url + (url.includes("?") ? "&" : "?") + qs.toString();
         document.head.appendChild(s);
@@ -95,10 +99,10 @@
       try {
         json = JSON.parse(text);
       } catch {
-        throw new Error("Apps Script 回傳格式錯誤：" + text.slice(0, 120));
+        throw new Error(L("Apps Script 回傳格式錯誤：", "Apps Script returned an unexpected format: ") + text.slice(0, 120));
       }
       if (!json.ok && !json.conflict) {
-        const err = new Error(json.error || "Apps Script 回報錯誤");
+        const err = new Error(json.error || L("Apps Script 回報錯誤", "Apps Script reported an error"));
         if (json.authFailed) err.authFailed = true;
         throw err;
       }
@@ -125,7 +129,7 @@
 
     async ping(url) {
       const r = await this.jsonp({ action: "ping" }, url);
-      if (!r || !r.ok) throw new Error((r && r.error) || "回應異常");
+      if (!r || !r.ok) throw new Error((r && r.error) || L("回應異常", "Unexpected response"));
       return r;
     },
 
@@ -138,7 +142,7 @@
       const params = { action: "bundle" };
       if (since) params.since = since;
       const r = await this.jsonp(params);
-      if (!r || !r.ok) throw new Error((r && r.error) || "讀取失敗");
+      if (!r || !r.ok) throw new Error((r && r.error) || L("讀取失敗", "Load failed"));
       if (r.data && Array.isArray(r.data.employees)) r.legacyAdo = keepAdoFromOldBackend(r.data.employees);
       return r;
     },
@@ -152,14 +156,14 @@
       const params = { action: "collab" };
       if (since) params.since = since;
       const r = await this.jsonp(params);
-      if (!r || !r.ok) throw new Error((r && r.error) || "讀取失敗 Load failed");
+      if (!r || !r.ok) throw new Error((r && r.error) || L("讀取失敗 Load failed", "Load failed"));
       if (!("rev" in r)) {
-        const err = new Error(OUTDATED);
+        const err = new Error(OUTDATED());
         err.oldBackend = true;
         throw err;
       }
       r.outdated = !r.fields || COLLAB_FIELDS.some((f) => !r.fields.includes(f));
-      if (r.outdated) r.outdatedMsg = OUTDATED;
+      if (r.outdated) r.outdatedMsg = OUTDATED();
       return r;
     },
 

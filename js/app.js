@@ -73,12 +73,12 @@
           input = `<div class="people-pick" data-key="${f.key}">${
             list.length
               ? list.map((e) => `<label class="pchip${e.active ? "" : " gone"}"><input type="checkbox" value="${e.id}"${sel.has(e.id) ? " checked" : ""}><span>${esc(e.name)}</span></label>`).join("")
-              : `<span class="muted">名冊是空的，先到「設定 › 員工名冊」新增員工</span>`
+              : `<span class="muted">${L("名冊是空的，先到「設定 › 員工名冊」新增員工", "The roster is empty: add people under Settings › Roster first")}</span>`
           }</div>`;
         } else if (f.type === "swatch")
           input = `<div class="swatches" data-key="${f.key}">${f.options
             .map((c) => `<label class="sw" style="--c:${c}"><input type="radio" name="${f.key}" value="${c}"${c === v ? " checked" : ""}><span></span></label>`)
-            .join("")}<input type="color" name="${f.key}__custom" value="${esc(v || "#2a78d6")}" title="自訂顏色"></div>`;
+            .join("")}<input type="color" name="${f.key}__custom" value="${esc(v || "#2a78d6")}" title="${L("自訂顏色", "Custom color")}"></div>`;
         else
           input = `<input id="${id}" name="${f.key}" type="${f.type || "text"}" value="${esc(v)}"${f.required ? " required" : ""}${f.list ? ` list="${id}_l"` : ""}${f.min != null ? ` min="${f.min}"` : ""}${f.max != null ? ` max="${f.max}"` : ""} placeholder="${esc(f.placeholder || "")}" autocomplete="off">${
             f.list ? `<datalist id="${id}_l">${f.list.map((o) => `<option value="${esc(o)}">`).join("")}</datalist>` : ""
@@ -88,11 +88,11 @@
       const main = fields.filter((f) => !f.more);
       const more = fields.filter((f) => f.more);
       $("#formBody").innerHTML = `<div class="form-grid">${main.map(field).join("")}</div>${
-        more.length ? `<details class="more"><summary>更多欄位</summary><div class="form-grid">${more.map(field).join("")}</div></details>` : ""
+        more.length ? `<details class="more"><summary>${L("更多欄位", "More fields")}</summary><div class="form-grid">${more.map(field).join("")}</div></details>` : ""
       }<p class="form-err" id="formErr" hidden></p>`;
-      $("#formFoot").innerHTML = `${del ? `<button class="btn danger" value="delete" formnovalidate>${esc(labels.del || "刪除")}</button>` : ""}${(extra || [])
+      $("#formFoot").innerHTML = `${del ? `<button class="btn danger" value="delete" formnovalidate>${esc(labels.del || L("刪除", "Delete"))}</button>` : ""}${(extra || [])
         .map((x) => `<button class="btn" value="${esc(x.value)}" formnovalidate>${esc(x.label)}</button>`)
-        .join("")}<span class="grow"></span><button class="btn" value="cancel" formnovalidate>${esc(labels.cancel || "取消")}</button><button class="btn primary" value="save">${esc(saveLabel || "儲存")}</button>`;
+        .join("")}<span class="grow"></span><button class="btn" value="cancel" formnovalidate>${esc(labels.cancel || L("取消", "Cancel"))}</button><button class="btn primary" value="save">${esc(saveLabel || L("儲存", "Save"))}</button>`;
       // A custom color clears the swatch radio.
       $$(".swatches", d).forEach((w) => {
         const c = w.querySelector('input[type="color"]');
@@ -198,25 +198,25 @@
       $("#btnRedo").disabled = !Store.canRedo;
       const e = $("#btnEdit");
       e.setAttribute("aria-pressed", String(Store.editing));
-      e.textContent = Store.editing ? "✎ 編輯中" : "✎ 編輯模式";
+      e.textContent = Store.editing ? L("✎ 編輯中", "✎ Editing") : L("✎ 編輯模式", "✎ Edit mode");
       document.body.classList.toggle("editing", Store.editing);
       const chip = $("#syncChip");
       const sync = $("#btnSync");
       if (!Remote.active) {
         chip.className = "sync-chip local";
-        chip.textContent = "本機模式";
+        chip.textContent = L("本機模式", "Local mode");
         sync.hidden = true;
       } else if (this.cloudBusy) {
         chip.className = "sync-chip busy";
-        chip.textContent = "雲端 · 更新中…";
+        chip.textContent = L("雲端 · 更新中…", "Cloud · updating…");
         sync.hidden = !Store.meta.dirty;
       } else if (Store.meta.dirty) {
         chip.className = "sync-chip dirty";
-        chip.textContent = "雲端 · 有未同步修改";
+        chip.textContent = L("雲端 · 有未同步修改", "Cloud · unsynced edits");
         sync.hidden = false;
       } else {
         chip.className = "sync-chip ok";
-        chip.textContent = "雲端 · 已同步";
+        chip.textContent = L("雲端 · 已同步", "Cloud · synced");
         sync.hidden = true;
       }
       $("#demoBanner").hidden = !(Store.data.source && Store.data.source.demo) || Store.ui.demoHidden;
@@ -227,7 +227,7 @@
       if (!(await this.unlockEdit())) return;
       if (!(await this.freshenBeforeEdit())) return;
       Store.setEditing(true);
-      this.toast("已進入編輯模式：點任何專案、task、員工或出差紀錄即可修改");
+      this.toast(L("已進入編輯模式：點任何專案、task、員工或出差紀錄即可修改", "Edit mode on: click any project, task, person or trip to change it"));
     },
 
     /**
@@ -239,7 +239,7 @@
     async unlockEdit() {
       if (!Remote.active) return true;
       let pw = Remote.config.key;
-      let ask = "輸入編輯密碼（沒有密碼的人只能觀看）";
+      let ask = L("輸入編輯密碼（沒有密碼的人只能觀看）", "Edit password (without it you can only view)");
       for (;;) {
         if (!pw) {
           pw = prompt(ask);
@@ -247,13 +247,13 @@
           if (!pw) continue;
         }
         $("#blockerSkip").onclick = () => this.blocker(false);
-        this.blocker(true, "正在確認編輯密碼…");
+        this.blocker(true, L("正在確認編輯密碼…", "Checking the edit password…"));
         try {
           await Remote.auth(pw);
           return true;
         } catch (err) {
           if (!err.authFailed) {
-            this.toast("無法確認編輯密碼：" + err.message, "error");
+            this.toast(L("無法確認編輯密碼：", "Could not check the edit password: ") + err.message, "error");
             return false;
           }
           const remembered = pw === Remote.config.key;
@@ -263,7 +263,7 @@
             return false;
           }
           pw = "";
-          ask = "這台電腦記住的編輯密碼已失效，請重新輸入";
+          ask = L("這台電腦記住的編輯密碼已失效，請重新輸入", "The edit password saved on this computer no longer works. Enter it again");
         } finally {
           this.blocker(false);
         }
@@ -280,16 +280,21 @@
       // Unsynced local edits must not be thrown away here; syncCloud() handles that conflict.
       if (Store.meta.dirty && !(Store.data.source && Store.data.source.demo)) return true;
       $("#blockerSkip").onclick = () => this.blocker(false);
-      this.blocker(true, "正在確認是雲端最新版本…");
+      this.blocker(true, L("正在確認是雲端最新版本…", "Checking for the latest cloud version…"));
       try {
         const r = await Remote.load(Store.meta.cloudVersion || null);
         if (r.unchanged || !r.data) return true;
         if (Store.meta.dirty) return true; // edited while this read was out (the blocker can be skipped): keep the edits
         Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
-        this.toast(`已先載入雲端最新版本（版本 ${r.version}${r.by ? `，最後由 ${r.by} 修改` : ""}）再開始編輯`);
+        this.toast(L(`已先載入雲端最新版本（版本 ${r.version}${r.by ? `，最後由 ${r.by} 修改` : ""}）再開始編輯`, `Loaded the latest cloud version first (v${r.version}${r.by ? `, last changed by ${r.by}` : ""})`));
         return true;
       } catch (err) {
-        return confirm(`讀不到雲端最新版本：${err.message}\n\n現在編輯可能會覆蓋別人的修改。\n\n確定：仍要進入編輯模式\n取消：先不要編輯`);
+        return confirm(
+          L(
+            `讀不到雲端最新版本：${err.message}\n\n現在編輯可能會覆蓋別人的修改。\n\n確定：仍要進入編輯模式\n取消：先不要編輯`,
+            `Could not read the latest cloud version: ${err.message}\n\nEditing now may overwrite other people's changes.\n\nOK: edit anyway\nCancel: not now`
+          )
+        );
       } finally {
         this.blocker(false);
       }
@@ -330,7 +335,7 @@
         this.cloudBusy = true;
         this.refreshHeader();
       } else {
-        this.blocker(true, "正在讀取雲端資料…");
+        this.blocker(true, L("正在讀取雲端資料…", "Loading cloud data…"));
       }
       try {
         const r = await Remote.load(hasLocal && !opts.force ? Store.meta.cloudVersion : null);
@@ -342,23 +347,30 @@
           // Our copy already is the current cloud version: nothing to load, nothing to re-render.
           if (r.savedAt) Store.meta.cloudAt = r.savedAt;
           Store.save();
-          if (dirty) this.toast("這台電腦有尚未同步到雲端的修改", "", [{ label: "立即同步", run: () => this.syncCloud() }]);
+          if (dirty) this.toast(L("這台電腦有尚未同步到雲端的修改", "This computer has edits not yet synced to the cloud"), "", [{ label: L("立即同步", "Sync now"), run: () => this.syncCloud() }]);
         } else if (!r.data) {
-          this.toast("雲端試算表目前是空的。到「設定 → 雲端同步」按「上傳本機資料到雲端」即可開始共用。");
+          this.toast(L("雲端試算表目前是空的。到「設定 → 雲端同步」按「上傳本機資料到雲端」即可開始共用。", "The cloud sheet is empty. Use Settings → Cloud sync → Upload this computer's data to start sharing."));
         } else if (dirty && r.version !== Store.meta.cloudVersion) {
-          if (confirm("雲端有其他人更新的新版本，而這台電腦也有尚未同步的修改。\n\n確定：載入雲端版本（捨棄本機修改）\n取消：保留本機修改，稍後再決定"))
+          if (
+            confirm(
+              L(
+                "雲端有其他人更新的新版本，而這台電腦也有尚未同步的修改。\n\n確定：載入雲端版本（捨棄本機修改）\n取消：保留本機修改，稍後再決定",
+                "Someone saved a newer cloud version, and this computer has unsynced edits.\n\nOK: load the cloud version (drop the edits here)\nCancel: keep the edits here, decide later"
+              )
+            )
+          )
             Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
         } else if (dirty) {
-          this.toast("這台電腦有尚未同步到雲端的修改", "", [{ label: "立即同步", run: () => this.syncCloud() }]);
+          this.toast(L("這台電腦有尚未同步到雲端的修改", "This computer has edits not yet synced to the cloud"), "", [{ label: L("立即同步", "Sync now"), run: () => this.syncCloud() }]);
         } else {
           Store.replace(r.data, { cloudVersion: r.version, cloudAt: r.savedAt });
         }
         // An Apps Script older than the Employees `ado` column: Remote kept this browser's mapping,
         // but the cloud copy cannot hold it until Code.gs is redeployed.
         if (r.legacyAdo)
-          this.toast("雲端後端是舊版（Employees 少了 ado 欄），ADO 帳號對應只留在這台電腦。請重新部署 apps-script/Code.gs。", "error", [{ label: "怎麼做", run: () => this.go("#/settings/cloud") }]);
+          this.toast(L("雲端後端是舊版（Employees 少了 ado 欄），ADO 帳號對應只留在這台電腦。請重新部署 apps-script/Code.gs。", "The cloud backend is outdated (Employees has no ado column): ADO accounts stay on this computer. Redeploy apps-script/Code.gs."), "error", [{ label: L("怎麼做", "How"), run: () => this.go("#/settings/cloud") }]);
       } catch (err) {
-        this.toast("讀取雲端失敗，先顯示這台電腦上次的資料（可能不是最新）：" + err.message, "error", [{ label: "重試", run: () => this.loadCloud({ force: true }) }]);
+        this.toast(L("讀取雲端失敗，先顯示這台電腦上次的資料（可能不是最新）：", "Could not load the cloud data; showing this computer's last copy (may be out of date): ") + err.message, "error", [{ label: L("重試", "Retry"), run: () => this.loadCloud({ force: true }) }]);
       } finally {
         this.cloudBusy = false;
         this.blocker(false);
@@ -369,27 +381,35 @@
     async syncCloud() {
       if (!Remote.active) return;
       if (!Remote.hasKey && !(await this.unlockEdit())) return;
-      this.blocker(true, "正在同步到雲端…");
+      this.blocker(true, L("正在同步到雲端…", "Syncing to the cloud…"));
       try {
         let r = await Remote.save(Store.data, Store.meta.cloudVersion);
         if (r.conflict) {
           this.blocker(false);
-          if (!confirm(`雲端已被其他人更新（雲端版本 ${r.version}，你的基準 ${Store.meta.cloudVersion}）。\n\n確定：用這台電腦的資料覆寫雲端\n取消：不同步（可到設定重新載入雲端版本）`)) return;
-          this.blocker(true, "正在同步到雲端…");
+          if (
+            !confirm(
+              L(
+                `雲端已被其他人更新（雲端版本 ${r.version}，你的基準 ${Store.meta.cloudVersion}）。\n\n確定：用這台電腦的資料覆寫雲端\n取消：不同步（可到設定重新載入雲端版本）`,
+                `Someone else updated the cloud (cloud v${r.version}, yours was based on v${Store.meta.cloudVersion}).\n\nOK: overwrite the cloud with this computer's data\nCancel: don't sync (reload the cloud version in Settings)`
+              )
+            )
+          )
+            return;
+          this.blocker(true, L("正在同步到雲端…", "Syncing to the cloud…"));
           r = await Remote.save(Store.data, null, true);
         }
         Store.meta.cloudVersion = r.version;
         Store.meta.cloudAt = r.savedAt || new Date().toISOString();
         Store.meta.dirty = false;
         Store.save();
-        this.toast("已同步到雲端");
+        this.toast(L("已同步到雲端", "Synced to the cloud"));
       } catch (err) {
         if (err.authFailed) {
           // The owner changed EDIT_KEY (or removed it): this computer may no longer write.
           Remote.forgetKey();
           Store.setEditing(false);
-          this.toast("同步失敗：" + err.message + "。修改仍保留在這台電腦。", "error", [{ label: "輸入密碼後同步", run: () => this.syncCloud() }]);
-        } else this.toast("同步失敗：" + err.message, "error");
+          this.toast(L("同步失敗：", "Sync failed: ") + err.message + L("。修改仍保留在這台電腦。", ". Your edits are still on this computer."), "error", [{ label: L("輸入密碼後同步", "Enter password and sync"), run: () => this.syncCloud() }]);
+        } else this.toast(L("同步失敗：", "Sync failed: ") + err.message, "error");
       } finally {
         this.blocker(false);
         this.refreshHeader();
@@ -423,11 +443,11 @@
             }
           return k;
         });
-        if (!quiet) this.toast(`已更正：只有 9/1 以前結束的 task 設為已完成；9 月內結束的 ${n} 個 task 改回未完成`, "", [{ label: "復原", run: () => Store.undo() }]);
+        if (!quiet) this.toast(L(`已更正：只有 9/1 以前結束的 task 設為已完成；9 月內結束的 ${n} 個 task 改回未完成`, `Corrected: only tasks that ended before 9/1 are done; ${n} task(s) ending in September reopened`), "", [{ label: L("復原", "Undo"), run: () => Store.undo() }]);
         return;
       }
       const n = Store.commit((d) => Convert.markDoneBefore(d, CUTOFF));
-      if (n && !quiet) this.toast(`已把 2026/9/1 以前結束的 ${n} 個 task 設為已完成（舊資料）`, "", [{ label: "復原", run: () => Store.undo() }]);
+      if (n && !quiet) this.toast(L(`已把 2026/9/1 以前結束的 ${n} 個 task 設為已完成（舊資料）`, `Marked ${n} task(s) that ended before 2026/9/1 as done (old data)`), "", [{ label: L("復原", "Undo"), run: () => Store.undo() }]);
     },
 
     /** Gen12 AMD has its own dashboard (asked 2026-10-05): fill in its 外部系統連結 once, if empty. */
@@ -473,7 +493,7 @@
       Store.save();
       const names = Store.data.projects.filter((p) => p.src && p.src.kind === "gen12").map((p) => p.name);
       const r = Store.commit((d) => Convert.removeGen12(d));
-      if (r && r.tasks && !(Store.data.source && Store.data.source.demo)) this.toast(`已移除與 Gen12 AMD 重複的「${names.join("、") || "Gen12 Excel 匯入資料"}」：${r.pfams} 個 PFAM、${r.tasks} 個 task`, "", [{ label: "復原", run: () => Store.undo() }]);
+      if (r && r.tasks && !(Store.data.source && Store.data.source.demo)) this.toast(L(`已移除與 Gen12 AMD 重複的「${names.join("、") || "Gen12 Excel 匯入資料"}」：${r.pfams} 個 PFAM、${r.tasks} 個 task`, `Removed "${names.join(", ") || "Gen12 Excel import"}", a duplicate of Gen12 AMD: ${r.pfams} PFAM(s), ${r.tasks} task(s)`), "", [{ label: L("復原", "Undo"), run: () => Store.undo() }]);
     },
 
     // ------------------------------------------------------------ boot
@@ -490,7 +510,12 @@
         this.render();
       });
       window.addEventListener("hashchange", () => this.render());
-      $("#btnUndo").onclick = () => Store.undo() || this.toast("沒有可以復原的動作");
+      $("#btnLang").onclick = () => {
+        I18N.set(I18N.en ? "zh" : "en");
+        this.render();
+        if (window.Help && Help.refresh) Help.refresh();
+      };
+      $("#btnUndo").onclick = () => Store.undo() || this.toast(L("沒有可以復原的動作", "Nothing to undo"));
       $("#btnRedo").onclick = () => Store.redo();
       $("#btnEdit").onclick = () => this.toggleEdit();
       $("#btnSync").onclick = () => this.syncCloud();

@@ -56,7 +56,7 @@
     },
 
     save() {
-      if (!write(LS_DATA, this.data)) window.App && App.toast("瀏覽器儲存空間不足，修改沒有存到本機。請匯出 JSON 備份。", "error");
+      if (!write(LS_DATA, this.data)) window.App && App.toast(L("瀏覽器儲存空間不足，修改沒有存到本機。請匯出 JSON 備份。", "Browser storage is full: edits were not saved on this computer. Export a JSON backup."), "error");
       write(LS_META, this.meta);
     },
 
@@ -148,7 +148,7 @@
     },
     empName(id) {
       const e = this.emp(id);
-      return e ? e.name : "(已刪除)";
+      return e ? e.name : L("(已刪除)", "(deleted)");
     },
     /**
      * A project's PFAMs by the start of their first task (PFAMs without dated tasks after those, in list order);

@@ -22,30 +22,31 @@
         <p class="byline">by Dixon Chu</p>
       </div>
     </div>
-    <nav class="tabs" id="tabs" aria-label="主要功能">
-      <a href="#/overview" data-tab="overview">總覽</a>
-      <a href="#/projects" data-tab="projects">專案甘特</a>
+    <nav class="tabs" id="tabs" aria-label="主要功能" data-en-aria-label="Main">
+      <a href="#/overview" data-tab="overview" data-en="Overview">總覽</a>
+      <a href="#/projects" data-tab="projects" data-en="Project Gantt">專案甘特</a>
       <a href="#/ado" data-tab="ado">ADO Task</a>
-      <a href="#/load" data-tab="load">人力資源</a>
-      <a href="#/people" data-tab="people">出差紀錄</a>
+      <a href="#/load" data-tab="load" data-en="Workload">人力資源</a>
+      <a href="#/people" data-tab="people" data-en="Trips">出差紀錄</a>
       <a href="#/collab" data-tab="collab">MTE PFAM sync</a>
-      <a href="#/links" data-tab="links">常用連結</a>
-      <a href="#/settings" data-tab="settings">設定</a>
+      <a href="#/links" data-tab="links" data-en="Links">常用連結</a>
+      <a href="#/settings" data-tab="settings" data-en="Settings">設定</a>
     </nav>
     <div class="top-actions">
-      <button id="syncChip" class="sync-chip" type="button" title="資料存放位置">本機模式</button>
-      <button id="btnSync" class="btn sync-now" type="button" hidden>⇪ 同步到雲端</button>
-      <button id="btnUndo" class="icon" type="button" title="復原 (Ctrl+Z)" aria-label="復原">↶</button>
-      <button id="btnRedo" class="icon" type="button" title="重做 (Ctrl+Y)" aria-label="重做">↷</button>
+      <button id="syncChip" class="sync-chip" type="button" title="資料存放位置" data-en-title="Where the data is kept">本機模式</button>
+      <button id="btnSync" class="btn sync-now" type="button" hidden data-en="⇪ Sync to cloud">⇪ 同步到雲端</button>
+      <button id="btnUndo" class="icon" type="button" title="復原 (Ctrl+Z)" aria-label="復原" data-en-title="Undo (Ctrl+Z)" data-en-aria-label="Undo">↶</button>
+      <button id="btnRedo" class="icon" type="button" title="重做 (Ctrl+Y)" aria-label="重做" data-en-title="Redo (Ctrl+Y)" data-en-aria-label="Redo">↷</button>
       <button id="btnEdit" class="btn edit-toggle" type="button" aria-pressed="false">✎ 編輯模式</button>
-      <button id="btnTheme" class="icon" type="button" aria-label="切換深淺色">◐</button>
-      <button id="btnHelp" class="btn help-btn" type="button" title="使用說明（?）">？ 使用說明</button>
+      <button id="btnTheme" class="icon" type="button" aria-label="切換深淺色" data-en-aria-label="Light / dark">◐</button>
+      <button id="btnLang" class="btn lang-btn" type="button" title="Switch to English" data-en="中文" data-en-title="切換成中文">EN</button>
+      <button id="btnHelp" class="btn help-btn" type="button" title="使用說明（?）" data-en-title="Help (?)" data-en="？ Help">？ 使用說明</button>
     </div>
   </header>
 
   <div class="demo-banner" id="demoBanner" hidden>
-    目前是<b>示範資料</b>：專案與 task 來自 MONICA 的匯出檔，員工、指派與出差都是假資料。到「設定 → 資料」可以清空，或匯入正式資料。
-    <button class="link" id="demoHide" type="button">知道了</button>
+    <span data-en="This is &lt;b&gt;demo data&lt;/b&gt;: projects and tasks come from a MONICA export; people, assignments and trips are made up. Clear it or import real data under Settings → Data.">目前是<b>示範資料</b>：專案與 task 來自 MONICA 的匯出檔，員工、指派與出差都是假資料。到「設定 → 資料」可以清空，或匯入正式資料。</span>
+    <button class="link" id="demoHide" type="button" data-en="Got it">知道了</button>
   </div>
 
   <main id="view" tabindex="-1"></main>
@@ -53,7 +54,7 @@
 
   <dialog id="dlgForm" class="dlg">
     <form method="dialog" class="dlg-card">
-      <header class="dlg-head"><h3 id="formTitle"></h3><button class="icon" value="cancel" formnovalidate aria-label="關閉">✕</button></header>
+      <header class="dlg-head"><h3 id="formTitle"></h3><button class="icon" value="cancel" formnovalidate aria-label="關閉" data-en-aria-label="Close">✕</button></header>
       <div class="dlg-body" id="formBody"></div>
       <footer class="dlg-foot" id="formFoot"></footer>
     </form>
@@ -61,21 +62,21 @@
 
   <dialog id="dlgImport" class="dlg wide">
     <div class="dlg-card">
-      <header class="dlg-head"><h3 id="impTitle">匯入</h3><button class="icon" type="button" data-close aria-label="關閉">✕</button></header>
+      <header class="dlg-head"><h3 id="impTitle" data-en="Import">匯入</h3><button class="icon" type="button" data-close aria-label="關閉" data-en-aria-label="Close">✕</button></header>
       <div class="dlg-body imp-body" id="impBody"></div>
       <footer class="dlg-foot">
         <span class="muted" id="impSummary"></span>
-        <button class="btn" type="button" data-close>取消</button>
-        <button class="btn primary" type="button" id="impApply">套用匯入</button>
+        <button class="btn" type="button" data-close data-en="Cancel">取消</button>
+        <button class="btn primary" type="button" id="impApply" data-en="Apply import">套用匯入</button>
       </footer>
     </div>
   </dialog>
 
   <dialog id="dlgHelp" class="dlg wide help" aria-labelledby="helpTitle">
     <div class="dlg-card">
-      <header class="dlg-head"><h3 id="helpTitle">使用說明</h3><button class="icon" type="button" data-close aria-label="關閉">✕</button></header>
+      <header class="dlg-head"><h3 id="helpTitle" data-en="Help">使用說明</h3><button class="icon" type="button" data-close aria-label="關閉" data-en-aria-label="Close">✕</button></header>
       <div class="help-grid">
-        <nav class="help-nav" id="helpNav" aria-label="說明目錄"></nav>
+        <nav class="help-nav" id="helpNav" aria-label="說明目錄" data-en-aria-label="Contents"></nav>
         <div class="help-body" id="helpBody"></div>
       </div>
     </div>
@@ -85,8 +86,8 @@
     <div class="blocker-card">
       <div class="spinner" aria-hidden="true"></div>
       <p id="blockerMsg">正在讀取雲端資料…</p>
-      <p class="muted">Google 雲端有時需要 10–30 秒</p>
-      <button class="link" id="blockerSkip" type="button">先看本機資料</button>
+      <p class="muted" data-en="Google can take 10–30 seconds to wake up">Google 雲端有時需要 10–30 秒</p>
+      <button class="link" id="blockerSkip" type="button" data-en="Show this computer's copy for now">先看本機資料</button>
     </div>
   </div>
 
@@ -96,6 +97,7 @@
   <input type="file" id="fileXlsx" accept=".xlsx,.xlsm" hidden>
   <input type="file" id="fileMonica" accept=".json,application/json" hidden>
 
+  <script src="js/i18n.js"></script>
   <script src="data/seed.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/importer.js"></script>

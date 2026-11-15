@@ -10,6 +10,8 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.AdoModel = api;
 })(typeof self !== "undefined" ? self : this, function () {
+  const L = typeof window !== "undefined" && window.L ? window.L : (zh) => zh;
+
   /** Columns are matched by alias, never by position: a manual export and the REST API differ. */
   const FIELD_ALIASES = {
     assignee: ["assignedto", "assignee", "owner", "assignedtodisplayname"],
@@ -47,21 +49,22 @@
   const UNASSIGNED = "(未指派)";
 
   /** Four phases, so a board with a dozen states still reads at a glance. Add states here, not to the CSS. */
+  // label is a getter: the language can change without a reload.
   const PHASES = [
-    { key: "backlog", label: "待辦", match: ["to do", "todo", "new", "open", "proposed", "approved"] },
-    { key: "doing", label: "進行中", match: ["doing", "active", "in progress", "committed", "fine tuning"] },
-    { key: "review", label: "審查/驗證", match: ["review", "internal review", "qe review", "verifying", "verify", "testing"] },
-    { key: "release", label: "待發布", match: ["release", "released", "verified", "ready"] },
+    { key: "backlog", get label() { return L("待辦", "To do"); }, match: ["to do", "todo", "new", "open", "proposed", "approved"] },
+    { key: "doing", get label() { return L("進行中", "In progress"); }, match: ["doing", "active", "in progress", "committed", "fine tuning"] },
+    { key: "review", get label() { return L("審查/驗證", "Review/Verify"); }, match: ["review", "internal review", "qe review", "verifying", "verify", "testing"] },
+    { key: "release", get label() { return L("待發布", "To release"); }, match: ["release", "released", "verified", "ready"] },
   ];
   /** Every closed state, whatever its name: not one of PHASES, since an open workload never has it. */
-  const DONE_PHASE = { key: "done", label: "已完成" };
+  const DONE_PHASE = { key: "done", get label() { return L("已完成", "Done"); } };
 
   const AGE_BUCKETS = [
-    { key: "0-30", label: "≤30 天", min: 0, max: 30, tone: "" },
-    { key: "31-90", label: "31–90 天", min: 31, max: 90, tone: "warn" },
-    { key: "91-180", label: "91–180 天", min: 91, max: 180, tone: "serious" },
-    { key: "181-365", label: "181–365 天", min: 181, max: 365, tone: "critical" },
-    { key: "366-99999", label: "> 365 天", min: 366, max: 99999, tone: "critical" },
+    { key: "0-30", get label() { return L("≤30 天", "≤30 days"); }, min: 0, max: 30, tone: "" },
+    { key: "31-90", get label() { return L("31–90 天", "31–90 days"); }, min: 31, max: 90, tone: "warn" },
+    { key: "91-180", get label() { return L("91–180 天", "91–180 days"); }, min: 91, max: 180, tone: "serious" },
+    { key: "181-365", get label() { return L("181–365 天", "181–365 days"); }, min: 181, max: 365, tone: "critical" },
+    { key: "366-99999", get label() { return L("> 365 天", "> 365 days"); }, min: 366, max: 99999, tone: "critical" },
   ];
 
   const STALE_DAYS = 31; // what the 停滯 shortcut and the KPI mean by "stalled": a month without an update

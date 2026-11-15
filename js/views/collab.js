@@ -16,7 +16,9 @@
   const OWNER = { both: ["Both (Local support)"], hq: ["HQ MTE Own"] };
   const TYPE = { npi: ["NPI pilot"], closedloop: ["Closed loop"], vb: ["VB"] };
   const STATUS = { todo: ["待執行", "To do"], doing: ["執行中", "In progress"], done: ["完成", "Done"] };
-  const bi = (pair) => `${pair[0]} ${pair[1]}`;
+  /** 中文 mode shows both languages (local MTEs share this page); English mode only English. */
+  const B = (zh, en) => (I18N.en ? en : `${zh} ${en}`);
+  const bi = (pair) => (pair[1] ? B(pair[0], pair[1]) : pair[0]);
 
   const read = (key, fallback) => {
     try {
@@ -85,7 +87,7 @@
     if (!document.hidden && onPage() && Date.now() - state.at > 5000) refresh();
   });
 
-  const stamp = () => (state.at ? `更新於 Updated ${new Date(state.at).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", hour12: false })}` : "讀取中… Loading…");
+  const stamp = () => (state.at ? `${B("更新於", "Updated")} ${new Date(state.at).toLocaleTimeString(I18N.locale(), { hour: "2-digit", minute: "2-digit", hour12: false })}` : B("讀取中…", "Loading…"));
   const when = (iso) => {
     if (!iso) return "";
     const d = new Date(iso);
@@ -125,11 +127,11 @@
 
   async function send(payload) {
     $("#blockerSkip").onclick = () => App.blocker(false);
-    App.blocker(true, "儲存中… Saving…");
+    App.blocker(true, B("儲存中…", "Saving…"));
     try {
       return await Remote.collabPost(payload);
     } catch (err) {
-      App.toast("儲存失敗 Save failed: " + err.message, "error");
+      App.toast(B("儲存失敗", "Save failed") + ": " + err.message, "error");
       return null;
     } finally {
       App.blocker(false);
@@ -152,23 +154,25 @@
     if (!r) return;
     if (r.conflict) {
       const mine = confirm(
-        "這一列剛被別人改過。\nSomeone else just changed this row.\n\n確定 OK：用我的內容覆蓋 Overwrite with mine\n取消 Cancel：放棄我的修改，載入對方的內容 Discard mine, load theirs"
+        I18N.en
+          ? "Someone else just changed this row.\n\nOK: overwrite with mine\nCancel: discard mine, load theirs"
+          : "這一列剛被別人改過。\nSomeone else just changed this row.\n\n確定 OK：用我的內容覆蓋 Overwrite with mine\n取消 Cancel：放棄我的修改，載入對方的內容 Discard mine, load theirs"
       );
       if (!mine) {
         const i = state.rows.findIndex((x) => x.id === r.row.id);
         if (i >= 0) state.rows[i] = r.row;
-        App.toast("已載入最新內容 Loaded the latest version");
+        App.toast(B("已載入最新內容", "Loaded the latest version"));
         return rerender();
       }
       r = await send({ action: "collabSave", row, baseRev: r.row.rev });
       if (!r) return;
       if (r.conflict) {
-        App.toast("又被別人改了，請重新編輯 Changed again, please edit once more", "error");
+        App.toast(B("又被別人改了，請重新編輯", "Changed again, please edit once more"), "error");
         return refresh(true);
       }
     }
     apply(r.row, r.rev);
-    App.toast("已儲存 Saved");
+    App.toast(B("已儲存", "Saved"));
     rerender();
   }
 
@@ -176,7 +180,7 @@
     const r = await send({ action: del ? "collabDelete" : "collabRestore", id });
     if (!r) return;
     apply(r.row, r.rev);
-    App.toast(del ? "已刪除，可在「已刪除」復原 Deleted (restorable below)" : "已復原 Restored", "", del ? [{ label: "復原 Undo", run: () => setDeleted(id, false) }] : []);
+    App.toast(del ? B("已刪除，可在「已刪除」復原", "Deleted (restorable below)") : B("已復原", "Restored"), "", del ? [{ label: B("復原", "Undo"), run: () => setDeleted(id, false) }] : []);
     rerender();
   }
 
@@ -193,40 +197,40 @@
     const fields = [
       {
         key: "project", label: "Project", type: "select", required: true, value: v.project,
-        options: [{ value: "", label: "— 請選擇 Select —" }, ...projects.map((p) => ({ value: p, label: p }))],
-        validate: (x) => (x ? "" : "請選擇 Project Please pick a project"),
+        options: [{ value: "", label: `— ${B("請選擇", "Select")} —` }, ...projects.map((p) => ({ value: p, label: p }))],
+        validate: (x) => (x ? "" : B("請選擇 Project", "Please pick a project")),
       },
-      { key: "pfam", label: "PFAM", required: true, value: v.pfam, placeholder: "例如 e.g. Gen11.1 MM34 FTB" },
+      { key: "pfam", label: "PFAM", required: true, value: v.pfam, placeholder: `${B("例如", "e.g.")} Gen11.1 MM34 FTB` },
       {
-        key: "type", label: "Task 類型 Task type", type: "select", required: true, value: v.type,
-        options: [{ value: "", label: "— 請選擇 Select —" }, ...Object.keys(TYPE).map((k) => ({ value: k, label: TYPE[k][0] }))],
-        validate: (x) => (x ? "" : "請選擇 Task 類型 Please pick a task type"),
+        key: "type", label: B("Task 類型", "Task type"), type: "select", required: true, value: v.type,
+        options: [{ value: "", label: `— ${B("請選擇", "Select")} —` }, ...Object.keys(TYPE).map((k) => ({ value: k, label: TYPE[k][0] }))],
+        validate: (x) => (x ? "" : B("請選擇 Task 類型", "Please pick a task type")),
       },
       {
-        key: "site", label: "廠區 Site", type: "select", required: true, value: v.site,
-        options: [{ value: "", label: "— 請選擇 Select —" }, ...sites.map((s) => ({ value: s, label: s }))],
-        validate: (x) => (x ? "" : "請選擇廠區 Please pick a site"),
+        key: "site", label: B("廠區", "Site"), type: "select", required: true, value: v.site,
+        options: [{ value: "", label: `— ${B("請選擇", "Select")} —` }, ...sites.map((s) => ({ value: s, label: s }))],
+        validate: (x) => (x ? "" : B("請選擇廠區", "Please pick a site")),
       },
       { key: "pn", label: "L10 PN", required: true, value: v.pn },
-      { key: "pod", label: "Pod 位置 Pod location", value: v.pod },
-      { key: "rk", label: "RK location", value: v.rk, placeholder: "RK-001, RK-256", hint: "可輸入多筆，用逗號或空白分隔 Several racks: separate with commas or spaces" },
-      { key: "owner", label: "執行方 Owner", type: "select", value: v.owner, options: Object.keys(OWNER).map((k) => ({ value: k, label: OWNER[k][0] })) },
-      { key: "start", label: "開始 Start", type: "date", value: v.start },
-      { key: "end", label: "結束 End", type: "date", value: v.end, validate: (x, all) => (x && all.start && x < all.start ? "結束日早於開始日 End is before start" : "") },
-      { key: "status", label: "狀態 Status", type: "select", value: v.status, options: Object.keys(STATUS).map((k) => ({ value: k, label: bi(STATUS[k]) })) },
-      { key: "note", label: "備註 Note", type: "textarea", wide: true, value: v.note },
+      { key: "pod", label: B("Pod 位置", "Pod location"), value: v.pod },
+      { key: "rk", label: "RK location", value: v.rk, placeholder: "RK-001, RK-256", hint: B("可輸入多筆，用逗號或空白分隔", "Several racks: separate with commas or spaces") },
+      { key: "owner", label: B("執行方", "Owner"), type: "select", value: v.owner, options: Object.keys(OWNER).map((k) => ({ value: k, label: OWNER[k][0] })) },
+      { key: "start", label: B("開始", "Start"), type: "date", value: v.start },
+      { key: "end", label: B("結束", "End"), type: "date", value: v.end, validate: (x, all) => (x && all.start && x < all.start ? B("結束日早於開始日", "End is before start") : "") },
+      { key: "status", label: B("狀態", "Status"), type: "select", value: v.status, options: Object.keys(STATUS).map((k) => ({ value: k, label: bi(STATUS[k]) })) },
+      { key: "note", label: B("備註", "Note"), type: "textarea", wide: true, value: v.note },
     ];
     const pending = App.form({
-      title: row ? "編輯 PFAM Edit PFAM" : "新增 PFAM Add PFAM",
+      title: row ? B("編輯 PFAM", "Edit PFAM") : B("新增 PFAM", "Add PFAM"),
       fields,
       del: !!row,
-      saveLabel: "儲存 Save",
-      labels: { del: "刪除 Delete", cancel: "取消 Cancel" },
+      saveLabel: B("儲存", "Save"),
+      labels: { del: B("刪除", "Delete"), cancel: B("取消", "Cancel") },
     });
     const res = await pending;
     if (!res) return;
     if (res.action === "delete") {
-      if (confirm("刪除這一列？之後可在「已刪除」復原。\nDelete this row? It can be restored from Deleted.")) setDeleted(row.id, true);
+      if (confirm(I18N.en ? "Delete this row? It can be restored from Deleted." : "刪除這一列？之後可在「已刪除」復原。\nDelete this row? It can be restored from Deleted.")) setDeleted(row.id, true);
       return;
     }
     await save({ ...res.values, id: row ? row.id : "" }, row ? row.rev : 0);
@@ -234,12 +238,13 @@
 
   // ------------------------------------------------------------ render
 
-  const pill = (cls, pair) => `<span class="cb-pill ${cls}">${esc(pair[0])}${pair[1] ? `<small>${esc(pair[1])}</small>` : ""}</span>`;
+  const pill = (cls, pair) =>
+    I18N.en && pair[1] ? `<span class="cb-pill ${cls}">${esc(pair[1])}</span>` : `<span class="cb-pill ${cls}">${esc(pair[0])}${pair[1] ? `<small>${esc(pair[1])}</small>` : ""}</span>`;
 
   function table(rows, opts) {
     // Fixed column widths, so the per-project cards line up under each other. Inside a project's card
     // the Project column would repeat its title, so it is only shown in the mixed lists (done, deleted).
-    const head = `<tr>${opts.project ? '<th class="w-proj">Project</th>' : ""}<th class="w-pfam">PFAM</th><th class="w-type">類型 Type</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">L10 PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-rk">RK location</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th class="w-note">備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
+    const head = `<tr>${opts.project ? '<th class="w-proj">Project</th>' : ""}<th class="w-pfam">PFAM</th><th class="w-type">${B("類型", "Type")}</th>${opts.site ? `<th class="w-site">${B("廠區", "Site")}</th>` : ""}<th class="w-pn">L10 PN</th><th class="w-pod">${B("Pod 位置", "Pod")}</th><th class="w-rk">RK location</th><th class="w-sch">Schedule</th><th class="w-own">${B("執行方", "Owner")}</th><th class="w-st">${B("狀態", "Status")}</th><th class="w-note">${B("備註", "Note")}</th><th class="w-upd">${opts.deleted ? B("刪除於", "Deleted") : B("更新", "Updated")}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
     const body = rows
       .map(
         (r) => `<tr${opts.deleted ? "" : ` data-row="${esc(r.id)}" tabindex="0"`} class="cb-row st-${esc(r.status)}">
@@ -247,7 +252,7 @@
           <td class="nowrap">${r.start || r.end ? esc(U.range(r.start, r.end || r.start)) : '<span class="muted">—</span>'}</td>
           <td>${pill("cb-o-" + r.owner, OWNER[r.owner] || OWNER.both)}</td><td>${pill("cb-s-" + r.status, STATUS[r.status] || STATUS.todo)}</td>
           <td class="cb-note" title="${esc(r.note)}">${esc(r.note)}</td><td class="muted small nowrap">${esc(when(r.updatedAt))}</td>
-          ${opts.deleted ? `<td><button class="btn small" type="button" data-restore="${esc(r.id)}">復原 Restore</button></td>` : ""}</tr>`
+          ${opts.deleted ? `<td><button class="btn small" type="button" data-restore="${esc(r.id)}">${B("復原", "Restore")}</button></td>` : ""}</tr>`
       )
       .join("");
     return `<div class="table-wrap"><table class="grid-table cb-table"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
@@ -258,9 +263,9 @@
 
   function render(root) {
     const head = `<div class="page-head"><h2>MTE PFAM sync</h2>
-      <span class="muted">HQ 與 local MTE 共同維護，所有人都能新增、修改、刪除・Shared with local MTEs: everyone can add, edit and delete</span></div>`;
+      <span class="muted">${I18N.en ? "Shared with local MTEs: everyone can add, edit and delete" : "HQ 與 local MTE 共同維護，所有人都能新增、修改、刪除・Shared with local MTEs: everyone can add, edit and delete"}</span></div>`;
     if (!Remote.active) {
-      root.innerHTML = `${head}<section class="card"><p class="empty">這一頁需要啟用雲端同步才能使用。<br>This page needs cloud sync. <a href="#/settings/cloud">設定 → 雲端同步 Settings</a></p></section>`;
+      root.innerHTML = `${head}<section class="card"><p class="empty">${I18N.en ? "This page needs cloud sync." : "這一頁需要啟用雲端同步才能使用。<br>This page needs cloud sync."} <a href="#/settings/cloud">${B("設定 → 雲端同步", "Settings → Cloud sync")}</a></p></section>`;
       return;
     }
     ensurePolling();
@@ -292,20 +297,20 @@
 
     root.innerHTML = `<div id="cbPage">${head}
       <div class="cb-bar">
-        <span class="cb-lbl">Project</span>${seg("project", [["*", "全部 All"], ...projectsInUse.map((p) => [p, p])])}
-        <span class="cb-lbl">廠區 Site</span>${seg("site", [["*", "全部 All"], ...sitesInUse.map((s) => [s, s])])}
-        <span class="cb-lbl">執行方 Owner</span>${seg("owner", [["*", "全部 All"], ["both", OWNER.both[0]], ["hq", OWNER.hq[0]]])}
+        <span class="cb-lbl">Project</span>${seg("project", [["*", B("全部", "All")], ...projectsInUse.map((p) => [p, p])])}
+        <span class="cb-lbl">${B("廠區", "Site")}</span>${seg("site", [["*", B("全部", "All")], ...sitesInUse.map((s) => [s, s])])}
+        <span class="cb-lbl">${B("執行方", "Owner")}</span>${seg("owner", [["*", B("全部", "All")], ["both", OWNER.both[0]], ["hq", OWNER.hq[0]]])}
         <span class="grow"></span>
         <span class="muted small" id="cbAt">${esc(stamp())}</span>
-        <button class="btn" type="button" id="cbRefresh" title="重新讀取 Reload">⟳</button>
-        <button class="btn primary" type="button" id="cbAdd">＋ 新增 PFAM Add</button>
+        <button class="btn" type="button" id="cbRefresh" title="${B("重新讀取", "Reload")}">⟳</button>
+        <button class="btn primary" type="button" id="cbAdd">＋ ${B("新增 PFAM", "Add PFAM")}</button>
       </div>
       ${state.outdated && !state.error ? `<p class="cb-err">${esc(state.outdated)}</p>` : ""}
-      ${state.error ? `<p class="cb-err">${state.oldBackend ? "" : "讀取失敗，以下是這台電腦上次的資料 Could not load, showing the last copy on this computer: "}${esc(state.error)}</p>` : ""}
-      <p class="small cb-sum">執行中 / 待執行 Open: <b>${open.length}</b>・HQ MTE Own: <b>${hqOnly}</b></p>
-      ${groups || `<section class="card"><p class="empty">${open.length ? "沒有符合篩選的 PFAM。No PFAM matches the filter." : "目前沒有執行中的 PFAM。按「＋ 新增 PFAM」加第一筆。<br>No running PFAM yet. Use “＋ Add” to add one."}</p></section>`}
-      ${done.length ? `<details class="card fold-card"><summary class="card-h"><h3>已完成 Done</h3><span class="count">${done.length}</span></summary>${table(done, { project: true, site: true })}</details>` : ""}
-      ${gone.length ? `<details class="card fold-card"><summary class="card-h"><h3>已刪除 Deleted</h3><span class="count">${gone.length}</span><span class="muted">任何人都能復原 Anyone can restore</span></summary>${table(gone, { project: true, site: true, deleted: true })}</details>` : ""}
+      ${state.error ? `<p class="cb-err">${state.oldBackend ? "" : B("讀取失敗，以下是這台電腦上次的資料", "Could not load, showing the last copy on this computer") + ": "}${esc(state.error)}</p>` : ""}
+      <p class="small cb-sum">${B("執行中 / 待執行", "Open")}: <b>${open.length}</b>・HQ MTE Own: <b>${hqOnly}</b></p>
+      ${groups || `<section class="card"><p class="empty">${open.length ? B("沒有符合篩選的 PFAM。", "No PFAM matches the filter.") : I18N.en ? "No running PFAM yet. Use “＋ Add PFAM” to add one." : "目前沒有執行中的 PFAM。按「＋ 新增 PFAM」加第一筆。<br>No running PFAM yet. Use “＋ Add PFAM” to add one."}</p></section>`}
+      ${done.length ? `<details class="card fold-card"><summary class="card-h"><h3>${B("已完成", "Done")}</h3><span class="count">${done.length}</span></summary>${table(done, { project: true, site: true })}</details>` : ""}
+      ${gone.length ? `<details class="card fold-card"><summary class="card-h"><h3>${B("已刪除", "Deleted")}</h3><span class="count">${gone.length}</span><span class="muted">${B("任何人都能復原", "Anyone can restore")}</span></summary>${table(gone, { project: true, site: true, deleted: true })}</details>` : ""}
     </div>`;
 
     const page = $("#cbPage");

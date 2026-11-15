@@ -9,6 +9,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.Importer = api;
 })(typeof self !== "undefined" ? self : this, function () {
+  const L = typeof window !== "undefined" && window.L ? window.L : (zh) => zh;
   // Holiday sheet layout: [site, name column, date column]
   const HOLIDAY_COLS = [["WYMX", "A", "B"], ["WYLZ", "E", "F"], ["WYHQ", "I", "J"], ["WCZ", "M", "N"], ["WYMY", "Q", "R"]];
   const DATE_COL_TO_SITE = Object.fromEntries(HOLIDAY_COLS.map(([s, , d]) => [d, s]));
@@ -198,7 +199,7 @@
       };
     }
 
-    if (!wb.Sheets.Holiday) throw new Error("找不到 Holiday 工作表，這不是預期格式的排程 Excel");
+    if (!wb.Sheets.Holiday) throw new Error(L("找不到 Holiday 工作表，這不是預期格式的排程 Excel", "No Holiday sheet: this is not the expected schedule Excel"));
     const calendars = readHolidays(wb.Sheets.Holiday);
     const meta = (wb.Workbook && wb.Workbook.Sheets) || [];
     const pfams = [];
@@ -212,7 +213,11 @@
       if (meta[i] && meta[i].Hidden) skipped.push(name);
       else pfams.push(convertSheet(name, ws, idx));
     });
-    if (!pfams.length) throw new Error(skipped.length ? "所有排程分頁都被隱藏了，沒有可匯入的分頁" : "沒有找到任何排程分頁（第 7 列應為 # / TASK / LEAD …）");
+    if (!pfams.length) throw new Error(
+        skipped.length
+          ? L("所有排程分頁都被隱藏了，沒有可匯入的分頁", "All schedule sheets are hidden: nothing to import")
+          : L("沒有找到任何排程分頁（第 7 列應為 # / TASK / LEAD …）", "No schedule sheet found (row 7 should be # / TASK / LEAD …)")
+      );
 
     return {
       schema: 1,
