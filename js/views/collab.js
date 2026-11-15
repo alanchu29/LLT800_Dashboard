@@ -13,7 +13,7 @@
   const POLL_MS = 60000;
 
   // Both (HQ + local MTE look at it) is the normal case; HQ MTE Own is the exception, so it is the one colored.
-  const OWNER = { both: ["Both"], hq: ["HQ MTE Own"] };
+  const OWNER = { both: ["Both (Local support)"], hq: ["HQ MTE Own"] };
   const TYPE = { npi: ["NPI pilot"], closedloop: ["Closed loop"], vb: ["VB"] };
   const STATUS = { todo: ["待執行", "To do"], doing: ["執行中", "In progress"], done: ["完成", "Done"] };
   const bi = (pair) => `${pair[0]} ${pair[1]}`;
@@ -294,7 +294,7 @@
       <div class="cb-bar">
         <span class="cb-lbl">Project</span>${seg("project", [["*", "全部 All"], ...projectsInUse.map((p) => [p, p])])}
         <span class="cb-lbl">廠區 Site</span>${seg("site", [["*", "全部 All"], ...sitesInUse.map((s) => [s, s])])}
-        <span class="cb-lbl">執行方 Owner</span>${seg("owner", [["*", "全部 All"], ["both", "Both"], ["hq", "HQ MTE Own"]])}
+        <span class="cb-lbl">執行方 Owner</span>${seg("owner", [["*", "全部 All"], ["both", OWNER.both[0]], ["hq", OWNER.hq[0]]])}
         <span class="grow"></span>
         <span class="muted small" id="cbAt">${esc(stamp())}</span>
         <button class="btn" type="button" id="cbRefresh" title="重新讀取 Reload">⟳</button>
