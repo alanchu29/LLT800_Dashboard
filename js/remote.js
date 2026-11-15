@@ -39,7 +39,7 @@
   }
 
   // The MTE PFAM sync fields this page sends; a backend that lacks any of them would silently drop it.
-  const COLLAB_FIELDS = ["project", "pfam", "type", "pn", "site", "pod", "start", "end", "owner", "status", "note"];
+  const COLLAB_FIELDS = ["project", "pfam", "type", "pn", "site", "pod", "rk", "start", "end", "owner", "status", "note"];
 
   const OUTDATED = "雲端後端版本較舊，部分欄位會存不進去：請把最新的 apps-script/Code.gs 重新部署（新版本）。The cloud backend is outdated: some fields will not be saved.";
 

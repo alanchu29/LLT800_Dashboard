@@ -12,7 +12,7 @@
   const LS_UI = "llt800.collab.ui.v1"; // { site, owner } filters, per browser
   const POLL_MS = 60000;
 
-  const OWNER = { hq: ["HQ 自行執行", "HQ runs it"], local: ["需要 local MTE 支援", "Needs local MTE"] };
+  const OWNER = { hq: ["HQ MTE Own"], both: ["Both"] };
   const TYPE = { npi: ["NPI pilot"], closedloop: ["Closed loop"], vb: ["VB"] };
   const STATUS = { todo: ["待執行", "To do"], doing: ["執行中", "In progress"], done: ["完成", "Done"] };
   const bi = (pair) => `${pair[0]} ${pair[1]}`;
@@ -32,8 +32,11 @@
     }
   };
 
+  /** The first version called "Both" owner "local"; a cache from then may still hold it. */
+  const fix = (rows) => rows.map((r) => (r.owner === "local" ? { ...r, owner: "both" } : r));
+
   const cache = read(LS_CACHE, {});
-  const state = { rev: Number(cache.rev) || 0, rows: Array.isArray(cache.rows) ? cache.rows : [], at: 0, tried: false, loading: false, error: "", oldBackend: false, outdated: "" };
+  const state = { rev: Number(cache.rev) || 0, rows: Array.isArray(cache.rows) ? fix(cache.rows) : [], at: 0, tried: false, loading: false, error: "", oldBackend: false, outdated: "" };
   let timer = 0;
 
   const onPage = () => window.App && App.route.name === "collab";
@@ -47,7 +50,7 @@
     const was = state.rev;
     try {
       const r = await Remote.collabLoad(full ? null : state.rev);
-      if (!r.unchanged) state.rows = r.rows;
+      if (!r.unchanged) state.rows = fix(r.rows);
       state.rev = r.rev;
       state.error = "";
       state.oldBackend = false;
@@ -192,7 +195,8 @@
       },
       { key: "pn", label: "L10 PN", required: true, value: v.pn },
       { key: "pod", label: "Pod 位置 Pod location", value: v.pod },
-      { key: "owner", label: "執行方 Owner", type: "select", value: v.owner, options: Object.keys(OWNER).map((k) => ({ value: k, label: bi(OWNER[k]) })) },
+      { key: "rk", label: "RK location", value: v.rk, placeholder: "RK-001, RK-256", hint: "可輸入多筆，用逗號或空白分隔 Several racks: separate with commas or spaces" },
+      { key: "owner", label: "執行方 Owner", type: "select", value: v.owner, options: Object.keys(OWNER).map((k) => ({ value: k, label: OWNER[k][0] })) },
       { key: "start", label: "開始 Start", type: "date", value: v.start },
       { key: "end", label: "結束 End", type: "date", value: v.end, validate: (x, all) => (x && all.start && x < all.start ? "結束日早於開始日 End is before start" : "") },
       { key: "status", label: "狀態 Status", type: "select", value: v.status, options: Object.keys(STATUS).map((k) => ({ value: k, label: bi(STATUS[k]) })) },
@@ -216,15 +220,15 @@
 
   // ------------------------------------------------------------ render
 
-  const pill = (cls, pair) => `<span class="cb-pill ${cls}">${esc(pair[0])}<small>${esc(pair[1])}</small></span>`;
+  const pill = (cls, pair) => `<span class="cb-pill ${cls}">${esc(pair[0])}${pair[1] ? `<small>${esc(pair[1])}</small>` : ""}</span>`;
 
   function table(rows, opts) {
     // Fixed column widths, so the per-site cards line up under each other.
-    const head = `<tr><th class="w-proj">Project</th><th class="w-pfam">PFAM</th><th class="w-type">類型 Type</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">L10 PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th>備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
+    const head = `<tr><th class="w-proj">Project</th><th class="w-pfam">PFAM</th><th class="w-type">類型 Type</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">L10 PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-rk">RK location</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th class="w-note">備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
     const body = rows
       .map(
         (r) => `<tr${opts.deleted ? "" : ` data-row="${esc(r.id)}" tabindex="0"`} class="cb-row st-${esc(r.status)}">
-          <td>${esc(r.project)}</td><td><b>${esc(r.pfam)}</b></td><td>${TYPE[r.type] ? esc(TYPE[r.type][0]) : '<span class="muted">—</span>'}</td>${opts.site ? `<td>${esc(r.site)}</td>` : ""}<td>${esc(r.pn)}</td><td>${esc(r.pod)}</td>
+          <td>${esc(r.project)}</td><td><b>${esc(r.pfam)}</b></td><td>${TYPE[r.type] ? esc(TYPE[r.type][0]) : '<span class="muted">—</span>'}</td>${opts.site ? `<td>${esc(r.site)}</td>` : ""}<td>${esc(r.pn)}</td><td>${esc(r.pod)}</td><td class="cb-rk">${String(r.rk || "").split(/,\s*/).filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join("")}</td>
           <td class="nowrap">${r.start || r.end ? esc(U.range(r.start, r.end || r.start)) : '<span class="muted">—</span>'}</td>
           <td>${pill("cb-o-" + r.owner, OWNER[r.owner] || OWNER.hq)}</td><td>${pill("cb-s-" + r.status, STATUS[r.status] || STATUS.todo)}</td>
           <td class="cb-note" title="${esc(r.note)}">${esc(r.note)}</td><td class="muted small nowrap">${esc(when(r.updatedAt))}</td>
@@ -256,7 +260,7 @@
     const gone = state.rows.filter((r) => r.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     const order = siteOrder();
     const sitesInUse = order.filter((s) => open.some((r) => r.site === s) || s === ui.site);
-    const needLocal = open.filter((r) => r.owner === "local").length;
+    const needLocal = open.filter((r) => r.owner === "both").length;
 
     const seg = (key, opts) =>
       `<div class="seg" role="group">${opts.map(([val, label]) => `<button type="button" data-${key}="${esc(val)}" class="${ui[key] === val ? "on" : ""}">${esc(label)}</button>`).join("")}</div>`;
@@ -265,15 +269,15 @@
       .filter((s) => shown.some((r) => r.site === s))
       .map((s) => {
         const list = shown.filter((r) => r.site === s).sort(byStart);
-        const nl = list.filter((r) => r.owner === "local").length;
-        return `<section class="card cb-group"><header class="card-h"><h3>${esc(s)}</h3><span class="count">${list.length}</span>${nl ? `<span class="cb-need">${nl} 需要 local 支援 need local</span>` : ""}</header>${table(list, {})}</section>`;
+        const nl = list.filter((r) => r.owner === "both").length;
+        return `<section class="card cb-group"><header class="card-h"><h3>${esc(s)}</h3><span class="count">${list.length}</span>${nl ? `<span class="cb-need">Both: ${nl}</span>` : ""}</header>${table(list, {})}</section>`;
       })
       .join("");
 
     root.innerHTML = `<div id="cbPage">${head}
       <div class="cb-bar">
         <span class="cb-lbl">廠區 Site</span>${seg("site", [["*", "全部 All"], ...sitesInUse.map((s) => [s, s])])}
-        <span class="cb-lbl">執行方 Owner</span>${seg("owner", [["*", "全部 All"], ["hq", "HQ"], ["local", "需 local 支援 Local"]])}
+        <span class="cb-lbl">執行方 Owner</span>${seg("owner", [["*", "全部 All"], ["hq", "HQ MTE Own"], ["both", "Both"]])}
         <span class="grow"></span>
         <span class="muted small" id="cbAt">${esc(stamp())}</span>
         <button class="btn" type="button" id="cbRefresh" title="重新讀取 Reload">⟳</button>
@@ -281,7 +285,7 @@
       </div>
       ${state.outdated && !state.error ? `<p class="cb-err">${esc(state.outdated)}</p>` : ""}
       ${state.error ? `<p class="cb-err">${state.oldBackend ? "" : "讀取失敗，以下是這台電腦上次的資料 Could not load, showing the last copy on this computer: "}${esc(state.error)}</p>` : ""}
-      <p class="small cb-sum">執行中 / 待執行 Open: <b>${open.length}</b>・需要 local 支援 Need local: <b>${needLocal}</b></p>
+      <p class="small cb-sum">執行中 / 待執行 Open: <b>${open.length}</b>・Both: <b>${needLocal}</b></p>
       ${groups || `<section class="card"><p class="empty">${open.length ? "沒有符合篩選的 PFAM。No PFAM matches the filter." : "目前沒有執行中的 PFAM。按「＋ 新增 PFAM」加第一筆。<br>No running PFAM yet. Use “＋ Add” to add one."}</p></section>`}
       ${done.length ? `<details class="card fold-card"><summary class="card-h"><h3>已完成 Done</h3><span class="count">${done.length}</span></summary>${table(done, { site: true })}</details>` : ""}
       ${gone.length ? `<details class="card fold-card"><summary class="card-h"><h3>已刪除 Deleted</h3><span class="count">${gone.length}</span><span class="muted">任何人都能復原 Anyone can restore</span></summary>${table(gone, { site: true, deleted: true })}</details>` : ""}

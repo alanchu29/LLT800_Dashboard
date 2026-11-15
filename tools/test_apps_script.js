@@ -225,10 +225,10 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   const open = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text); // no key at all
   r = get({ action: "collab" });
   assert.deepStrictEqual([r.ok, r.rev, r.rows], [true, 0, []], "collab starts empty");
-  assert.strictEqual(JSON.stringify(r.fields), JSON.stringify(["project", "pfam", "type", "pn", "site", "pod", "start", "end", "owner", "status", "note"]), "collab reports its fields (must match COLLAB_FIELDS in js/remote.js)");
+  assert.strictEqual(JSON.stringify(r.fields), JSON.stringify(["project", "pfam", "type", "pn", "site", "pod", "rk", "start", "end", "owner", "status", "note"]), "collab reports its fields (must match COLLAB_FIELDS in js/remote.js)");
   const dataVersion = get({ action: "bundle" }).version;
 
-  const row = { project: "Gen11", pfam: "Gen11.1 MM34 FTB", type: "closedloop", pn: "PN-1", site: "MX", pod: "Pod 3", start: "2026-11-01", end: "2026-11-20", owner: "local", status: "doing", note: "need 2 people" };
+  const row = { project: "Gen11", pfam: "Gen11.1 MM34 FTB", type: "closedloop", pn: "PN-1", site: "MX", pod: "Pod 3", rk: "RK-001, RK-256", start: "2026-11-01", end: "2026-11-20", owner: "both", status: "doing", note: "need 2 people" };
   r = open({ action: "collabSave", row });
   assert.ok(r.ok && r.row.id && r.row.rev === 1 && r.rev === 1, "anyone can add a row, without the edit password");
   const id = r.row.id;
@@ -279,6 +279,10 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   // A whole-dataset save leaves the collab rows alone.
   post({ action: "saveAll", data: seed, baseVersion: null });
   assert.strictEqual(get({ action: "collab" }).rows.length, 2, "saveAll does not wipe Collab");
+  assert.strictEqual(open({ action: "collabSave", row: { ...row, owner: "local" } }).row.owner, "both", "the first version's owner \"local\" is now \"both\"");
+  r = open({ action: "collabSave", row: { ...row, rk: " RK-001 RK-256\uFF0Crk-001\nRK-300;; " } });
+  assert.strictEqual(r.row.rk, "RK-001, RK-256, RK-300", "RK location: split on commas / spaces / lines, repeats dropped");
+  open({ action: "collabDelete", id: r.row.id });
 }
 
 console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, password, date, ?since=, employee.ado, snapshot, prune and MTE PFAM sync checks pass`);
