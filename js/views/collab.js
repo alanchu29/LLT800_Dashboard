@@ -9,10 +9,11 @@
 (function () {
   const { esc, $ } = U;
   const LS_CACHE = "llt800.collab.v1"; // { rev, rows }: shown at once on the next visit, then refreshed
-  const LS_UI = "llt800.collab.ui.v1"; // { site, owner } filters, per browser
+  const LS_UI = "llt800.collab.ui.v1"; // { project, site, owner } filters, per browser
   const POLL_MS = 60000;
 
-  const OWNER = { hq: ["HQ MTE Own"], both: ["Both"] };
+  // Both (HQ + local MTE look at it) is the normal case; HQ MTE Own is the exception, so it is the one colored.
+  const OWNER = { both: ["Both"], hq: ["HQ MTE Own"] };
   const TYPE = { npi: ["NPI pilot"], closedloop: ["Closed loop"], vb: ["VB"] };
   const STATUS = { todo: ["待執行", "To do"], doing: ["執行中", "In progress"], done: ["完成", "Done"] };
   const bi = (pair) => `${pair[0]} ${pair[1]}`;
@@ -95,10 +96,22 @@
 
   // ------------------------------------------------------------ choices
 
-  /** Project names to pick from: the department's active projects (plus the row's own, if it is gone since). */
+  /**
+   * Project names to pick from: the department's active projects in their usual order, a catch-all
+   * ("Others") last (Store.projects), plus the row's own if it is gone since.
+   */
   function projectChoices(current) {
-    const names = Store.data.projects.filter((p) => (p.status || "active") === "active").map((p) => p.name);
+    const names = Store.projects().filter((p) => (p.status || "active") === "active").map((p) => p.name);
     return current && !names.includes(current) ? [current, ...names] : names;
+  }
+
+  const isCatchAll = (name) => /^(others?|其他|其它)$/i.test(String(name || "").trim());
+  /** Projects in the department's order (Store.projects), then any other project in use; a catch-all ("Others") last. */
+  function projectOrder() {
+    const known = Store.projects().map((p) => p.name);
+    const extra = [...new Set(state.rows.map((r) => r.project))].filter((n) => n && !known.includes(n)).sort();
+    const all = known.concat(extra);
+    return all.filter((n) => !isCatchAll(n)).concat(all.filter(isCatchAll));
   }
 
   /** The department's site list first (its order), then any other site in use. */
@@ -175,7 +188,8 @@
     const ui = read(LS_UI, {});
     const projects = projectChoices(row && row.project);
     const sites = siteOrder(row ? [row.site] : []);
-    const v = row || { owner: "hq", status: "todo", site: ui.site && ui.site !== "*" ? ui.site : "" };
+    const pick = (k) => (ui[k] && ui[k] !== "*" ? ui[k] : ""); // a filter in use is the likely choice
+    const v = row || { owner: "both", status: "todo", project: pick("project"), site: pick("site") };
     const fields = [
       {
         key: "project", label: "Project", type: "select", required: true, value: v.project,
@@ -223,14 +237,15 @@
   const pill = (cls, pair) => `<span class="cb-pill ${cls}">${esc(pair[0])}${pair[1] ? `<small>${esc(pair[1])}</small>` : ""}</span>`;
 
   function table(rows, opts) {
-    // Fixed column widths, so the per-site cards line up under each other.
-    const head = `<tr><th class="w-proj">Project</th><th class="w-pfam">PFAM</th><th class="w-type">類型 Type</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">L10 PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-rk">RK location</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th class="w-note">備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
+    // Fixed column widths, so the per-project cards line up under each other. Inside a project's card
+    // the Project column would repeat its title, so it is only shown in the mixed lists (done, deleted).
+    const head = `<tr>${opts.project ? '<th class="w-proj">Project</th>' : ""}<th class="w-pfam">PFAM</th><th class="w-type">類型 Type</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">L10 PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-rk">RK location</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th class="w-note">備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
     const body = rows
       .map(
         (r) => `<tr${opts.deleted ? "" : ` data-row="${esc(r.id)}" tabindex="0"`} class="cb-row st-${esc(r.status)}">
-          <td>${esc(r.project)}</td><td><b>${esc(r.pfam)}</b></td><td>${TYPE[r.type] ? esc(TYPE[r.type][0]) : '<span class="muted">—</span>'}</td>${opts.site ? `<td>${esc(r.site)}</td>` : ""}<td>${esc(r.pn)}</td><td>${esc(r.pod)}</td><td class="cb-rk">${String(r.rk || "").split(/,\s*/).filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join("")}</td>
+          ${opts.project ? `<td>${esc(r.project)}</td>` : ""}<td><b>${esc(r.pfam)}</b></td><td>${TYPE[r.type] ? esc(TYPE[r.type][0]) : '<span class="muted">—</span>'}</td>${opts.site ? `<td>${esc(r.site)}</td>` : ""}<td>${esc(r.pn)}</td><td>${esc(r.pod)}</td><td class="cb-rk">${String(r.rk || "").split(/,\s*/).filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join("")}</td>
           <td class="nowrap">${r.start || r.end ? esc(U.range(r.start, r.end || r.start)) : '<span class="muted">—</span>'}</td>
-          <td>${pill("cb-o-" + r.owner, OWNER[r.owner] || OWNER.hq)}</td><td>${pill("cb-s-" + r.status, STATUS[r.status] || STATUS.todo)}</td>
+          <td>${pill("cb-o-" + r.owner, OWNER[r.owner] || OWNER.both)}</td><td>${pill("cb-s-" + r.status, STATUS[r.status] || STATUS.todo)}</td>
           <td class="cb-note" title="${esc(r.note)}">${esc(r.note)}</td><td class="muted small nowrap">${esc(when(r.updatedAt))}</td>
           ${opts.deleted ? `<td><button class="btn small" type="button" data-restore="${esc(r.id)}">復原 Restore</button></td>` : ""}</tr>`
       )
@@ -239,7 +254,7 @@
   }
 
   /** By start date; rows without one last. */
-  const byStart = (a, b) => (a.start || "9999").localeCompare(b.start || "9999") || (a.project || "").localeCompare(b.project || "") || (a.pfam || "").localeCompare(b.pfam || "");
+  const byStart = (a, b) => (a.start || "9999").localeCompare(b.start || "9999") || (a.site || "").localeCompare(b.site || "") || (a.pfam || "").localeCompare(b.pfam || "");
 
   function render(root) {
     const head = `<div class="page-head"><h2>MTE PFAM sync</h2>
@@ -251,33 +266,35 @@
     ensurePolling();
     if (!state.tried) refresh();
 
-    const ui = Object.assign({ site: "*", owner: "*" }, read(LS_UI, {}));
+    const ui = Object.assign({ project: "*", site: "*", owner: "*" }, read(LS_UI, {}));
     const live = state.rows.filter((r) => !r.deleted);
-    const pass = (r) => (ui.site === "*" || r.site === ui.site) && (ui.owner === "*" || r.owner === ui.owner);
+    const pass = (r) => (ui.project === "*" || r.project === ui.project) && (ui.site === "*" || r.site === ui.site) && (ui.owner === "*" || r.owner === ui.owner);
     const open = live.filter((r) => r.status !== "done");
     const shown = open.filter(pass);
     const done = live.filter((r) => r.status === "done" && pass(r)).sort(byStart);
     const gone = state.rows.filter((r) => r.deleted).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    const order = siteOrder();
-    const sitesInUse = order.filter((s) => open.some((r) => r.site === s) || s === ui.site);
-    const needLocal = open.filter((r) => r.owner === "both").length;
+    const order = projectOrder();
+    const projectsInUse = order.filter((p) => open.some((r) => r.project === p) || p === ui.project);
+    const sitesInUse = siteOrder().filter((s) => open.some((r) => r.site === s) || s === ui.site);
+    const hqOnly = open.filter((r) => r.owner === "hq").length;
 
     const seg = (key, opts) =>
-      `<div class="seg" role="group">${opts.map(([val, label]) => `<button type="button" data-${key}="${esc(val)}" class="${ui[key] === val ? "on" : ""}">${esc(label)}</button>`).join("")}</div>`;
+      `<div class="seg" role="group">${opts.map(([val, label]) => `<button type="button" data-f="${key}" data-v="${esc(val)}" class="${ui[key] === val ? "on" : ""}">${esc(label)}</button>`).join("")}</div>`;
 
     const groups = order
-      .filter((s) => shown.some((r) => r.site === s))
-      .map((s) => {
-        const list = shown.filter((r) => r.site === s).sort(byStart);
-        const nl = list.filter((r) => r.owner === "both").length;
-        return `<section class="card cb-group"><header class="card-h"><h3>${esc(s)}</h3><span class="count">${list.length}</span>${nl ? `<span class="cb-need">Both: ${nl}</span>` : ""}</header>${table(list, {})}</section>`;
+      .filter((p) => shown.some((r) => r.project === p))
+      .map((p) => {
+        const list = shown.filter((r) => r.project === p).sort(byStart);
+        const nh = list.filter((r) => r.owner === "hq").length;
+        return `<section class="card cb-group"><header class="card-h"><h3>${esc(p)}</h3><span class="count">${list.length}</span>${nh ? `<span class="cb-hq-n">HQ MTE Own: ${nh}</span>` : ""}</header>${table(list, { site: true })}</section>`;
       })
       .join("");
 
     root.innerHTML = `<div id="cbPage">${head}
       <div class="cb-bar">
+        <span class="cb-lbl">Project</span>${seg("project", [["*", "全部 All"], ...projectsInUse.map((p) => [p, p])])}
         <span class="cb-lbl">廠區 Site</span>${seg("site", [["*", "全部 All"], ...sitesInUse.map((s) => [s, s])])}
-        <span class="cb-lbl">執行方 Owner</span>${seg("owner", [["*", "全部 All"], ["hq", "HQ MTE Own"], ["both", "Both"]])}
+        <span class="cb-lbl">執行方 Owner</span>${seg("owner", [["*", "全部 All"], ["both", "Both"], ["hq", "HQ MTE Own"]])}
         <span class="grow"></span>
         <span class="muted small" id="cbAt">${esc(stamp())}</span>
         <button class="btn" type="button" id="cbRefresh" title="重新讀取 Reload">⟳</button>
@@ -285,19 +302,18 @@
       </div>
       ${state.outdated && !state.error ? `<p class="cb-err">${esc(state.outdated)}</p>` : ""}
       ${state.error ? `<p class="cb-err">${state.oldBackend ? "" : "讀取失敗，以下是這台電腦上次的資料 Could not load, showing the last copy on this computer: "}${esc(state.error)}</p>` : ""}
-      <p class="small cb-sum">執行中 / 待執行 Open: <b>${open.length}</b>・Both: <b>${needLocal}</b></p>
+      <p class="small cb-sum">執行中 / 待執行 Open: <b>${open.length}</b>・HQ MTE Own: <b>${hqOnly}</b></p>
       ${groups || `<section class="card"><p class="empty">${open.length ? "沒有符合篩選的 PFAM。No PFAM matches the filter." : "目前沒有執行中的 PFAM。按「＋ 新增 PFAM」加第一筆。<br>No running PFAM yet. Use “＋ Add” to add one."}</p></section>`}
-      ${done.length ? `<details class="card fold-card"><summary class="card-h"><h3>已完成 Done</h3><span class="count">${done.length}</span></summary>${table(done, { site: true })}</details>` : ""}
-      ${gone.length ? `<details class="card fold-card"><summary class="card-h"><h3>已刪除 Deleted</h3><span class="count">${gone.length}</span><span class="muted">任何人都能復原 Anyone can restore</span></summary>${table(gone, { site: true, deleted: true })}</details>` : ""}
+      ${done.length ? `<details class="card fold-card"><summary class="card-h"><h3>已完成 Done</h3><span class="count">${done.length}</span></summary>${table(done, { project: true, site: true })}</details>` : ""}
+      ${gone.length ? `<details class="card fold-card"><summary class="card-h"><h3>已刪除 Deleted</h3><span class="count">${gone.length}</span><span class="muted">任何人都能復原 Anyone can restore</span></summary>${table(gone, { project: true, site: true, deleted: true })}</details>` : ""}
     </div>`;
 
     const page = $("#cbPage");
     page.onclick = (ev) => {
       const t = ev.target;
-      const f = t.closest("[data-site], [data-owner]");
+      const f = t.closest("[data-f]");
       if (f) {
-        const key = f.dataset.site !== undefined ? "site" : "owner";
-        write(LS_UI, Object.assign(ui, { [key]: f.dataset[key] }));
+        write(LS_UI, Object.assign(ui, { [f.dataset.f]: f.dataset.v }));
         return App.render();
       }
       const rs = t.closest("[data-restore]");

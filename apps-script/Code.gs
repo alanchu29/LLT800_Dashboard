@@ -325,7 +325,7 @@ function pruneSnapshots_(folder) {
  */
 var COLLAB_ACTIONS = { collabSave: 1, collabDelete: 1, collabRestore: 1 };
 var COLLAB_FIELDS = ['project', 'pfam', 'type', 'pn', 'site', 'pod', 'rk', 'start', 'end', 'owner', 'status', 'note'];
-var COLLAB_OWNERS = { hq: 1, both: 1 }; // HQ MTE Own / Both (HQ + local MTE); the first version said 'local'
+var COLLAB_OWNERS = { both: 1, hq: 1 }; // Both (HQ + local MTE, the default) / HQ MTE Own; the first version said 'local'
 var COLLAB_TYPES = { npi: 1, closedloop: 1, vb: 1 };
 var COLLAB_STATUS = { todo: 1, doing: 1, done: 1 };
 var COLLAB_MAX = { text: 200, note: 2000, rk: 100, live: 500, total: 3000 }; // rk: entries per row
@@ -395,7 +395,7 @@ function cleanCollab_(r) {
   var out = {
     project: s(r.project, COLLAB_MAX.text), pfam: s(r.pfam, COLLAB_MAX.text), type: COLLAB_TYPES[r.type] ? r.type : '', pn: s(r.pn, COLLAB_MAX.text), site: s(r.site, 40), pod: s(r.pod, COLLAB_MAX.text), rk: rkList_(r.rk),
     start: day(r.start), end: day(r.end),
-    owner: r.owner === 'local' ? 'both' : COLLAB_OWNERS[r.owner] ? r.owner : 'hq', status: COLLAB_STATUS[r.status] ? r.status : 'todo',
+    owner: r.owner === 'local' ? 'both' : COLLAB_OWNERS[r.owner] ? r.owner : 'both', status: COLLAB_STATUS[r.status] ? r.status : 'todo',
     note: s(r.note, COLLAB_MAX.note)
   };
   if (!out.project) throw new Error('Project 必填 Project is required');

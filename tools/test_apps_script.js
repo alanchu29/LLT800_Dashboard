@@ -256,7 +256,7 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   r = open({ action: "collabSave", row: { ...row, pfam: "=HYPERLINK(\"x\")", owner: "boss", status: "?", start: "soon", note: "x".repeat(5000) } });
   assert.ok(r.ok, "odd values are cleaned, not fatal");
   const odd = get({ action: "collab" }).rows.find((x) => x.id === r.row.id);
-  assert.deepStrictEqual([odd.owner, odd.status, odd.start, odd.note.length], ["hq", "todo", "", 2000], "unknown values fall back, long text is capped");
+  assert.deepStrictEqual([odd.owner, odd.status, odd.start, odd.note.length], ["both", "todo", "", 2000], "unknown values fall back, long text is capped");
   assert.strictEqual(odd.pfam, "=HYPERLINK(\"x\")", "a formula-looking value reads back as typed");
   const pfamCol = sheets.Collab._cells()[0].indexOf("pfam");
   assert.ok(sheets.Collab._cells().slice(1).every((c) => !String(c[pfamCol]).startsWith("=")), "but is never stored as a formula");

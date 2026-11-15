@@ -876,7 +876,6 @@ body.editing .lk-main { padding-right: 52px; }
 .cb-sum { margin: 0 0 12px; color: var(--ink-2); }
 .cb-err { margin: 0 0 12px; padding: 8px 12px; border-radius: 9px; background: var(--late-wash); color: var(--late); }
 .cb-group .card-h .count { margin-left: -4px; }
-.cb-need { font-size: 0.85rem; font-weight: 600; color: var(--warn); }
 .cb-table { table-layout: fixed; min-width: 1300px; }
 .cb-table td { overflow-wrap: anywhere; }
 /* Shares of the row (the narrower page scrolls sideways); 備註 always keeps a real share. */
@@ -905,6 +904,7 @@ body.editing .lk-main { padding-right: 52px; }
 .cb-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cb-pill { display: inline-flex; flex-direction: column; line-height: 1.2; padding: 2px 8px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; white-space: nowrap; background: var(--surface-3); color: var(--ink-2); }
 .cb-pill small { font-size: 0.72rem; font-weight: 500; opacity: 0.85; }
-.cb-o-both { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.cb-o-hq { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.cb-hq-n { font-size: 0.85rem; font-weight: 600; color: var(--warn); }
 .cb-s-doing { background: var(--brand-wash); color: var(--brand); }
 .cb-s-done { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }

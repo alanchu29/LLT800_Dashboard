@@ -120,7 +120,7 @@
           .join("")}</tbody></table></section>`
       : "";
 
-    const projOpts = Store.data.projects.map((p) => `<option value="${p.id}"${p.id === ctx.projectId ? " selected" : ""}>${esc(p.name)}</option>`).join("");
+    const projOpts = Store.projects().map((p) => `<option value="${p.id}"${p.id === ctx.projectId ? " selected" : ""}>${esc(p.name)}</option>`).join("");
     const options = isG
       ? `<div class="imp-opts">
           <label class="field-inline">匯入到 <select id="impProj"><option value=""${ctx.projectId ? "" : " selected"}>＋ 新 Project</option>${projOpts}</select></label>
