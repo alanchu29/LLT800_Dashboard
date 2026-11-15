@@ -877,11 +877,13 @@ body.editing .lk-main { padding-right: 52px; }
 .cb-err { margin: 0 0 12px; padding: 8px 12px; border-radius: 9px; background: var(--late-wash); color: var(--late); }
 .cb-group .card-h .count { margin-left: -4px; }
 .cb-need { font-size: 0.85rem; font-weight: 600; color: var(--warn); }
-.cb-table { table-layout: fixed; min-width: 980px; }
+.cb-table { table-layout: fixed; min-width: 1180px; }
 .cb-table td { overflow-wrap: anywhere; }
-.cb-table .w-proj { width: 22%; }
+.cb-table .w-proj { width: 10%; }
+.cb-table .w-pfam { width: 13%; }
+.cb-table .w-type { width: 100px; }
 .cb-table .w-site { width: 70px; }
-.cb-table .w-pn, .cb-table .w-pod { width: 11%; }
+.cb-table .w-pn, .cb-table .w-pod { width: 9%; }
 .cb-table .w-sch { width: 120px; }
 .cb-table .w-own { width: 150px; }
 .cb-table .w-st { width: 100px; }

@@ -227,7 +227,7 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   assert.deepStrictEqual([r.ok, r.rev, r.rows], [true, 0, []], "collab starts empty");
   const dataVersion = get({ action: "bundle" }).version;
 
-  const row = { project: "Gen11 › Gen11.1 MM34 FTB", pn: "PN-1", site: "MX", pod: "Pod 3", start: "2026-11-01", end: "2026-11-20", owner: "local", status: "doing", note: "need 2 people" };
+  const row = { project: "Gen11", pfam: "Gen11.1 MM34 FTB", type: "closedloop", pn: "PN-1", site: "MX", pod: "Pod 3", start: "2026-11-01", end: "2026-11-20", owner: "local", status: "doing", note: "need 2 people" };
   r = open({ action: "collabSave", row });
   assert.ok(r.ok && r.row.id && r.row.rev === 1 && r.rev === 1, "anyone can add a row, without the edit password");
   const id = r.row.id;
@@ -246,15 +246,18 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   assert.ok(!r.ok && r.conflict && r.row.note === "mine" && r.row.rev === 2, "stale row rev -> conflict, with the newer row");
 
   // Checked and capped on the server.
-  assert.ok(/required/.test(open({ action: "collabSave", row: { ...row, project: "  " } }).error), "project required");
+  assert.ok(/Project is required/.test(open({ action: "collabSave", row: { ...row, project: "  " } }).error), "project required");
+  assert.ok(/Task type is required/.test(open({ action: "collabSave", row: { ...row, type: "golden" } }).error), "unknown task type refused");
+  assert.ok(/PFAM is required/.test(open({ action: "collabSave", row: { ...row, pfam: "" } }).error), "pfam required");
   assert.ok(/Site/.test(open({ action: "collabSave", row: { ...row, site: "" } }).error), "site required");
   assert.ok(/before/.test(open({ action: "collabSave", row: { ...row, start: "2026-11-20", end: "2026-11-01" } }).error), "end before start");
-  r = open({ action: "collabSave", row: { ...row, project: "=HYPERLINK(\"x\")", owner: "boss", status: "?", start: "soon", note: "x".repeat(5000) } });
+  r = open({ action: "collabSave", row: { ...row, pfam: "=HYPERLINK(\"x\")", owner: "boss", status: "?", start: "soon", note: "x".repeat(5000) } });
   assert.ok(r.ok, "odd values are cleaned, not fatal");
   const odd = get({ action: "collab" }).rows.find((x) => x.id === r.row.id);
   assert.deepStrictEqual([odd.owner, odd.status, odd.start, odd.note.length], ["hq", "todo", "", 2000], "unknown values fall back, long text is capped");
-  assert.strictEqual(odd.project, "=HYPERLINK(\"x\")", "a formula-looking value reads back as typed");
-  assert.ok(sheets.Collab._cells().every((c) => !String(c[1]).startsWith("=")), "but is never stored as a formula");
+  assert.strictEqual(odd.pfam, "=HYPERLINK(\"x\")", "a formula-looking value reads back as typed");
+  const pfamCol = sheets.Collab._cells()[0].indexOf("pfam");
+  assert.ok(sheets.Collab._cells().slice(1).every((c) => !String(c[pfamCol]).startsWith("=")), "but is never stored as a formula");
 
   // Delete only flags the row; anyone can restore it.
   r = open({ action: "collabDelete", id });

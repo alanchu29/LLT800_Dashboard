@@ -15,10 +15,10 @@
       <div class="h-pages">
         <a href="#/overview"><b>總覽</b><span>今天要注意什麼、接下來一個月的工作與人力</span></a>
         <a href="#/projects"><b>專案甘特</b><span>Project → PFAM → task 的時程與指派</span></a>
-        <a href="#/collab"><b>MTE PFAM sync</b><span>與 local MTE 共用的執行中 PFAM 清單（所有人可編輯）</span></a>
         <a href="#/ado"><b>ADO Task</b><span>Azure DevOps 未完成項目、成員的 ADO 任務</span></a>
         <a href="#/load"><b>人力資源</b><span>每天有幾個人在忙、每個人手上的工作</span></a>
         <a href="#/people"><b>出差紀錄</b><span>誰在出差、年度出差天數</span></a>
+        <a href="#/collab"><b>MTE PFAM sync</b><span>與 local MTE 共用的執行中 PFAM 清單（所有人可編輯）</span></a>
         <a href="#/settings"><b>設定</b><span>員工名冊、Phase、假日、匯入匯出、雲端同步</span></a>
       </div>
       <h4>資料的三個層級</h4>
@@ -84,21 +84,6 @@
       ${page("#/projects", "專案甘特")}`,
     ],
     [
-      "collab",
-      "MTE PFAM sync",
-      () => `
-      <p>和 local MTE 共同維護的<b>執行中 PFAM 清單</b>：哪些由 HQ 自行執行、哪些需要 local MTE 支援。介面中英並列，可以直接把網址 <code>#/collab</code> 傳給 local。</p>
-      <ul>
-        <li><b>所有人都能新增、修改、刪除</b>，不需要編輯模式或密碼；這一頁的資料跟部門資料分開存（試算表的 <code>Collab</code> 分頁），改這裡不會動到專案、task 或其他頁面。</li>
-        <li>按「＋ 新增 PFAM」或點任一列編輯。Project / Model 可以從清單挑現有 PFAM（會自動帶入廠區），也可以直接輸入。</li>
-        <li>按「儲存」就<b>立刻寫進雲端</b>，不用按同步。兩個人同時改同一列時，後存的人會被問要覆蓋還是載入對方的內容。</li>
-        <li>頁面開著時每分鐘自動更新一次，切回這個分頁時也會更新；${k("⟳")} 立即重新讀取。</li>
-        <li>依廠區分組、組內依開始日排序；上方可依廠區、執行方篩選（記在這台電腦）。狀態「完成」的收進「已完成」；刪除的移到「已刪除」，任何人都能復原。</li>
-        <li>每次修改都記在試算表的 <code>CollabLog</code> 分頁，誤改可以查。需要啟用雲端同步才能使用。</li>
-      </ul>
-      ${page("#/collab", "MTE PFAM sync")}`,
-    ],
-    [
       "ado",
       "ADO Task",
       () => `
@@ -159,6 +144,21 @@
       </ul>
       <p class="muted">出差天數以日曆天計算（含週末，出發與返回日都算），跨年的出差會拆到兩個年度。出差不會計入人力負載。</p>
       ${page("#/people", "出差紀錄")}`,
+    ],
+    [
+      "collab",
+      "MTE PFAM sync",
+      () => `
+      <p>和 local MTE 共同維護的<b>執行中 PFAM 清單</b>：哪些由 HQ 自行執行、哪些需要 local MTE 支援。介面中英並列，可以直接把網址 <code>#/collab</code> 傳給 local。</p>
+      <ul>
+        <li><b>所有人都能新增、修改、刪除</b>，不需要編輯模式或密碼；這一頁的資料跟部門資料分開存（試算表的 <code>Collab</code> 分頁），改這裡不會動到專案、task 或其他頁面。</li>
+        <li>按「＋ 新增 PFAM」或點任一列編輯。Project 從部門現有的專案中選擇，PFAM 直接輸入，Task 類型選 NPI pilot / Closed loop / VB。</li>
+        <li>按「儲存」就<b>立刻寫進雲端</b>，不用按同步。兩個人同時改同一列時，後存的人會被問要覆蓋還是載入對方的內容。</li>
+        <li>頁面開著時每分鐘自動更新一次，切回這個分頁時也會更新；${k("⟳")} 立即重新讀取。</li>
+        <li>依廠區分組、組內依開始日排序；上方可依廠區、執行方篩選（記在這台電腦）。狀態「完成」的收進「已完成」；刪除的移到「已刪除」，任何人都能復原。</li>
+        <li>每次修改都記在試算表的 <code>CollabLog</code> 分頁，誤改可以查。需要啟用雲端同步才能使用。</li>
+      </ul>
+      ${page("#/collab", "MTE PFAM sync")}`,
     ],
     [
       "links",

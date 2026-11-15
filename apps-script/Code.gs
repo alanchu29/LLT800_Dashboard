@@ -34,7 +34,7 @@ var SCHEMA = {
   Trips: ['id', 'empId', 'empName', 'start', 'end', 'location', 'purpose', 'projectId', 'notes'],
   Ignored: ['kind', 'key'],
   Meta: ['key', 'value'],
-  Collab: ['id', 'project', 'pn', 'site', 'pod', 'start', 'end', 'owner', 'status', 'note', 'pfamId', 'deleted', 'updatedAt', 'rev'],
+  Collab: ['id', 'project', 'pfam', 'type', 'pn', 'site', 'pod', 'start', 'end', 'owner', 'status', 'note', 'deleted', 'updatedAt', 'rev'],
   CollabLog: ['at', 'action', 'id', 'row']
 };
 // Columns written for people reading the sheet; ignored when loading.
@@ -324,8 +324,9 @@ function pruneSnapshots_(folder) {
  * is already current gets {unchanged:true} without the sheet being read.
  */
 var COLLAB_ACTIONS = { collabSave: 1, collabDelete: 1, collabRestore: 1 };
-var COLLAB_FIELDS = ['project', 'pn', 'site', 'pod', 'start', 'end', 'owner', 'status', 'note', 'pfamId'];
+var COLLAB_FIELDS = ['project', 'pfam', 'type', 'pn', 'site', 'pod', 'start', 'end', 'owner', 'status', 'note'];
 var COLLAB_OWNERS = { hq: 1, local: 1 };
+var COLLAB_TYPES = { npi: 1, closedloop: 1, vb: 1 };
 var COLLAB_STATUS = { todo: 1, doing: 1, done: 1 };
 var COLLAB_MAX = { text: 200, note: 2000, live: 500, total: 3000 };
 // A leading = + - @ would make Sheets read the cell as a formula; a zero-width space keeps it text.
@@ -373,12 +374,14 @@ function cleanCollab_(r) {
     return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
   };
   var out = {
-    project: s(r.project, COLLAB_MAX.text), pn: s(r.pn, COLLAB_MAX.text), site: s(r.site, 40), pod: s(r.pod, COLLAB_MAX.text),
+    project: s(r.project, COLLAB_MAX.text), pfam: s(r.pfam, COLLAB_MAX.text), type: COLLAB_TYPES[r.type] ? r.type : '', pn: s(r.pn, COLLAB_MAX.text), site: s(r.site, 40), pod: s(r.pod, COLLAB_MAX.text),
     start: day(r.start), end: day(r.end),
     owner: COLLAB_OWNERS[r.owner] ? r.owner : 'hq', status: COLLAB_STATUS[r.status] ? r.status : 'todo',
-    note: s(r.note, COLLAB_MAX.note), pfamId: s(r.pfamId, 40)
+    note: s(r.note, COLLAB_MAX.note)
   };
-  if (!out.project) throw new Error('Project / Model 必填 (required)');
+  if (!out.project) throw new Error('Project 必填 Project is required');
+  if (!out.pfam) throw new Error('PFAM 必填 PFAM is required');
+  if (!out.type) throw new Error('請選擇 Task 類型 Task type is required');
   if (!out.site) throw new Error('廠區必填 Site is required');
   if (out.start && out.end && out.end < out.start) throw new Error('結束日早於開始日 End date is before the start date');
   return out;

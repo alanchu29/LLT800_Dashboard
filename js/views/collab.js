@@ -13,6 +13,7 @@
   const POLL_MS = 60000;
 
   const OWNER = { hq: ["HQ 自行執行", "HQ runs it"], local: ["需要 local MTE 支援", "Needs local MTE"] };
+  const TYPE = { npi: ["NPI pilot"], closedloop: ["Closed loop"], vb: ["VB"] };
   const STATUS = { todo: ["待執行", "To do"], doing: ["執行中", "In progress"], done: ["完成", "Done"] };
   const bi = (pair) => `${pair[0]} ${pair[1]}`;
 
@@ -90,12 +91,10 @@
 
   // ------------------------------------------------------------ choices
 
-  /** Existing PFAMs to pick from: "Project › PFAM", with their site. */
-  function pfamChoices() {
-    const proj = new Map(Store.data.projects.map((p) => [p.id, p]));
-    return Store.data.pfams
-      .filter((f) => proj.has(f.projectId) && (proj.get(f.projectId).status || "active") === "active")
-      .map((f) => ({ id: f.id, site: f.site || "", label: `${proj.get(f.projectId).name} › ${f.name}` }));
+  /** Project names to pick from: the department's active projects (plus the row's own, if it is gone since). */
+  function projectChoices(current) {
+    const names = Store.data.projects.filter((p) => (p.status || "active") === "active").map((p) => p.name);
+    return current && !names.includes(current) ? [current, ...names] : names;
   }
 
   /** The department's site list first (its order), then any other site in use. */
@@ -170,13 +169,23 @@
     const row = id ? state.rows.find((r) => r.id === id) : null;
     if (id && !row) return;
     const ui = read(LS_UI, {});
-    const pf = pfamChoices();
+    const projects = projectChoices(row && row.project);
     const sites = siteOrder(row ? [row.site] : []);
     const v = row || { owner: "hq", status: "todo", site: ui.site && ui.site !== "*" ? ui.site : "" };
     const fields = [
-      { key: "project", label: "Project / Model", required: true, wide: true, value: v.project, list: pf.map((p) => p.label), hint: "可從清單挑現有 PFAM，或直接輸入 Pick an existing PFAM or type freely" },
       {
-        key: "site", label: "廠區 Site", type: "select", value: v.site,
+        key: "project", label: "Project", type: "select", required: true, value: v.project,
+        options: [{ value: "", label: "— 請選擇 Select —" }, ...projects.map((p) => ({ value: p, label: p }))],
+        validate: (x) => (x ? "" : "請選擇 Project Please pick a project"),
+      },
+      { key: "pfam", label: "PFAM", required: true, value: v.pfam, placeholder: "例如 e.g. Gen11.1 MM34 FTB" },
+      {
+        key: "type", label: "Task 類型 Task type", type: "select", required: true, value: v.type,
+        options: [{ value: "", label: "— 請選擇 Select —" }, ...Object.keys(TYPE).map((k) => ({ value: k, label: TYPE[k][0] }))],
+        validate: (x) => (x ? "" : "請選擇 Task 類型 Please pick a task type"),
+      },
+      {
+        key: "site", label: "廠區 Site", type: "select", required: true, value: v.site,
         options: [{ value: "", label: "— 請選擇 Select —" }, ...sites.map((s) => ({ value: s, label: s }))],
         validate: (x) => (x ? "" : "請選擇廠區 Please pick a site"),
       },
@@ -195,22 +204,13 @@
       saveLabel: "儲存 Save",
       labels: { del: "刪除 Delete", cancel: "取消 Cancel" },
     });
-    // Picking an existing PFAM fills in its site, unless one is already chosen.
-    const proj = $("#fld_project");
-    if (proj)
-      proj.addEventListener("input", () => {
-        const hit = pf.find((p) => p.label === proj.value.trim());
-        const site = $("#fld_site");
-        if (hit && hit.site && site && !site.value && sites.includes(hit.site)) site.value = hit.site;
-      });
     const res = await pending;
     if (!res) return;
     if (res.action === "delete") {
       if (confirm("刪除這一列？之後可在「已刪除」復原。\nDelete this row? It can be restored from Deleted.")) setDeleted(row.id, true);
       return;
     }
-    const hit = pf.find((p) => p.label === res.values.project);
-    await save({ ...res.values, id: row ? row.id : "", pfamId: hit ? hit.id : row && row.project === res.values.project ? row.pfamId : "" }, row ? row.rev : 0);
+    await save({ ...res.values, id: row ? row.id : "" }, row ? row.rev : 0);
   }
 
   // ------------------------------------------------------------ render
@@ -219,11 +219,11 @@
 
   function table(rows, opts) {
     // Fixed column widths, so the per-site cards line up under each other.
-    const head = `<tr><th class="w-proj">Project / Model</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th>備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
+    const head = `<tr><th class="w-proj">Project</th><th class="w-pfam">PFAM</th><th class="w-type">類型 Type</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th>備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
     const body = rows
       .map(
         (r) => `<tr${opts.deleted ? "" : ` data-row="${esc(r.id)}" tabindex="0"`} class="cb-row st-${esc(r.status)}">
-          <td><b>${esc(r.project)}</b></td>${opts.site ? `<td>${esc(r.site)}</td>` : ""}<td>${esc(r.pn)}</td><td>${esc(r.pod)}</td>
+          <td>${esc(r.project)}</td><td><b>${esc(r.pfam)}</b></td><td>${TYPE[r.type] ? esc(TYPE[r.type][0]) : '<span class="muted">—</span>'}</td>${opts.site ? `<td>${esc(r.site)}</td>` : ""}<td>${esc(r.pn)}</td><td>${esc(r.pod)}</td>
           <td class="nowrap">${r.start || r.end ? esc(U.range(r.start, r.end || r.start)) : '<span class="muted">—</span>'}</td>
           <td>${pill("cb-o-" + r.owner, OWNER[r.owner] || OWNER.hq)}</td><td>${pill("cb-s-" + r.status, STATUS[r.status] || STATUS.todo)}</td>
           <td class="cb-note" title="${esc(r.note)}">${esc(r.note)}</td><td class="muted small nowrap">${esc(when(r.updatedAt))}</td>
@@ -234,7 +234,7 @@
   }
 
   /** By start date; rows without one last. */
-  const byStart = (a, b) => (a.start || "9999").localeCompare(b.start || "9999") || a.project.localeCompare(b.project);
+  const byStart = (a, b) => (a.start || "9999").localeCompare(b.start || "9999") || (a.project || "").localeCompare(b.project || "") || (a.pfam || "").localeCompare(b.pfam || "");
 
   function render(root) {
     const head = `<div class="page-head"><h2>MTE PFAM sync</h2>
