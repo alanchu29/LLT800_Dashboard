@@ -883,7 +883,8 @@ body.editing .lk-main { padding-right: 52px; }
 .cb-table .w-pfam { width: 13%; }
 .cb-table .w-type { width: 100px; }
 .cb-table .w-site { width: 70px; }
-.cb-table .w-pn, .cb-table .w-pod { width: 9%; }
+.cb-table .w-pn { width: 150px; }
+.cb-table .w-pod { width: 9%; }
 .cb-table .w-sch { width: 120px; }
 .cb-table .w-own { width: 150px; }
 .cb-table .w-st { width: 100px; }

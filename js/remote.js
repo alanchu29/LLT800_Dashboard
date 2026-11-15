@@ -38,6 +38,11 @@
     return true;
   }
 
+  // The MTE PFAM sync fields this page sends; a backend that lacks any of them would silently drop it.
+  const COLLAB_FIELDS = ["project", "pfam", "type", "pn", "site", "pod", "start", "end", "owner", "status", "note"];
+
+  const OUTDATED = "雲端後端版本較舊，部分欄位會存不進去：請把最新的 apps-script/Code.gs 重新部署（新版本）。The cloud backend is outdated: some fields will not be saved.";
+
   const Remote = {
     config: loadConfig(),
 
@@ -140,7 +145,8 @@
 
     /**
      * MTE PFAM sync rows. `since` = the rev we hold -> { rev, rows } or { rev, unchanged: true }.
-     * A deployment from before the tab answers a plain ping (no rev): reported as err.oldBackend.
+     * A deployment from before the tab (no rev) throws err.oldBackend; one that has the tab but lacks a
+     * field this page sends (it would drop it on save) still answers, flagged r.outdated.
      */
     async collabLoad(since) {
       const params = { action: "collab" };
@@ -148,10 +154,12 @@
       const r = await this.jsonp(params);
       if (!r || !r.ok) throw new Error((r && r.error) || "讀取失敗 Load failed");
       if (!("rev" in r)) {
-        const err = new Error("雲端後端尚未更新（請重新部署 apps-script/Code.gs）Backend not updated yet");
+        const err = new Error(OUTDATED);
         err.oldBackend = true;
         throw err;
       }
+      r.outdated = !r.fields || COLLAB_FIELDS.some((f) => !r.fields.includes(f));
+      if (r.outdated) r.outdatedMsg = OUTDATED;
       return r;
     },
 

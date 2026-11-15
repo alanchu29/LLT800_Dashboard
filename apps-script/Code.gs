@@ -338,8 +338,9 @@ function collabRev_() {
 
 function collabGet_(since) {
   var rev = collabRev_();
-  if (since !== null && since !== undefined && since !== '' && Number(since) === rev) return { ok: true, rev: rev, unchanged: true };
-  return { ok: true, rev: rev, rows: readCollab_() };
+  if (since !== null && since !== undefined && since !== '' && Number(since) === rev) return { ok: true, rev: rev, fields: COLLAB_FIELDS, unchanged: true };
+  // fields: lets the page spot a deployment older than itself (fields it sends would be dropped).
+  return { ok: true, rev: rev, fields: COLLAB_FIELDS, rows: readCollab_() };
 }
 
 function readCollab_() {
@@ -382,6 +383,7 @@ function cleanCollab_(r) {
   if (!out.project) throw new Error('Project 必填 Project is required');
   if (!out.pfam) throw new Error('PFAM 必填 PFAM is required');
   if (!out.type) throw new Error('請選擇 Task 類型 Task type is required');
+  if (!out.pn) throw new Error('L10 PN 必填 L10 PN is required');
   if (!out.site) throw new Error('廠區必填 Site is required');
   if (out.start && out.end && out.end < out.start) throw new Error('結束日早於開始日 End date is before the start date');
   return out;

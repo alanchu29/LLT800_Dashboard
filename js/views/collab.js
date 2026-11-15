@@ -33,7 +33,7 @@
   };
 
   const cache = read(LS_CACHE, {});
-  const state = { rev: Number(cache.rev) || 0, rows: Array.isArray(cache.rows) ? cache.rows : [], at: 0, tried: false, loading: false, error: "", oldBackend: false };
+  const state = { rev: Number(cache.rev) || 0, rows: Array.isArray(cache.rows) ? cache.rows : [], at: 0, tried: false, loading: false, error: "", oldBackend: false, outdated: "" };
   let timer = 0;
 
   const onPage = () => window.App && App.route.name === "collab";
@@ -51,6 +51,7 @@
       state.rev = r.rev;
       state.error = "";
       state.oldBackend = false;
+      state.outdated = r.outdated ? r.outdatedMsg : "";
       write(LS_CACHE, { rev: state.rev, rows: state.rows });
       state.at = Date.now();
       if (!r.unchanged || was !== r.rev) return rerender();
@@ -189,7 +190,7 @@
         options: [{ value: "", label: "— 請選擇 Select —" }, ...sites.map((s) => ({ value: s, label: s }))],
         validate: (x) => (x ? "" : "請選擇廠區 Please pick a site"),
       },
-      { key: "pn", label: "PN", value: v.pn },
+      { key: "pn", label: "L10 PN", required: true, value: v.pn },
       { key: "pod", label: "Pod 位置 Pod location", value: v.pod },
       { key: "owner", label: "執行方 Owner", type: "select", value: v.owner, options: Object.keys(OWNER).map((k) => ({ value: k, label: bi(OWNER[k]) })) },
       { key: "start", label: "開始 Start", type: "date", value: v.start },
@@ -219,7 +220,7 @@
 
   function table(rows, opts) {
     // Fixed column widths, so the per-site cards line up under each other.
-    const head = `<tr><th class="w-proj">Project</th><th class="w-pfam">PFAM</th><th class="w-type">類型 Type</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th>備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
+    const head = `<tr><th class="w-proj">Project</th><th class="w-pfam">PFAM</th><th class="w-type">類型 Type</th>${opts.site ? '<th class="w-site">廠區 Site</th>' : ""}<th class="w-pn">L10 PN</th><th class="w-pod">Pod 位置 Pod</th><th class="w-sch">Schedule</th><th class="w-own">執行方 Owner</th><th class="w-st">狀態 Status</th><th>備註 Note</th><th class="w-upd">${opts.deleted ? "刪除於 Deleted" : "更新 Updated"}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
     const body = rows
       .map(
         (r) => `<tr${opts.deleted ? "" : ` data-row="${esc(r.id)}" tabindex="0"`} class="cb-row st-${esc(r.status)}">
@@ -278,6 +279,7 @@
         <button class="btn" type="button" id="cbRefresh" title="重新讀取 Reload">⟳</button>
         <button class="btn primary" type="button" id="cbAdd">＋ 新增 PFAM Add</button>
       </div>
+      ${state.outdated && !state.error ? `<p class="cb-err">${esc(state.outdated)}</p>` : ""}
       ${state.error ? `<p class="cb-err">${state.oldBackend ? "" : "讀取失敗，以下是這台電腦上次的資料 Could not load, showing the last copy on this computer: "}${esc(state.error)}</p>` : ""}
       <p class="small cb-sum">執行中 / 待執行 Open: <b>${open.length}</b>・需要 local 支援 Need local: <b>${needLocal}</b></p>
       ${groups || `<section class="card"><p class="empty">${open.length ? "沒有符合篩選的 PFAM。No PFAM matches the filter." : "目前沒有執行中的 PFAM。按「＋ 新增 PFAM」加第一筆。<br>No running PFAM yet. Use “＋ Add” to add one."}</p></section>`}

@@ -225,6 +225,7 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   const open = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text); // no key at all
   r = get({ action: "collab" });
   assert.deepStrictEqual([r.ok, r.rev, r.rows], [true, 0, []], "collab starts empty");
+  assert.strictEqual(JSON.stringify(r.fields), JSON.stringify(["project", "pfam", "type", "pn", "site", "pod", "start", "end", "owner", "status", "note"]), "collab reports its fields (must match COLLAB_FIELDS in js/remote.js)");
   const dataVersion = get({ action: "bundle" }).version;
 
   const row = { project: "Gen11", pfam: "Gen11.1 MM34 FTB", type: "closedloop", pn: "PN-1", site: "MX", pod: "Pod 3", start: "2026-11-01", end: "2026-11-20", owner: "local", status: "doing", note: "need 2 people" };
@@ -248,6 +249,7 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   // Checked and capped on the server.
   assert.ok(/Project is required/.test(open({ action: "collabSave", row: { ...row, project: "  " } }).error), "project required");
   assert.ok(/Task type is required/.test(open({ action: "collabSave", row: { ...row, type: "golden" } }).error), "unknown task type refused");
+  assert.ok(/L10 PN is required/.test(open({ action: "collabSave", row: { ...row, pn: " " } }).error), "L10 PN required");
   assert.ok(/PFAM is required/.test(open({ action: "collabSave", row: { ...row, pfam: "" } }).error), "pfam required");
   assert.ok(/Site/.test(open({ action: "collabSave", row: { ...row, site: "" } }).error), "site required");
   assert.ok(/before/.test(open({ action: "collabSave", row: { ...row, start: "2026-11-20", end: "2026-11-01" } }).error), "end before start");
