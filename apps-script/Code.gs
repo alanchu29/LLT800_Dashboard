@@ -19,7 +19,7 @@
  *                                               sheet is read
  * GET  ?action=collab[&since=rev]               MTE PFAM sync rows -> {rev, rows} or {rev, unchanged:true}
  * POST {action:"collabSave", row, baseRev}       add (no row.id) or change one row; no password (see COLLAB below)
- * POST {action:"collabDelete"|"collabRestore", id}
+ * POST {action:"collabDelete"|"collabRestore", id}   (collab posts may add lang:'en' for English error messages)
  * POST {action:"auth", key}                      check the edit password -> {ok:true} or {ok:false, authFailed:true}
  * POST {action:"saveAll", data, baseVersion, by, key}  replace everything; optimistic lock on Meta.version
  *                                               (baseVersion null = overwrite whatever is there)
@@ -331,6 +331,9 @@ var COLLAB_STATUS = { todo: 1, doing: 1, done: 1 };
 var COLLAB_MAX = { text: 200, note: 2000, rk: 100, live: 500, total: 3000 }; // rk: entries per row
 // A leading = + - @ would make Sheets read the cell as a formula; a zero-width space keeps it text.
 var COLLAB_GUARD = '\u200B';
+// Error messages follow the page's language (body.lang, 'zh' unless 'en'); set per request in collabPost_.
+var COLLAB_EN = false;
+function cm_(zh, en) { return COLLAB_EN ? en : zh; }
 
 function collabRev_() {
   return Number(PropertiesService.getScriptProperties().getProperty('COLLAB_REV') || 0);
@@ -382,7 +385,7 @@ function rkList_(v) {
   return out.join(', ');
 }
 
-/** The fields of a row as sent, checked and capped. Throws (in both languages: local MTEs read these). */
+/** The fields of a row as sent, checked and capped. Throws in the caller's language (cm_). */
 function cleanCollab_(r) {
   r = r || {};
   var s = function (v, max) {
@@ -398,21 +401,22 @@ function cleanCollab_(r) {
     owner: r.owner === 'local' ? 'both' : COLLAB_OWNERS[r.owner] ? r.owner : 'both', status: COLLAB_STATUS[r.status] ? r.status : 'todo',
     note: s(r.note, COLLAB_MAX.note)
   };
-  if (!out.project) throw new Error('Project 必填 Project is required');
-  if (!out.pfam) throw new Error('PFAM 必填 PFAM is required');
-  if (!out.type) throw new Error('請選擇 Task 類型 Task type is required');
-  if (!out.pn) throw new Error('L10 PN 必填 L10 PN is required');
-  if (!out.site) throw new Error('廠區必填 Site is required');
-  if (out.start && out.end && out.end < out.start) throw new Error('結束日早於開始日 End date is before the start date');
+  if (!out.project) throw new Error(cm_('Project 必填', 'Project is required'));
+  if (!out.pfam) throw new Error(cm_('PFAM 必填', 'PFAM is required'));
+  if (!out.type) throw new Error(cm_('請選擇 Task 類型', 'Task type is required'));
+  if (!out.pn) throw new Error(cm_('L10 PN 必填', 'L10 PN is required'));
+  if (!out.site) throw new Error(cm_('廠區必填', 'Site is required'));
+  if (out.start && out.end && out.end < out.start) throw new Error(cm_('結束日早於開始日', 'End date is before the start date'));
   return out;
 }
 
 function collabPost_(body) {
+  COLLAB_EN = body.lang === 'en';
   var rows = readCollab_();
   var live = rows.filter(function (r) { return !r.deleted; }).length;
   var find = function (id) {
     for (var i = 0; i < rows.length; i++) if (rows[i].id === String(id || '')) return rows[i];
-    throw new Error('找不到這一列（可能已被移除）Row not found');
+    throw new Error(cm_('找不到這一列（可能已被移除）', 'Row not found (it may have been removed)'));
   };
   var row;
   if (body.action === 'collabSave') {
@@ -423,8 +427,8 @@ function collabPost_(body) {
       if (Number(body.baseRev) !== row.rev) return { ok: false, conflict: true, row: row, rev: collabRev_() };
       COLLAB_FIELDS.forEach(function (f) { row[f] = clean[f]; });
     } else {
-      if (live >= COLLAB_MAX.live) throw new Error('已達 ' + COLLAB_MAX.live + ' 列上限 Row limit reached');
-      if (rows.length >= COLLAB_MAX.total) throw new Error('已刪除的列太多，請聯絡 HQ 清理 Too many deleted rows, ask HQ to clean up');
+      if (live >= COLLAB_MAX.live) throw new Error(cm_('已達 ' + COLLAB_MAX.live + ' 列上限', 'Row limit (' + COLLAB_MAX.live + ') reached'));
+      if (rows.length >= COLLAB_MAX.total) throw new Error(cm_('已刪除的列太多，請聯絡 HQ 清理', 'Too many deleted rows, ask HQ to clean up'));
       row = clean;
       row.id = 'c' + Utilities.getUuid().replace(/-/g, '').slice(0, 12);
       row.deleted = false;
@@ -434,7 +438,7 @@ function collabPost_(body) {
   } else {
     row = find(body.id);
     var del = body.action === 'collabDelete';
-    if (!del && row.deleted && live >= COLLAB_MAX.live) throw new Error('已達 ' + COLLAB_MAX.live + ' 列上限 Row limit reached');
+    if (!del && row.deleted && live >= COLLAB_MAX.live) throw new Error(cm_('已達 ' + COLLAB_MAX.live + ' 列上限', 'Row limit (' + COLLAB_MAX.live + ') reached'));
     row.deleted = del;
   }
   row.rev += 1;

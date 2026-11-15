@@ -43,7 +43,7 @@
 
   const OUTDATED = () =>
     L(
-      "雲端後端版本較舊，部分欄位會存不進去：請把最新的 apps-script/Code.gs 重新部署（新版本）。The cloud backend is outdated: some fields will not be saved.",
+      "雲端後端版本較舊，部分欄位會存不進去：請把最新的 apps-script/Code.gs 重新部署（新版本）。",
       "The cloud backend is outdated: some fields will not be saved. Redeploy the latest apps-script/Code.gs (new version)."
     );
 
@@ -156,7 +156,7 @@
       const params = { action: "collab" };
       if (since) params.since = since;
       const r = await this.jsonp(params);
-      if (!r || !r.ok) throw new Error((r && r.error) || L("讀取失敗 Load failed", "Load failed"));
+      if (!r || !r.ok) throw new Error((r && r.error) || L("讀取失敗", "Load failed"));
       if (!("rev" in r)) {
         const err = new Error(OUTDATED());
         err.oldBackend = true;
@@ -169,7 +169,7 @@
 
     /** Open to everyone: never sends the edit password. -> { ok, row, rev } or { conflict, row, rev } */
     collabPost(payload) {
-      return this.post({ ...payload, key: undefined });
+      return this.post({ ...payload, key: undefined, lang: I18N.lang }); // lang: the language of its error messages
     },
 
     /** Whole-dataset save with an optimistic lock: -> { ok, version } or { conflict, version } */

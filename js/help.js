@@ -278,7 +278,7 @@
       () => (
         I18N.en
           ? `
-      <p>The <b>list of running PFAMs</b> kept together with local MTE. The executor is <b>Both (Local support)</b> by default (HQ and local MTE follow it together); those handled by HQ alone are marked <b>HQ MTE Own</b> and shown in a different color. In Chinese the page shows Chinese and English side by side (English only in English mode), so the link <code>#/collab</code> can go straight to local MTE.</p>
+      <p>The <b>list of running PFAMs</b> kept together with local MTE. The executor is <b>Both (Local support)</b> by default (HQ and local MTE follow it together); those handled by HQ alone are marked <b>HQ MTE Own</b> and shown in a different color. Local MTE can read it in English with the <b>EN</b> button (top right); the link <code>#/collab</code> can go straight to them.</p>
       <ul>
         <li><b>Anyone can add, change and delete</b>, with no Edit mode or password. This page's data is stored apart from the department data (the <code>Collab</code> tab of the sheet), so changes here never touch projects, tasks or other pages.</li>
         <li>Click "＋ Add PFAM" or any row to edit it. Project is picked from the department's existing projects, PFAM is typed in, Task type is NPI pilot / Closed loop / VB, and L10 PN is required; RK location takes several entries (e.g. <code>RK-001, RK-256</code>, separated by commas or spaces).</li>
@@ -289,7 +289,7 @@
       </ul>
       ${page("#/collab", "MTE PFAM sync")}`
           : `
-      <p>和 local MTE 共同維護的<b>執行中 PFAM 清單</b>：執行方預設是 <b>Both (Local support)</b>（HQ 與 local MTE 一起看），只由 HQ 處理的標成 <b>HQ MTE Own</b>，會以顏色標示。介面中英並列，可以直接把網址 <code>#/collab</code> 傳給 local。</p>
+      <p>和 local MTE 共同維護的<b>執行中 PFAM 清單</b>：執行方預設是 <b>Both (Local support)</b>（HQ 與 local MTE 一起看），只由 HQ 處理的標成 <b>HQ MTE Own</b>，會以顏色標示。local MTE 可按右上角 <b>EN</b> 切換成英文介面；可以直接把網址 <code>#/collab</code> 傳給 local。</p>
       <ul>
         <li><b>所有人都能新增、修改、刪除</b>，不需要編輯模式或密碼；這一頁的資料跟部門資料分開存（試算表的 <code>Collab</code> 分頁），改這裡不會動到專案、task 或其他頁面。</li>
         <li>按「＋ 新增 PFAM」或點任一列編輯。Project 從部門現有的專案中選擇，PFAM 直接輸入，Task 類型選 NPI pilot / Closed loop / VB，L10 PN 必填；RK location 可以填多筆（例如 <code>RK-001, RK-256</code>，用逗號或空白分隔）。</li>

@@ -222,7 +222,8 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
 
 // ---------------------------------------------------------------- MTE PFAM sync (no password)
 {
-  const open = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify(body) } }).text); // no key at all
+  // No key at all; lang:"en" so the checks below can match the English messages.
+  const open = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify({ lang: "en", ...body }) } }).text);
   r = get({ action: "collab" });
   assert.deepStrictEqual([r.ok, r.rev, r.rows], [true, 0, []], "collab starts empty");
   assert.strictEqual(JSON.stringify(r.fields), JSON.stringify(["project", "pfam", "type", "pn", "site", "pod", "rk", "start", "end", "owner", "status", "note"]), "collab reports its fields (must match COLLAB_FIELDS in js/remote.js)");
@@ -249,6 +250,7 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   // Checked and capped on the server.
   assert.ok(/Project is required/.test(open({ action: "collabSave", row: { ...row, project: "  " } }).error), "project required");
   assert.ok(/Task type is required/.test(open({ action: "collabSave", row: { ...row, type: "golden" } }).error), "unknown task type refused");
+  assert.strictEqual(open({ action: "collabSave", lang: "zh", row: { ...row, pn: "" } }).error, "L10 PN 必填", "messages are in Chinese unless the page asks for English");
   assert.ok(/L10 PN is required/.test(open({ action: "collabSave", row: { ...row, pn: " " } }).error), "L10 PN required");
   assert.ok(/PFAM is required/.test(open({ action: "collabSave", row: { ...row, pfam: "" } }).error), "pfam required");
   assert.ok(/Site/.test(open({ action: "collabSave", row: { ...row, site: "" } }).error), "site required");
