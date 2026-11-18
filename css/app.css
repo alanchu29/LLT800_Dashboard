@@ -879,11 +879,11 @@ body.editing .lk-main { padding-right: 52px; }
 .cb-table { table-layout: fixed; min-width: 1400px; }
 .cb-table td { overflow-wrap: anywhere; }
 /* Clear grid: each PFAM is its own boxed row (header band, row lines, column lines, zebra). */
-.cb-table { --cb-line: color-mix(in srgb, var(--ink) 16%, transparent); border: 1px solid var(--cb-line); }
+.cb-table { --cb-line: color-mix(in srgb, var(--ink) 26%, transparent); border: 1px solid var(--cb-line); }
 .cb-table thead th { background: var(--surface-2); border-bottom: 2px solid var(--cb-line); }
 .cb-table th, .cb-table td { border-bottom: 1px solid var(--cb-line); }
-.cb-table th + th, .cb-table td + td { border-left: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); }
-.cb-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
+.cb-table th + th, .cb-table td + td { border-left: 1px solid color-mix(in srgb, var(--ink) 14%, transparent); }
+.cb-table tbody tr:nth-child(even) { background: color-mix(in srgb, var(--ink) 4%, transparent); }
 .cb-table tbody tr:hover { background: var(--brand-wash); }
 /* Shares of the row (the narrower page scrolls sideways); 備註 always keeps a real share. */
 .cb-table .w-proj { width: 8%; }
