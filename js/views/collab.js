@@ -261,7 +261,7 @@
   function table(rows, opts) {
     // Fixed column widths, so the per-project cards line up under each other. Inside a project's card
     // the Project column would repeat its title, so it is only shown in the mixed lists (done, deleted).
-    const head = `<tr>${opts.project ? '<th class="w-proj">Project</th>' : ""}<th class="w-pfam">PFAM</th><th class="w-type">${L("類型", "Type")}</th>${opts.site ? `<th class="w-site">${L("廠區", "Site")}</th>` : ""}<th class="w-pn">L10 PN</th><th class="w-crd">CRD</th><th class="w-pod">${L("Pod 位置", "Pod")}</th><th class="w-rk">RK location</th><th class="w-sch">${L("時程", "Schedule")}</th><th class="w-own">${L("執行方", "Owner")}</th><th class="w-st">${L("狀態", "Status")}</th><th class="w-note">${L("備註", "Note")}</th><th class="w-upd">${opts.deleted ? L("刪除於", "Deleted") : L("更新", "Updated")}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
+    const head = `<tr>${opts.project ? '<th class="w-proj">Project</th>' : ""}<th class="w-pfam">PFAM</th><th class="w-type">${L("類型", "Type")}</th>${opts.site ? `<th class="w-site">${L("廠區", "Site")}</th>` : ""}<th class="w-pn">L10 PN</th><th class="w-crd">CRD link</th><th class="w-pod">${L("Pod 位置", "Pod")}</th><th class="w-rk">RK location</th><th class="w-sch">${L("時程", "Schedule")}</th><th class="w-own">${L("執行方", "Owner")}</th><th class="w-st">${L("狀態", "Status")}</th><th class="w-note">${L("備註", "Note")}</th><th class="w-upd">${opts.deleted ? L("刪除於", "Deleted") : L("更新", "Updated")}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
     const body = rows
       .map(
         (r) => `<tr${opts.deleted ? "" : ` data-row="${esc(r.id)}" tabindex="0"`} class="cb-row st-${esc(r.status)}">
