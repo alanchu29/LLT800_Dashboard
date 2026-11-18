@@ -39,7 +39,7 @@
   }
 
   // The MTE PFAM sync fields this page sends; a backend that lacks any of them would silently drop it.
-  const COLLAB_FIELDS = ["project", "pfam", "type", "pn", "site", "pod", "rk", "start", "end", "owner", "status", "note"];
+  const COLLAB_FIELDS = ["project", "pfam", "type", "pn", "crd", "site", "pod", "rk", "start", "end", "owner", "status", "note"];
 
   const OUTDATED = () =>
     L(

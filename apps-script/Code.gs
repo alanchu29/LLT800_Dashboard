@@ -34,7 +34,7 @@ var SCHEMA = {
   Trips: ['id', 'empId', 'empName', 'start', 'end', 'location', 'purpose', 'projectId', 'notes'],
   Ignored: ['kind', 'key'],
   Meta: ['key', 'value'],
-  Collab: ['id', 'project', 'pfam', 'type', 'pn', 'site', 'pod', 'rk', 'start', 'end', 'owner', 'status', 'note', 'deleted', 'updatedAt', 'rev'],
+  Collab: ['id', 'project', 'pfam', 'type', 'pn', 'crd', 'site', 'pod', 'rk', 'start', 'end', 'owner', 'status', 'note', 'deleted', 'updatedAt', 'rev'],
   CollabLog: ['at', 'action', 'id', 'row']
 };
 // Columns written for people reading the sheet; ignored when loading.
@@ -324,11 +324,11 @@ function pruneSnapshots_(folder) {
  * is already current gets {unchanged:true} without the sheet being read.
  */
 var COLLAB_ACTIONS = { collabSave: 1, collabDelete: 1, collabRestore: 1 };
-var COLLAB_FIELDS = ['project', 'pfam', 'type', 'pn', 'site', 'pod', 'rk', 'start', 'end', 'owner', 'status', 'note'];
+var COLLAB_FIELDS = ['project', 'pfam', 'type', 'pn', 'crd', 'site', 'pod', 'rk', 'start', 'end', 'owner', 'status', 'note'];
 var COLLAB_OWNERS = { both: 1, hq: 1 }; // Both (HQ + local MTE, the default) / HQ MTE Own; the first version said 'local'
 var COLLAB_TYPES = { npi: 1, closedloop: 1, vb: 1 };
 var COLLAB_STATUS = { todo: 1, doing: 1, done: 1 };
-var COLLAB_MAX = { text: 200, note: 2000, rk: 100, live: 500, total: 3000 }; // rk: entries per row
+var COLLAB_MAX = { text: 200, note: 2000, url: 2000, rk: 100, live: 500, total: 3000 }; // rk: entries per row
 // A leading = + - @ would make Sheets read the cell as a formula; a zero-width space keeps it text.
 var COLLAB_GUARD = '\u200B';
 // Error messages follow the page's language (body.lang, 'zh' unless 'en'); set per request in collabPost_.
@@ -385,6 +385,17 @@ function rkList_(v) {
   return out.join(', ');
 }
 
+/**
+ * CRD link: an http(s) address. A bare "host/path" gets https:// in front; any other scheme
+ * (javascript:, file:, ...) is refused, since the page turns this into a link.
+ */
+function crdUrl_(v) {
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;
+  if (/^[a-z][a-z0-9+.\-]*:/i.test(v) || /\s/.test(v)) throw new Error(cm_('CRD link 必須是 http(s) 網址', 'CRD link must be an http(s) address'));
+  return 'https://' + v;
+}
+
 /** The fields of a row as sent, checked and capped. Throws in the caller's language (cm_). */
 function cleanCollab_(r) {
   r = r || {};
@@ -396,7 +407,7 @@ function cleanCollab_(r) {
     return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '';
   };
   var out = {
-    project: s(r.project, COLLAB_MAX.text), pfam: s(r.pfam, COLLAB_MAX.text), type: COLLAB_TYPES[r.type] ? r.type : '', pn: s(r.pn, COLLAB_MAX.text), site: s(r.site, 40), pod: s(r.pod, COLLAB_MAX.text), rk: rkList_(r.rk),
+    project: s(r.project, COLLAB_MAX.text), pfam: s(r.pfam, COLLAB_MAX.text), type: COLLAB_TYPES[r.type] ? r.type : '', pn: s(r.pn, COLLAB_MAX.text), crd: crdUrl_(s(r.crd, COLLAB_MAX.url)), site: s(r.site, 40), pod: s(r.pod, COLLAB_MAX.text), rk: rkList_(r.rk),
     start: day(r.start), end: day(r.end),
     owner: r.owner === 'local' ? 'both' : COLLAB_OWNERS[r.owner] ? r.owner : 'both', status: COLLAB_STATUS[r.status] ? r.status : 'todo',
     note: s(r.note, COLLAB_MAX.note)

@@ -210,6 +210,10 @@
         validate: (x) => (x ? "" : L("請選擇廠區", "Please pick a site")),
       },
       { key: "pn", label: "L10 PN", required: true, value: v.pn },
+      {
+        key: "crd", label: "CRD link", value: v.crd, placeholder: "https://…",
+        validate: (x) => (crdUrl(x) === null ? L("請貼上 http(s) 網址", "Please paste an http(s) address") : ""),
+      },
       { key: "pod", label: L("Pod 位置", "Pod location"), value: v.pod },
       { key: "rk", label: "RK location", value: v.rk, placeholder: "RK-001, RK-256", hint: L("可輸入多筆，用逗號或空白分隔", "Several racks: separate with commas or spaces") },
       { key: "owner", label: L("執行方", "Owner"), type: "select", value: v.owner, options: Object.keys(OWNER).map((k) => ({ value: k, label: OWNER[k][0] })) },
@@ -231,10 +235,25 @@
       if (confirm(I18N.en ? "Delete this row? It can be restored from Deleted." : "刪除這一列？之後可在「已刪除」復原。")) setDeleted(row.id, true);
       return;
     }
-    await save({ ...res.values, id: row ? row.id : "" }, row ? row.rev : 0);
+    await save({ ...res.values, crd: crdUrl(res.values.crd) || "", id: row ? row.id : "" }, row ? row.rev : 0);
   }
 
   // ------------------------------------------------------------ render
+
+  /** "https://x/y" as typed (a bare "x/y" gets https://); null for any other scheme. Matches crdUrl_ in Code.gs. */
+  const crdUrl = (v) => {
+    v = String(v || "").trim();
+    if (!v) return "";
+    if (/^https?:\/\//i.test(v)) return v;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(v) || /\s/.test(v)) return null;
+    return "https://" + v;
+  };
+  /** A long link shown short (no scheme, cut with an ellipsis by CSS); the whole address is in the tooltip. */
+  const crdCell = (v) => {
+    const url = crdUrl(v);
+    if (!url) return v ? `<span class="muted">${esc(v)}</span>` : "";
+    return `<a class="cb-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="${esc(url)}">${esc(url.replace(/^https?:\/\/(www\.)?/i, ""))}</a>`;
+  };
 
   const pill = (cls, pair) =>
     `<span class="cb-pill ${cls}">${esc(L(pair[0], pair[1]))}</span>`;
@@ -242,11 +261,11 @@
   function table(rows, opts) {
     // Fixed column widths, so the per-project cards line up under each other. Inside a project's card
     // the Project column would repeat its title, so it is only shown in the mixed lists (done, deleted).
-    const head = `<tr>${opts.project ? '<th class="w-proj">Project</th>' : ""}<th class="w-pfam">PFAM</th><th class="w-type">${L("類型", "Type")}</th>${opts.site ? `<th class="w-site">${L("廠區", "Site")}</th>` : ""}<th class="w-pn">L10 PN</th><th class="w-pod">${L("Pod 位置", "Pod")}</th><th class="w-rk">RK location</th><th class="w-sch">${L("時程", "Schedule")}</th><th class="w-own">${L("執行方", "Owner")}</th><th class="w-st">${L("狀態", "Status")}</th><th class="w-note">${L("備註", "Note")}</th><th class="w-upd">${opts.deleted ? L("刪除於", "Deleted") : L("更新", "Updated")}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
+    const head = `<tr>${opts.project ? '<th class="w-proj">Project</th>' : ""}<th class="w-pfam">PFAM</th><th class="w-type">${L("類型", "Type")}</th>${opts.site ? `<th class="w-site">${L("廠區", "Site")}</th>` : ""}<th class="w-pn">L10 PN</th><th class="w-crd">CRD</th><th class="w-pod">${L("Pod 位置", "Pod")}</th><th class="w-rk">RK location</th><th class="w-sch">${L("時程", "Schedule")}</th><th class="w-own">${L("執行方", "Owner")}</th><th class="w-st">${L("狀態", "Status")}</th><th class="w-note">${L("備註", "Note")}</th><th class="w-upd">${opts.deleted ? L("刪除於", "Deleted") : L("更新", "Updated")}</th>${opts.deleted ? '<th class="w-act"></th>' : ""}</tr>`;
     const body = rows
       .map(
         (r) => `<tr${opts.deleted ? "" : ` data-row="${esc(r.id)}" tabindex="0"`} class="cb-row st-${esc(r.status)}">
-          ${opts.project ? `<td>${esc(r.project)}</td>` : ""}<td><b>${esc(r.pfam)}</b></td><td>${TYPE[r.type] ? esc(TYPE[r.type][0]) : '<span class="muted">—</span>'}</td>${opts.site ? `<td>${esc(r.site)}</td>` : ""}<td>${esc(r.pn)}</td><td>${esc(r.pod)}</td><td class="cb-rk">${String(r.rk || "").split(/,\s*/).filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join("")}</td>
+          ${opts.project ? `<td>${esc(r.project)}</td>` : ""}<td><b>${esc(r.pfam)}</b></td><td>${TYPE[r.type] ? esc(TYPE[r.type][0]) : '<span class="muted">—</span>'}</td>${opts.site ? `<td>${esc(r.site)}</td>` : ""}<td>${esc(r.pn)}</td><td class="cb-crd">${crdCell(r.crd)}</td><td>${esc(r.pod)}</td><td class="cb-rk">${String(r.rk || "").split(/,\s*/).filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join("")}</td>
           <td class="nowrap">${r.start || r.end ? esc(U.range(r.start, r.end || r.start)) : '<span class="muted">—</span>'}</td>
           <td>${pill("cb-o-" + r.owner, OWNER[r.owner] || OWNER.both)}</td><td>${pill("cb-s-" + r.status, STATUS[r.status] || STATUS.todo)}</td>
           <td class="cb-note" title="${esc(r.note)}">${esc(r.note)}</td><td class="muted small nowrap">${esc(when(r.updatedAt))}</td>
@@ -314,6 +333,7 @@
     const page = $("#cbPage");
     page.onclick = (ev) => {
       const t = ev.target;
+      if (t.closest("a[href]")) return; // a CRD link opens itself, not the row's editor
       const f = t.closest("[data-f]");
       if (f) {
         write(LS_UI, Object.assign(ui, { [f.dataset.f]: f.dataset.v }));
@@ -327,6 +347,7 @@
       if (tr) edit(tr.dataset.row);
     };
     page.onkeydown = (ev) => {
+      if (ev.target.closest && ev.target.closest("a[href]")) return;
       const tr = ev.target.closest && ev.target.closest("tr[data-row]");
       if (tr && (ev.key === "Enter" || ev.key === " ")) {
         ev.preventDefault();

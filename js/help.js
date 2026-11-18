@@ -281,7 +281,7 @@
       <p>The <b>list of running PFAMs</b> kept together with local MTE. The executor is <b>Both (Local support)</b> by default (HQ and local MTE follow it together); those handled by HQ alone are marked <b>HQ MTE Own</b> and shown in a different color. Local MTE can read it in English with the <b>EN</b> button (top right); the link <code>#/collab</code> can go straight to them.</p>
       <ul>
         <li><b>Anyone can add, change and delete</b>, with no Edit mode or password. This page's data is stored apart from the department data (the <code>Collab</code> tab of the sheet), so changes here never touch projects, tasks or other pages.</li>
-        <li>Click "＋ Add PFAM" or any row to edit it. Project is picked from the department's existing projects, PFAM is typed in, Task type is NPI pilot / Closed loop / VB, and L10 PN is required; RK location takes several entries (e.g. <code>RK-001, RK-256</code>, separated by commas or spaces).</li>
+        <li>Click "＋ Add PFAM" or any row to edit it. Project is picked from the department's existing projects, PFAM is typed in, Task type is NPI pilot / Closed loop / VB, and L10 PN is required; CRD link takes the CRD's address (shown shortened in the list, click it to open); RK location takes several entries (e.g. <code>RK-001, RK-256</code>, separated by commas or spaces).</li>
         <li>"Save" <b>writes to the cloud right away</b>; no sync needed. When two people change the same row at once, the one who saves second is asked whether to overwrite or load the other person's version.</li>
         <li>While the page is open it refreshes every minute, and also when you come back to the tab; ${k("⟳")} reloads at once.</li>
         <li>Grouped by Project (Others last), sorted by start date within a group; filter by Project, Site and executor at the top (remembered on this computer). Rows with status "Done" go under "Done"; deleted ones move to "Deleted", where anyone can restore them.</li>
@@ -292,7 +292,7 @@
       <p>和 local MTE 共同維護的<b>執行中 PFAM 清單</b>：執行方預設是 <b>Both (Local support)</b>（HQ 與 local MTE 一起看），只由 HQ 處理的標成 <b>HQ MTE Own</b>，會以顏色標示。local MTE 可按右上角 <b>EN</b> 切換成英文介面；可以直接把網址 <code>#/collab</code> 傳給 local。</p>
       <ul>
         <li><b>所有人都能新增、修改、刪除</b>，不需要編輯模式或密碼；這一頁的資料跟部門資料分開存（試算表的 <code>Collab</code> 分頁），改這裡不會動到專案、task 或其他頁面。</li>
-        <li>按「＋ 新增 PFAM」或點任一列編輯。Project 從部門現有的專案中選擇，PFAM 直接輸入，Task 類型選 NPI pilot / Closed loop / VB，L10 PN 必填；RK location 可以填多筆（例如 <code>RK-001, RK-256</code>，用逗號或空白分隔）。</li>
+        <li>按「＋ 新增 PFAM」或點任一列編輯。Project 從部門現有的專案中選擇，PFAM 直接輸入，Task 類型選 NPI pilot / Closed loop / VB，L10 PN 必填；CRD link 貼上 CRD 網址（清單中縮短顯示，點擊即開啟）；RK location 可以填多筆（例如 <code>RK-001, RK-256</code>，用逗號或空白分隔）。</li>
         <li>按「儲存」就<b>立刻寫進雲端</b>，不用按同步。兩個人同時改同一列時，後存的人會被問要覆蓋還是載入對方的內容。</li>
         <li>頁面開著時每分鐘自動更新一次，切回這個分頁時也會更新；${k("⟳")} 立即重新讀取。</li>
         <li>依 Project 分組（Others 在最後）、組內依開始日排序；上方可依 Project、廠區、執行方篩選（記在這台電腦）。狀態「完成」的收進「已完成」；刪除的移到「已刪除」，任何人都能復原。</li>

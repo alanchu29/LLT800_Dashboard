@@ -226,7 +226,7 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   const open = (body) => JSON.parse(ctx.doPost({ postData: { contents: JSON.stringify({ lang: "en", ...body }) } }).text);
   r = get({ action: "collab" });
   assert.deepStrictEqual([r.ok, r.rev, r.rows], [true, 0, []], "collab starts empty");
-  assert.strictEqual(JSON.stringify(r.fields), JSON.stringify(["project", "pfam", "type", "pn", "site", "pod", "rk", "start", "end", "owner", "status", "note"]), "collab reports its fields (must match COLLAB_FIELDS in js/remote.js)");
+  assert.strictEqual(JSON.stringify(r.fields), JSON.stringify(["project", "pfam", "type", "pn", "crd", "site", "pod", "rk", "start", "end", "owner", "status", "note"]), "collab reports its fields (must match COLLAB_FIELDS in js/remote.js)");
   const dataVersion = get({ action: "bundle" }).version;
 
   const row = { project: "Gen11", pfam: "Gen11.1 MM34 FTB", type: "closedloop", pn: "PN-1", site: "MX", pod: "Pod 3", rk: "RK-001, RK-256", start: "2026-11-01", end: "2026-11-20", owner: "both", status: "doing", note: "need 2 people" };
@@ -251,6 +251,7 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   assert.ok(/Project is required/.test(open({ action: "collabSave", row: { ...row, project: "  " } }).error), "project required");
   assert.ok(/Task type is required/.test(open({ action: "collabSave", row: { ...row, type: "golden" } }).error), "unknown task type refused");
   assert.strictEqual(open({ action: "collabSave", lang: "zh", row: { ...row, pn: "" } }).error, "L10 PN 必填", "messages are in Chinese unless the page asks for English");
+  assert.strictEqual(open({ action: "collabSave", row: { ...row, crd: "javascript:alert(1)" } }).error, "CRD link must be an http(s) address", "CRD link: only http(s)");
   assert.ok(/L10 PN is required/.test(open({ action: "collabSave", row: { ...row, pn: " " } }).error), "L10 PN required");
   assert.ok(/PFAM is required/.test(open({ action: "collabSave", row: { ...row, pfam: "" } }).error), "pfam required");
   assert.ok(/Site/.test(open({ action: "collabSave", row: { ...row, site: "" } }).error), "site required");
@@ -285,6 +286,8 @@ assert.deepStrictEqual(kept, [...kept].sort((a, b) => a - b).slice(-kept.length)
   r = open({ action: "collabSave", row: { ...row, rk: " RK-001 RK-256\uFF0Crk-001\nRK-300;; " } });
   assert.strictEqual(r.row.rk, "RK-001, RK-256, RK-300", "RK location: split on commas / spaces / lines, repeats dropped");
   open({ action: "collabDelete", id: r.row.id });
+  r = open({ action: "collabSave", row: { ...row, crd: "  crd.example.com/doc?id=1 " } });
+  assert.strictEqual(get({ action: "collab" }).rows.find((x) => x.id === r.row.id).crd, "https://crd.example.com/doc?id=1", "CRD link: a bare address gets https://");
 }
 
 console.log(`apps script OK: ${seed.tasks.length} tasks, ${seed.trips.length} trips round-trip; conflict, password, date, ?since=, employee.ado, snapshot, prune and MTE PFAM sync checks pass`);

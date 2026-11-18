@@ -876,20 +876,21 @@ body.editing .lk-main { padding-right: 52px; }
 .cb-sum { margin: 0 0 12px; color: var(--ink-2); }
 .cb-err { margin: 0 0 12px; padding: 8px 12px; border-radius: 9px; background: var(--late-wash); color: var(--late); }
 .cb-group .card-h .count { margin-left: -4px; }
-.cb-table { table-layout: fixed; min-width: 1300px; }
+.cb-table { table-layout: fixed; min-width: 1400px; }
 .cb-table td { overflow-wrap: anywhere; }
 /* Shares of the row (the narrower page scrolls sideways); 備註 always keeps a real share. */
 .cb-table .w-proj { width: 8%; }
 .cb-table .w-pfam { width: 11%; }
 .cb-table .w-type { width: 7%; }
 .cb-table .w-site { width: 5%; }
-.cb-table .w-pn { width: 10%; }
+.cb-table .w-pn { width: 9%; }
+.cb-table .w-crd { width: 9%; }
 .cb-table .w-pod { width: 7%; }
 .cb-table .w-rk { width: 11%; }
 .cb-table .w-sch { width: 8%; }
 .cb-table .w-own { width: 8%; }
 .cb-table .w-st { width: 7%; }
-.cb-table .w-note { width: 15%; }
+.cb-table .w-note { width: 14%; }
 .cb-table .w-upd { width: 8%; }
 .cb-table .w-act { width: 9%; }
 .cb-rk span { display: inline-block; margin: 1px 4px 1px 0; padding: 0 6px; border-radius: 6px; background: var(--surface-3); font-size: 0.8rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -901,6 +902,8 @@ body.editing .lk-main { padding-right: 52px; }
 .cb-table tbody tr[data-row] { cursor: pointer; }
 .cb-table tbody tr[data-row]:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
 .cb-table td.nowrap { white-space: nowrap; }
+.cb-crd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cb-link { color: var(--brand); text-decoration: underline; text-underline-offset: 2px; }
 .cb-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cb-pill { display: inline-flex; flex-direction: column; line-height: 1.2; padding: 2px 8px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; white-space: nowrap; background: var(--surface-3); color: var(--ink-2); }
 .cb-pill small { font-size: 0.72rem; font-weight: 500; opacity: 0.85; }
